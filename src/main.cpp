@@ -20,6 +20,7 @@
 #include "core/save_system.hpp"
 #include "core/audio.hpp"
 #include "core/asset_manifest.hpp"
+#include "core/debug_log.hpp"
 #include "core/run_stats.hpp"
 #include "core/scene_fader.hpp"
 
@@ -40,6 +41,15 @@ int read_env_int(const char* name, int fallback) {
 } // namespace
 
 int main(int /*argc*/, char* /*argv*/[]) {
+    // #region agent log
+    mion::append_debug_log_line(
+        "pre-fix",
+        "H5_logging_pipeline_not_writing",
+        "src/main.cpp:43",
+        "Main entered",
+        "{\"stage\":\"startup\"}"
+    );
+    // #endregion
     srand(static_cast<unsigned>(SDL_GetTicks()));
     mion::EngineConfig config;
 
