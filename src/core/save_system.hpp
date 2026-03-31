@@ -9,85 +9,12 @@
 
 #include <SDL3/SDL.h>
 
-#include "../components/attributes.hpp"
-#include "../components/mana.hpp"
-#include "../components/progression.hpp"
-#include "../components/stamina.hpp"
-#include "../components/talent_state.hpp"
-#include "quest_state.hpp"
-#include "run_stats.hpp"
+#include "save_data.hpp"
+#include "save_migration.hpp"
 
 namespace mion {
 
-/// Formato gravado em disco.
-/// v1/v2 carregam; talentos em v3 são níveis 0–3 por slot;
-/// v4 adiciona atributos base; v5 adiciona pontos de atributo pendentes e scene_flags.
-inline constexpr int kSaveFormatVersion  = 5;
-inline constexpr int kSaveMaxRoomIndex   = 63;
-inline constexpr int kSaveMaxAttrPoints  = 999; // teto de sanidade para attr_points_available
-
-struct SaveData {
-    int              version = kSaveFormatVersion;
-    int              room_index = 0;
-    int              player_hp = 100;
-    int              gold = 0;
-    QuestState       quest_state{};
-    ProgressionState progression{};
-    TalentState      talents{};
-    ManaState        mana{};
-    StaminaState     stamina{};
-    bool             victory_reached = false;
-    int              difficulty      = 1; // 0 easy, 1 normal, 2 hard
-    RunStats         last_run_stats{};
-    AttributesState  attributes{};         // v4: Vigor/Forca/Destreza/Inteligencia/Endurance
-    int              attr_points_available = 0; // v5: pontos de atributo não distribuídos
-    unsigned int     scene_flags = 0;      // v5: bitmask de flags persistentes de cena
-    // bit 0 = boss_dungeon1_defeated, bit 1 = dungeon2_unlocked,
-    // bit 2 = blessing_altar_used, bit 3 = grimjaw_intro_played
-    // bits 4-31 = reservados
-};
-
 namespace SaveSystem {
-
-inline SaveData migrate_v1_to_v2(SaveData d) {
-    d.version = kSaveFormatVersion;
-    if (d.room_index > kSaveMaxRoomIndex) d.room_index = kSaveMaxRoomIndex;
-    if (d.room_index < 0) d.room_index = 0;
-    return d;
-}
-
-// v2 -> v3: etapa explícita para manter cadeia de migração contínua.
-inline SaveData migrate_v2_to_v3(SaveData d) {
-    d.version = kSaveFormatVersion;
-    if (d.room_index > kSaveMaxRoomIndex) d.room_index = kSaveMaxRoomIndex;
-    if (d.room_index < 0) d.room_index = 0;
-    return d;
-}
-
-// v3 -> v4: atributos zerados (novo jogador começa sem pontos distribuídos)
-inline SaveData migrate_v3_to_v4(SaveData d) {
-    d.version    = kSaveFormatVersion;
-    d.attributes = AttributesState{}; // v3 nunca gravou atributos
-    return d;
-}
-
-// v4 -> v5: attr_points_available derivado de pending_level_ups;
-// scene_flags calculado a partir do que já está no save.
-inline SaveData migrate_v4_to_v5(SaveData d) {
-    d.version              = kSaveFormatVersion;
-    // Em saves v4, pontos de atributo não eram rastreados separadamente;
-    // estimamos baseando-nos nos pending_level_ups que sobraram sem gastar.
-    d.attr_points_available = d.progression.pending_level_ups;
-    d.scene_flags           = 0; // sem informação de cena; reset seguro
-    if (d.victory_reached)
-        d.scene_flags |= 0x01u; // bit 0: boss 1 derrotado
-    return d;
-}
-
-inline void clamp_save_room_index(SaveData& d) {
-    if (d.room_index > kSaveMaxRoomIndex) d.room_index = kSaveMaxRoomIndex;
-    if (d.room_index < 0) d.room_index = 0;
-}
 
 inline std::string default_path() {
     char* p = SDL_GetPrefPath("mion", "mion_engine");
@@ -290,11 +217,11 @@ inline bool load(const std::string& path, SaveData& d) {
     d.scene_flags = static_cast<unsigned int>(get_int(kv, "scene_flags", 0));
 
     // --- cadeia de migração ---
-    clamp_save_room_index(d);
-    if (ver <= 1) d = migrate_v1_to_v2(d);
-    if (ver <= 2) d = migrate_v2_to_v3(d);
-    if (ver <= 3) d = migrate_v3_to_v4(d);
-    if (ver <= 4) d = migrate_v4_to_v5(d);
+    SaveMigration::clamp_room_index(d);
+    if (ver <= 1) d = SaveMigration::migrate_v1_to_v2(d);
+    if (ver <= 2) d = SaveMigration::migrate_v2_to_v3(d);
+    if (ver <= 3) d = SaveMigration::migrate_v3_to_v4(d);
+    if (ver <= 4) d = SaveMigration::migrate_v4_to_v5(d);
     return true;
 }
 

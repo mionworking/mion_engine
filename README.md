@@ -64,7 +64,7 @@ make test
 cd build && ctest --output-on-failure
 ```
 
-O alvo `mion_tests` roda asserts locais (sem framework externo); na árvore atual cobre **580+ asserts** em dezenas de grupos, incluindo física, combate, save/load, config, menu de título/settings, diálogo, `SceneManager`/`SceneRegistry`, fluxo de portas e integrações com `ScriptedInputSource`.
+O alvo `mion_tests` roda asserts locais (sem framework externo); na árvore atual cobre **650+ asserts** em dezenas de grupos, incluindo física, combate, save/load, config, menu de título/settings, diálogo, `SceneManager`/`SceneRegistry`, fluxo de portas e integrações com `ScriptedInputSource`.
 
 No bloco de distribuição (keybinds), há testes dedicados para `scancode_from_name()` e `load_keybinds()`, cobrindo:
 - defaults sem secção `[keybinds]`
@@ -155,17 +155,17 @@ language=en   # en | ptbr
 
 | Pasta | Conteúdo |
 |-------|-----------|
-| `src/core/` | Config, input, tempo, áudio, `SceneManager`, `SceneRegistry`, `register_scenes` |
-| `src/components/` | Dados de gameplay (vida, combate, maná, grimório, talentos, stamina…) |
-| `src/systems/` | Lógica por frame (combate, IA, projéteis, drops, magias…) |
-| `src/world/` | Salas, tilemap, navgrid |
-| `src/entities/` | `Actor`, projéteis, itens no chão |
-| `src/scenes/` | Cenas de title/town/dungeon/game over/victory/credits |
-| `assets/` | Áudio (WAVs); sprites e tiles reservados para fase de arte |
-| `data/` | Definições externas de inimigos, magias e drops (INI) |
-| `tools/asset_pipeline/` | Pipeline auxiliar para inventário/conversão de assets |
-| `tests_legacy/` | suíte compartilhada + runner monolítico `test_main.cpp` (ctest `legacy`) |
-| `tests_v2/` | suíte oficial modular (`mion_tests_v2`, etiqueta ctest `official`) |
+| `src/core/` | Engine: config, input, áudio, camera, sprites, animação, bitmap font, UI widgets, scene manager/registry, save system, pause menu, locale, diálogo, scripted input |
+| `src/components/` | Dados puros de gameplay: health, combat, collision, transform, mana, stamina, spell book/defs, talent tree/state, attributes, progression, equipment, status effects, player config |
+| `src/systems/` | Lógica por frame e UI: combate melee, IA inimiga, projéteis, drops, magias (spell effects), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, diálogo, shop; **rendering**: world renderer, dungeon HUD, skill tree UI, attribute screen UI; **config**: player configurator |
+| `src/world/` | Salas (`Room`), tilemap, navgrid, dungeon rules, room loader |
+| `src/entities/` | `Actor`, `Projectile`, `GroundItem`, `NPC`, `Shop`, `EnemyType` |
+| `src/scenes/` | Cenas: title, town, dungeon, game over, victory, credits |
+| `assets/` | Áudio (WAVs), sprites e tiles |
+| `data/` | Definições externas de inimigos, magias, drops e locale (INI) |
+| `tools/` | Stress tests, sprite bench, asset pipeline, task tracker |
+| `tests_legacy/` | Suíte compartilhada + runner monolítico `test_main.cpp` (ctest `legacy`) |
+| `tests_v2/` | Suíte oficial modular (`mion_tests_v2`, etiqueta ctest `official`) |
 
 **Testes:** após `cmake -S . -B build && cmake --build build`, executar `ctest --test-dir build` (todos) ou `ctest --test-dir build -L official` (apenas a suíte V2). O alvo `mion_tests_legacy` permanece disponível com a etiqueta `legacy`; desative com `-DMION_ENABLE_LEGACY_TESTS=OFF` se quiser só V2 no build.
 

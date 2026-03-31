@@ -38,6 +38,10 @@
 #include "../systems/resource_system.hpp"
 #include "../systems/status_effect_system.hpp"
 #include "../systems/room_flow_system.hpp"
+#include "../systems/enemy_spawner.hpp"
+#include "../systems/room_manager.hpp"
+#include "../systems/dungeon_world_renderer.hpp"
+#include "../systems/screen_fx.hpp"
 #include "../systems/projectile_system.hpp"
 #include "../systems/drop_system.hpp"
 #include "../systems/simple_particles.hpp"
@@ -664,86 +668,22 @@ public:
         SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
         SDL_RenderClear(r);
 
-        _tile_renderer.render(r, _camera, _tilemap);
-
-        for (const auto& obs : _room.obstacles) {
-            float ocx=(obs.bounds.min_x+obs.bounds.max_x)*0.5f;
-            float ocy=(obs.bounds.min_y+obs.bounds.max_y)*0.5f;
-            float ohw=(obs.bounds.max_x-obs.bounds.min_x)*0.5f;
-            float ohh=(obs.bounds.max_y-obs.bounds.min_y)*0.5f;
-            TextureCache* tex_cache = _tex_cache.has_value() ? &*_tex_cache : nullptr;
-            if (!render_obstacle_sprite(r, _camera, obs, tex_cache)) {
-                draw_world_rect(r,_camera,ocx,ocy,ohw,ohh,60,55,70);
-                draw_world_outline(r,_camera,ocx,ocy,ohw,ohh,90,85,100);
-            }
-        }
-
-        // Portas — sprite ou retângulo colorido como fallback
-        {
-            TextureCache* tc = _tex_cache.has_value() ? &*_tex_cache : nullptr;
-            for (const auto& door : _room.doors) {
-                float dcx = (door.bounds.min_x + door.bounds.max_x) * 0.5f;
-                float dcy = (door.bounds.min_y + door.bounds.max_y) * 0.5f;
-                float dhw = (door.bounds.max_x - door.bounds.min_x) * 0.5f;
-                float dhh = (door.bounds.max_y - door.bounds.min_y) * 0.5f;
-                bool cleared = !door.requires_room_cleared || (living_enemy_count() == 0);
-                const char* door_path = cleared ? "assets/props/door_open.png"
-                                                 : "assets/props/door_closed.png";
-                SDL_Texture* dtex = tc ? tc->load(door_path) : nullptr;
-                if (dtex) {
-                    float sx = _camera.world_to_screen_x(dcx - dhw);
-                    float sy = _camera.world_to_screen_y(dcy - dhh);
-                    SDL_FRect dst = { sx, sy, dhw * 2.0f, dhh * 2.0f };
-                    SDL_RenderTexture(r, dtex, nullptr, &dst);
-                } else {
-                    Uint8 dr = cleared ? 80 : 160;
-                    Uint8 dg = cleared ? 140 : 80;
-                    Uint8 db = cleared ? 80 : 40;
-                    draw_world_rect(r, _camera, dcx, dcy, dhw, dhh, dr, dg, db);
-                }
-            }
-        }
-
-        for (const auto* a : _actors) render_actor(r, _camera, *a);
-
-        _particles.render(r, _camera);
-
-        for (const auto& pr : _projectiles) {
-            draw_world_rect(r, _camera, pr.x, pr.y, pr.half_w, pr.half_h,
-                       255, 220, 60);
-        }
-        for (const auto& gi : _ground_items) {
-            if (!gi.active) continue;
-            Uint8 RR = 90, GG = 220, BB = 130;
-            if (gi.type == GroundItemType::Damage) {
-                RR = 230; GG = 120; BB = 80;
-            } else if (gi.type == GroundItemType::Speed) {
-                RR = 100; GG = 180; BB = 255;
-            }
-            draw_world_rect(r, _camera, gi.x, gi.y, 10.0f, 10.0f, RR, GG, BB);
-        }
-
-        // HP numérico
-        for (const auto* a : _actors) {
-            if (!a->is_alive) continue;
-            char buf[8];
-            SDL_snprintf(buf, sizeof(buf), "%d", a->health.current_hp);
-            float sx = _camera.world_to_screen_x(a->transform.x)
-                       - text_width(buf, 1) * 0.5f;
-            float sy = _camera.world_to_screen_y(a->transform.y) - 36.0f;
-            draw_text(r, sx, sy, buf, 1, 200, 200, 200);
-        }
-
-        _floating_texts.render(
-            r,
-            [&](float wx) { return _camera.world_to_screen_x(wx); },
-            [&](float wy) { return _camera.world_to_screen_y(wy); });
-
-        if (_player.is_alive) {
-            float lx = _camera.world_to_screen_x(_player.transform.x);
-            float ly = _camera.world_to_screen_y(_player.transform.y);
-            _lighting.render(r, lx, ly);
-        }
+        TextureCache* tex_cache = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+        DungeonWorldRenderer::render(r, {
+            _camera,
+            _room,
+            _tilemap,
+            _tile_renderer,
+            tex_cache,
+            _actors,
+            _projectiles,
+            _ground_items,
+            _particles,
+            _floating_texts,
+            _lighting,
+            _player,
+            living_enemy_count() == 0,
+        });
 
         render_dungeon_hud(r, viewport_w, viewport_h, _player, _room_index);
 
@@ -761,51 +701,16 @@ public:
                                     _player.progression.pending_level_ups,
                                     _attr_selected);
 
-        if (!_stress_mode && _room_index == 3 && _boss_intro_pending) {
-            float t       = _boss_intro_timer / kBossIntroDuration;
-            float alpha_f = (t < 0.4f) ? (t / 0.4f)
-                          : (t < 0.8f) ? 1.0f
-                                       : (1.0f - (t - 0.8f) / 0.2f);
-            Uint8 a = (Uint8)(alpha_f * 255.0f);
-
-            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(alpha_f * 160.0f));
-            SDL_FRect intro_full{0, 0, (float)viewport_w, (float)viewport_h};
-            SDL_RenderFillRect(r, &intro_full);
-
-            const char* boss_name = "GRIMJAW";
-            int         sc        = 5;
-            float       bx = viewport_w * 0.5f - text_width(boss_name, sc) * 0.5f;
-            float       by = viewport_h * 0.42f;
-            draw_text(r, bx, by, boss_name, sc, 220, 60, 40, a);
-
-            const char* sub  = "Guardian of the Third Depth";
-            int         sc2  = 2;
-            float sx2 = viewport_w * 0.5f - text_width(sub, sc2) * 0.5f;
-            draw_text(r, sx2, by + sc * 12 + 8, sub, sc2, 180, 140, 120,
-                      (Uint8)(alpha_f * 200.0f));
-        }
-
-        if (_death_fade_remaining > 0.f && !_player.is_alive) {
-            float u = 1.0f - (_death_fade_remaining / kDeathFadeSeconds);
-            if (u < 0.f) u = 0.f;
-            if (u > 1.f) u = 1.f;
-            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(r, 80, 5, 5, (Uint8)(u * 220.0f));
-            SDL_FRect df{0, 0, (float)viewport_w, (float)viewport_h};
-            SDL_RenderFillRect(r, &df);
-        }
-
-        if (_screen_flash_timer > 0.0f && _screen_flash_duration > 1e-6f) {
-            float alpha_f = _screen_flash_timer / _screen_flash_duration;
-            if (alpha_f > 1.0f) alpha_f = 1.0f;
-            Uint8 aa = (Uint8)(alpha_f * (float)_screen_flash_color.a);
-            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(r, _screen_flash_color.r, _screen_flash_color.g,
-                                   _screen_flash_color.b, aa);
-            SDL_FRect flash_full{0, 0, (float)viewport_w, (float)viewport_h};
-            SDL_RenderFillRect(r, &flash_full);
-        }
+        ScreenFx::render_boss_intro(
+            r, viewport_w, viewport_h,
+            !_stress_mode && _room_index == 3 && _boss_intro_pending,
+            _boss_intro_timer, kBossIntroDuration);
+        ScreenFx::render_death_fade(
+            r, viewport_w, viewport_h, _player.is_alive,
+            _death_fade_remaining, kDeathFadeSeconds);
+        ScreenFx::render_screen_flash(
+            r, viewport_w, viewport_h,
+            _screen_flash_timer, _screen_flash_duration, _screen_flash_color);
 
         if (_dialogue.is_active())
             _dialogue.render(r, viewport_w, viewport_h);
@@ -1059,11 +964,8 @@ private:
     // -------------------------------------------------------------------
 
     int _enemy_spawn_budget() const {
-        int b = _stress_mode ? dungeon_rules::enemy_spawn_budget_stress(_requested_enemy_count)
-                             : dungeon_rules::enemy_spawn_budget_normal(_room_index);
-        if (!_stress_mode && _difficulty)
-            b = difficulty_adjust_spawn_budget(b, *_difficulty);
-        return b;
+        return EnemySpawner::spawn_budget(
+            _room_index, _stress_mode, _requested_enemy_count, _difficulty);
     }
 
     bool _talent_selection_pending() const {
@@ -1125,33 +1027,19 @@ private:
         configure_player(_player, tc, opts);
 
         if (_stress_mode)
-            _player.transform.set_position(_room.bounds.max_x * 0.5f,
-                                           _room.bounds.max_y * 0.5f);
+            RoomManager::place_player_at_room_center(_player, _room);
         else
-            _player_place_intro_spawn();
+            RoomManager::place_player_intro_spawn(_player, _room);
     }
 
     void _spawn_enemies_for_budget(int budget) {
-        _enemies.clear();
-        if (!_stress_mode && _room_index == 3) {
-            _enemies.reserve(1);
-            const WorldBounds& b = _room.bounds;
-            float                w = b.max_x - b.min_x;
-            float                h = b.max_y - b.min_y;
-            _boss_phase2_triggered = false;
-            _boss_intro_pending    = true;
-            _boss_intro_timer      = 0.0f;
-            _spawn_enemy(EnemyType::BossGrimjaw, b.min_x + w * 0.625f, b.min_y + h * 0.5f,
-                         "Grimjaw");
-            _rebuild_actor_pointers();
-            _sync_footstep_anchors();
-            return;
-        }
-        _enemies.reserve(static_cast<size_t>(std::max(budget, 4)));
-        if (budget <= 3)
-            _spawn_default_enemies(budget);
-        else
-            _spawn_stress_enemies(budget);
+        TextureCache* tc = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+        const EnemySpawnResult result = EnemySpawner::spawn_for_budget(
+            _enemies, _room, _tilemap, _pathfinder, _player, _enemy_defs, tc,
+            _room_index, budget, _stress_mode, _difficulty);
+        _boss_phase2_triggered = result.boss_phase2_triggered;
+        _boss_intro_pending    = result.boss_intro_pending;
+        _boss_intro_timer      = result.boss_intro_timer;
         _rebuild_actor_pointers();
         _sync_footstep_anchors();
     }
@@ -1183,8 +1071,7 @@ private:
     }
 
     void _apply_save_and_build_world(const SaveData& sd) {
-        _projectiles.clear();
-        _ground_items.clear();
+        RoomManager::reset_room_runtime(_projectiles, _ground_items);
         _room_index           = sd.room_index;
         _player.progression   = sd.progression;
         _player.talents       = sd.talents;
@@ -1193,17 +1080,11 @@ private:
         _quest_state        = sd.quest_state;
         if (_difficulty)
             *_difficulty = static_cast<DifficultyLevel>(std::clamp(sd.difficulty, 0, 2));
-        _build_room();
+        RoomManager::build_room(_room, _tilemap, _room_index, _rooms_ini);
         _load_room_visuals();
         _pathfinder.build_nav(_tilemap, _room);
         _configure_player_state(false);
-        if (_stress_mode)
-            _player.transform.set_position(_room.bounds.max_x * 0.5f,
-                                           _room.bounds.max_y * 0.5f);
-        else if (_room_index == 0)
-            _player_place_intro_spawn();
-        else
-            _player_place_from_west_gate();
+        RoomManager::place_player_for_loaded_room(_player, _room, _stress_mode, _room_index);
 
         int hp = sd.player_hp;
         if (hp > _player.health.max_hp) hp = _player.health.max_hp;
@@ -1372,13 +1253,12 @@ private:
         if (_run_stats)
             _run_stats->reset();
         _room_index = 0;
-        _projectiles.clear();
-        _ground_items.clear();
+        RoomManager::reset_room_runtime(_projectiles, _ground_items);
         _player.progression = ProgressionState{};
         _player.talents     = TalentState{};
         _player.gold        = 0;
         _quest_state        = {};
-        _build_room();
+        RoomManager::build_room(_room, _tilemap, _room_index, _rooms_ini);
         _load_room_visuals();
         _pathfinder.build_nav(_tilemap, _room);
         _configure_player_state(true);
@@ -1391,21 +1271,12 @@ private:
     }
 
     void _advance_room() {
-        _room_index++;
-        if (_run_stats)
-            _run_stats->rooms_cleared++;
-        _projectiles.clear();
-        _ground_items.clear();
-        _build_room();
+        RoomManager::begin_next_room(_room_index, _run_stats);
+        RoomManager::reset_room_runtime(_projectiles, _ground_items);
+        RoomManager::build_room(_room, _tilemap, _room_index, _rooms_ini);
         _load_room_visuals();
         _pathfinder.build_nav(_tilemap, _room);
-        if (!_stress_mode)
-            _player_place_from_west_gate();
-        else
-            _player.transform.set_position(_room.bounds.max_x * 0.5f,
-                                           _room.bounds.max_y * 0.5f);
-        _player.knockback_vx = 0.0f;
-        _player.knockback_vy = 0.0f;
+        RoomManager::place_player_for_room_advance(_player, _room, _stress_mode);
         _spawn_enemies_for_budget(_enemy_spawn_budget());
         if (!_stress_mode && _room_index == 2)
             _dialogue.start("dungeon_room2");
@@ -1423,265 +1294,6 @@ private:
         } else {
             _tile_renderer.tileset = nullptr;
         }
-    }
-
-    void _spawn_enemy(EnemyType type, float x, float y, const char* name) {
-        const EnemyDef& def = _enemy_defs[static_cast<int>(type)];
-        Actor a;
-        a.name               = name;
-        a.team               = Team::Enemy;
-        a.enemy_type         = type;
-        a.attack_damage      = def.damage;
-        a.aggro_range        = def.aggro_range;
-        a.attack_range_ai    = def.attack_range;
-        a.stop_range_ai      = def.stop_range;
-        a.move_speed         = def.move_speed;
-        a.base_move_speed_at_spawn = def.move_speed;
-        a.knockback_friction = def.knockback_friction;
-        a.collision          = def.collision;
-        a.hurt_box           = def.hurt_box;
-        a.melee_hit_box      = def.melee_hit_box;
-        a.health             = { def.max_hp, def.max_hp };
-        if (_difficulty && !_stress_mode) {
-            float hm, dm;
-            difficulty_enemy_multipliers(*_difficulty, hm, dm);
-            int hp = (int)std::lround((float)def.max_hp * hm);
-            int ad = (int)std::lround((float)def.damage * dm);
-            hp     = std::max(1, hp);
-            ad     = std::max(1, ad);
-            a.health        = { hp, hp };
-            a.attack_damage = ad;
-        }
-        a.derived.melee_damage_final = a.attack_damage;
-        a.combat.attack_startup_duration_seconds  = def.startup_sec;
-        a.combat.attack_active_duration_seconds   = def.active_sec;
-        a.combat.attack_recovery_duration_seconds = def.recovery_sec;
-        a.combat.reset_for_spawn();
-        a.transform.set_position(x, y);
-        a.is_alive           = true;
-        a.was_alive          = true;
-        a.knockback_vx       = 0;
-        a.knockback_vy       = 0;
-        a.sprite_scale       = def.sprite_scale;
-        a.path_replan_timer  = (float)_enemies.size() * 0.1f;
-        a.sprite_sheet       = (_tex_cache.has_value() && def.sprite_sheet_path && def.sprite_sheet_path[0])
-                                   ? static_cast<void*>(_tex_cache->load(def.sprite_sheet_path))
-                                   : nullptr;
-        if (a.sprite_sheet)
-            a.anim.build_puny_clips(def.dir_row, def.frame_fps);
-
-        a.ai_behavior        = def.ai_behavior;
-        a.ranged_fire_rate   = def.ranged_fire_rate;
-        a.ranged_keep_dist   = def.ranged_keep_dist;
-        a.ranged_proj_damage = def.ranged_proj_damage;
-        a.ranged_fire_cd     = def.ranged_fire_rate * 0.35f;
-        a.is_elite           = def.is_elite_base;
-        a.boss_phase         = 1;
-        a.boss_charging      = false;
-        a.boss_charge_cd     = 1.2f;
-        a.patrol_state       = PatrolState::Patrol;
-        a.alert_timer        = 0.0f;
-        a.patrol_wp_index    = 0;
-        a.patrol_waypoints.clear();
-
-        if (type == EnemyType::PatrolGuard)
-            a.patrol_waypoints = {{x - 90.0f, y}, {x + 90.0f, y}, {x, y - 70.0f}, {x, y + 70.0f}};
-        if (type == EnemyType::BossGrimjaw)
-            a.patrol_waypoints = {{x - 180.0f, y - 130.0f},
-                                  {x + 180.0f, y - 130.0f},
-                                  {x + 180.0f, y + 130.0f},
-                                  {x - 180.0f, y + 130.0f}};
-
-        a.footstep_prev_x     = x;
-        a.footstep_prev_y     = y;
-        a.footstep_accum_dist = 0.f;
-
-        _enemies.push_back(std::move(a));
-    }
-
-    void _spawn_default_enemies(int count) {
-        const WorldBounds& b = _room.bounds;
-        float              w = b.max_x - b.min_x;
-        float              h = b.max_y - b.min_y;
-        if (count >= 1)
-            _spawn_enemy(EnemyType::Skeleton, b.min_x + w * 0.56f, b.min_y + h * 0.5f,
-                         "skeleton_01");
-        if (count >= 2)
-            _spawn_enemy(EnemyType::Orc, b.min_x + w * 0.69f, b.min_y + h * 0.33f, "orc_01");
-        if (count >= 3)
-            _spawn_enemy(EnemyType::Ghost, b.min_x + w * 0.44f, b.min_y + h * 0.25f,
-                         "ghost_01");
-    }
-
-    void _spawn_stress_enemies(int count) {
-        const float player_clear_radius_sq = 180.0f * 180.0f;
-        const int   step_tiles = 2;
-        int spawned = 0;
-
-        for (int row = 1; row < _tilemap.rows - 1 && spawned < count; row += step_tiles) {
-            for (int col = 1; col < _tilemap.cols - 1 && spawned < count; col += step_tiles) {
-                if (!_pathfinder.nav.is_walkable(col, row)) continue;
-
-                float x = (col + 0.5f) * (float)_tilemap.tile_size;
-                float y = (row + 0.5f) * (float)_tilemap.tile_size;
-                float dx = x - _player.transform.x;
-                float dy = y - _player.transform.y;
-                if (dx * dx + dy * dy < player_clear_radius_sq) continue;
-
-                EnemyType type = dungeon_rules::enemy_type_for_spawn_index(spawned);
-                char name[32];
-                SDL_snprintf(name, sizeof(name), "%s_%03d",
-                             dungeon_rules::enemy_type_name(type), spawned + 1);
-                _spawn_enemy(type, x, y, name);
-                ++spawned;
-            }
-        }
-
-        if (spawned < count) {
-            SDL_Log("DungeonScene: stress spawn truncado em %d inimigos (pedido=%d)",
-                    spawned, count);
-        }
-    }
-
-    void _player_place_intro_spawn() {
-        const WorldBounds& b = _room.bounds;
-        float              w = b.max_x - b.min_x;
-        float              h = b.max_y - b.min_y;
-        _player.transform.set_position(b.min_x + w * 0.25f, b.min_y + h * 0.5f);
-    }
-
-    void _player_place_from_west_gate() {
-        const WorldBounds& b = _room.bounds;
-        float              w = b.max_x - b.min_x;
-        _player.transform.set_position(b.min_x + w * 0.1f,
-                                       (b.min_y + b.max_y) * 0.5f);
-    }
-
-    void _layout_intro(const WorldBounds& b) {
-        float w  = b.max_x - b.min_x;
-        float cx = (b.min_x + b.max_x) * 0.5f + w * 0.04f;
-        float cy = (b.min_y + b.max_y) * 0.5f;
-        _room.add_altar(cx, cy);
-    }
-
-    void _layout_boss_arena(const WorldBounds& b) {
-        float              w = b.max_x - b.min_x;
-        float              h = b.max_y - b.min_y;
-        const float        ph = 40.0f;
-        const float        ix = w * 0.18f;
-        const float        iy = h * 0.18f;
-        auto pillar = [&](float px, float py) {
-            _room.add_obstacle("pillar", px - ph, py - ph, px + ph, py + ph,
-                               "assets/props/dungeon_pillar.png", 96.0f, 128.0f);
-        };
-        pillar(b.min_x + ix, b.min_y + iy);
-        pillar(b.max_x - ix, b.min_y + iy);
-        pillar(b.min_x + ix, b.max_y - iy);
-        pillar(b.max_x - ix, b.max_y - iy);
-    }
-
-    void _layout_arena(const WorldBounds& b) {
-        float w  = b.max_x - b.min_x;
-        float h  = b.max_y - b.min_y;
-        float cx = (b.min_x + b.max_x) * 0.5f;
-        float cy = (b.min_y + b.max_y) * 0.5f;
-        float ox = w * 0.2f;
-        float oy = h * 0.2f;
-        const float ph = 40.0f;
-        auto pillar = [&](float px, float py) {
-            _room.add_obstacle("pillar", px - ph, py - ph, px + ph, py + ph,
-                               "assets/props/dungeon_pillar.png", 96.0f, 128.0f);
-        };
-        pillar(cx - ox, cy - oy);
-        pillar(cx + ox, cy - oy);
-        pillar(cx - ox, cy + oy);
-        pillar(cx + ox, cy + oy);
-        _room.add_barrel_cluster(b.min_x + w * 0.14f, b.min_y + h * 0.14f);
-        _room.add_barrel_cluster(b.max_x - w * 0.14f, b.max_y - h * 0.14f);
-    }
-
-    void _layout_corredor(const WorldBounds& b) {
-        float w = b.max_x - b.min_x;
-        float h = b.max_y - b.min_y;
-        float cx = (b.min_x + b.max_x) * 0.5f;
-        float cy = (b.min_y + b.max_y) * 0.5f;
-        _room.add_wall_L(b.min_x + w * 0.22f, b.min_y + h * 0.22f, 0);
-        _room.add_wall_L(b.max_x - w * 0.22f, b.max_y - h * 0.22f, 3);
-        _room.add_pillar_pair(cx, cy - h * 0.12f, 0);
-        _room.add_pillar_pair(cx, cy + h * 0.12f, 1);
-    }
-
-    void _layout_cruzamento(const WorldBounds& b) {
-        float w = b.max_x - b.min_x;
-        float h = b.max_y - b.min_y;
-        float cx = (b.min_x + b.max_x) * 0.5f;
-        float cy = (b.min_y + b.max_y) * 0.5f;
-        float inset_x = w * 0.15f;
-        float inset_y = h * 0.15f;
-        _room.add_obstacle(
-            "cross_v", cx - 20.0f, b.min_y + inset_y, cx + 20.0f, b.max_y - inset_y,
-            "assets/props/dungeon_wall_mid.png", 40.0f, h * 0.7f, 0.5f, 0.5f);
-        _room.add_obstacle(
-            "cross_h", b.min_x + inset_x, cy - 20.0f, b.max_x - inset_x, cy + 20.0f,
-            "assets/props/dungeon_wall_mid.png", w * 0.7f, 40.0f, 0.5f, 0.5f);
-    }
-
-    void _layout_labirinto(const WorldBounds& b) {
-        float w = b.max_x - b.min_x;
-        float h = b.max_y - b.min_y;
-        float cx = (b.min_x + b.max_x) * 0.5f;
-        float cy = (b.min_y + b.max_y) * 0.5f;
-        _room.add_wall_L(b.min_x + w * 0.28f, b.max_y - h * 0.28f, 2);
-        _room.add_wall_L(b.max_x - w * 0.28f, b.min_y + h * 0.28f, 1);
-        _room.add_altar(cx, cy);
-    }
-
-    void _apply_room_layout_template(int tmpl, const WorldBounds& b) {
-        switch (tmpl) {
-        case 0: _layout_arena(b); break;
-        case 1: _layout_corredor(b); break;
-        case 2: _layout_cruzamento(b); break;
-        case 3: _layout_labirinto(b); break;
-        case 4: _layout_boss_arena(b); break;
-        default: _layout_intro(b); break;
-        }
-    }
-
-    void _build_room() {
-        char rn[48];
-        SDL_snprintf(rn, sizeof(rn), "dungeon_r%02d", _room_index);
-        _room.name = rn;
-        _room.bounds = dungeon_rules::room_bounds(_room_index);
-        _room.obstacles.clear();
-        _room.doors.clear();
-
-        const WorldBounds& b = _room.bounds;
-        float              midy = (b.min_y + b.max_y) * 0.5f;
-
-        if (_room_index < 3) {
-            // Salas normais: porta leste avança (sem target), porta oeste volta à town
-            _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true);
-            _room.add_door(b.min_x + 20.0f, midy - 56.0f, b.min_x + 72.0f, midy + 56.0f, false, "town");
-        } else {
-            // Sala Boss (index >= 3): apenas porta leste → town (precisa matar boss)
-            _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true, "town");
-        }
-
-        const int          tmpl = dungeon_rules::room_template(_room_index);
-        const char*        tkey = dungeon_rules::room_template_id_name(tmpl);
-        const std::string  tstr(tkey);
-        if (!load_room_obstacles_from_ini(_room, _rooms_ini, b, tstr))
-            _apply_room_layout_template(tmpl, b);
-
-        const int TS = 32;
-        int       cols = (int)(b.max_x / TS) + 1;
-        int       rows = (int)(b.max_y / TS) + 1;
-        _tilemap.init(cols, rows, TS);
-        _tilemap.fill(0, 0, cols - 1, rows - 1, TileType::Floor);
-        _tilemap.fill(0, 0, cols - 1, 0, TileType::Wall);
-        _tilemap.fill(0, rows - 1, cols - 1, rows - 1, TileType::Wall);
-        _tilemap.fill(0, 0, 0, rows - 1, TileType::Wall);
-        _tilemap.fill(cols - 1, 0, cols - 1, rows - 1, TileType::Wall);
     }
 
     // _facing_to_puny_row extracted to world_renderer.hpp → facing_to_puny_row()
