@@ -1,0 +1,280 @@
+{
+  "version": "1.0",
+  "notes": [
+    "Contrato alinhado com o runtime atual do mion_engine.",
+    "O foco é minimizar esforço sem empurrar conversões arriscadas."
+  ],
+  "slots": [
+    {
+      "slot_id": "player_sprite",
+      "kind": "image",
+      "required": true,
+      "output_path": "assets/sprites/player.png",
+      "keywords": ["player", "hero", "warrior", "knight", "adventurer"],
+      "min_positive_hits": 1,
+      "negative_keywords": ["monster", "enemy", "skeleton", "orc", "ghost"],
+      "aliases": ["heavy armor", "weaponless"],
+      "notes": ["Sheet com 5 linhas: idle walk attack hurt death."],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 32,
+        "frame_height": 32,
+        "sheet_width": 128,
+        "sheet_height": 160,
+        "rows": ["idle", "walk", "attack", "hurt", "death"],
+        "frames_per_row": {
+          "idle": 4,
+          "walk": 4,
+          "attack": 4,
+          "hurt": 2,
+          "death": 4
+        },
+        "background": "transparent",
+        "facing": "right"
+      }
+    },
+    {
+      "slot_id": "skeleton_sprite",
+      "kind": "image",
+      "required": true,
+      "output_path": "assets/sprites/skeleton.png",
+      "keywords": ["skeleton", "undead", "bone"],
+      "min_positive_hits": 1,
+      "negative_keywords": ["player", "orc", "ghost"],
+      "aliases": ["skel"],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 32,
+        "frame_height": 32,
+        "sheet_width": 128,
+        "sheet_height": 160,
+        "rows": ["idle", "walk", "attack", "hurt", "death"],
+        "frames_per_row": {
+          "idle": 4,
+          "walk": 4,
+          "attack": 4,
+          "hurt": 2,
+          "death": 4
+        },
+        "background": "transparent",
+        "facing": "right"
+      }
+    },
+    {
+      "slot_id": "orc_sprite",
+      "kind": "image",
+      "required": true,
+      "output_path": "assets/sprites/orc.png",
+      "keywords": ["orc", "brute"],
+      "min_positive_hits": 1,
+      "negative_keywords": ["player", "skeleton", "ghost"],
+      "aliases": ["ogre"],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 48,
+        "frame_height": 48,
+        "sheet_width": 240,
+        "sheet_height": 240,
+        "rows": ["idle", "walk", "attack", "hurt", "death"],
+        "frames_per_row": {
+          "idle": 4,
+          "walk": 4,
+          "attack": 4,
+          "hurt": 2,
+          "death": 5
+        },
+        "background": "transparent",
+        "facing": "right"
+      }
+    },
+    {
+      "slot_id": "ghost_sprite",
+      "kind": "image",
+      "required": true,
+      "output_path": "assets/sprites/ghost.png",
+      "keywords": ["ghost", "spirit", "wraith", "specter"],
+      "min_positive_hits": 1,
+      "negative_keywords": ["player", "skeleton", "orc"],
+      "aliases": ["spectre"],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 32,
+        "frame_height": 32,
+        "sheet_width": 192,
+        "sheet_height": 160,
+        "rows": ["idle", "walk", "attack", "hurt", "death"],
+        "frames_per_row": {
+          "idle": 4,
+          "walk": 6,
+          "attack": 4,
+          "hurt": 2,
+          "death": 4
+        },
+        "background": "transparent",
+        "facing": "right"
+      }
+    },
+    {
+      "slot_id": "hit_sfx",
+      "kind": "audio",
+      "required": true,
+      "output_path": "assets/audio/hit.wav",
+      "keywords": ["hit", "gethit", "impact", "hurt"],
+      "min_positive_hits": 1,
+      "negative_keywords": ["ambient", "music"],
+      "aliases": ["damage"],
+      "audio": {
+        "safe_format": "wav",
+        "sample_rate": 44100,
+        "channels": 2,
+        "sample_width_bits": 16,
+        "loop": false,
+        "suggested_max_duration_seconds": 3.0
+      }
+    },
+    {
+      "slot_id": "player_attack_sfx",
+      "kind": "audio",
+      "required": true,
+      "output_path": "assets/audio/player_attack.wav",
+      "keywords": ["player", "warrior", "attack", "swing", "slash"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["ambient", "death", "monster"],
+      "aliases": ["weaponless"],
+      "audio": {
+        "safe_format": "wav",
+        "sample_rate": 44100,
+        "channels": 2,
+        "sample_width_bits": 16,
+        "loop": false,
+        "suggested_max_duration_seconds": 3.0
+      }
+    },
+    {
+      "slot_id": "enemy_death_sfx",
+      "kind": "audio",
+      "required": true,
+      "output_path": "assets/audio/enemy_death.wav",
+      "keywords": ["monster", "enemy", "death"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["player", "ambient", "music"],
+      "aliases": ["die"],
+      "audio": {
+        "safe_format": "wav",
+        "sample_rate": 44100,
+        "channels": 2,
+        "sample_width_bits": 16,
+        "loop": false,
+        "suggested_max_duration_seconds": 4.0
+      }
+    },
+    {
+      "slot_id": "player_death_sfx",
+      "kind": "audio",
+      "required": true,
+      "output_path": "assets/audio/player_death.wav",
+      "keywords": ["player", "warrior", "hero", "death"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["ambient", "monster"],
+      "aliases": ["die"],
+      "audio": {
+        "safe_format": "wav",
+        "sample_rate": 44100,
+        "channels": 2,
+        "sample_width_bits": 16,
+        "loop": false,
+        "suggested_max_duration_seconds": 4.0
+      }
+    },
+    {
+      "slot_id": "dungeon_ambient_music",
+      "kind": "audio",
+      "required": true,
+      "output_path": "assets/audio/dungeon_ambient.wav",
+      "keywords": ["ambient", "dungeon", "music", "loop"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["attack", "death", "hit"],
+      "aliases": ["bgm"],
+      "audio": {
+        "safe_format": "wav",
+        "sample_rate": 44100,
+        "channels": 2,
+        "sample_width_bits": 16,
+        "loop": true,
+        "suggested_max_duration_seconds": 180.0
+      }
+    },
+    {
+      "slot_id": "dungeon_tileset",
+      "kind": "image",
+      "required": false,
+      "output_path": "assets/tiles/dungeon_tileset.png",
+      "keywords": ["tile", "tileset", "floor", "wall", "dungeon"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["player", "monster"],
+      "aliases": ["terrain"],
+      "notes": ["Tile 0 não existe; o runtime atual usa floor e wall em sequência horizontal."],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 32,
+        "frame_height": 32,
+        "sheet_width": 64,
+        "sheet_height": 32,
+        "rows": ["floor_wall"],
+        "frames_per_row": {
+          "floor_wall": 2
+        },
+        "background": "opaque",
+        "facing": "n/a"
+      }
+    },
+    {
+      "slot_id": "dungeon_pillar_prop",
+      "kind": "image",
+      "required": false,
+      "output_path": "assets/props/dungeon_pillar.png",
+      "keywords": ["pillar", "column", "dungeon", "stone", "prop"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["player", "monster", "wall"],
+      "aliases": ["obstacle", "statue"],
+      "notes": ["Prop estático opcional para os quatro pilares da sala. O runtime desenha bottom-centered com tamanho visual padrão 96x128."],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 96,
+        "frame_height": 128,
+        "sheet_width": 96,
+        "sheet_height": 128,
+        "rows": ["idle"],
+        "frames_per_row": {
+          "idle": 1
+        },
+        "background": "transparent",
+        "facing": "n/a"
+      }
+    },
+    {
+      "slot_id": "dungeon_wall_mid_prop",
+      "kind": "image",
+      "required": false,
+      "output_path": "assets/props/dungeon_wall_mid.png",
+      "keywords": ["wall", "barrier", "dungeon", "stone", "prop"],
+      "min_positive_hits": 2,
+      "negative_keywords": ["player", "monster", "pillar"],
+      "aliases": ["cover", "ruin"],
+      "notes": ["Prop estático opcional para a parede central. O runtime desenha bottom-centered com tamanho visual padrão 320x96."],
+      "image": {
+        "safe_format": "png",
+        "frame_width": 320,
+        "frame_height": 96,
+        "sheet_width": 320,
+        "sheet_height": 96,
+        "rows": ["idle"],
+        "frames_per_row": {
+          "idle": 1
+        },
+        "background": "transparent",
+        "facing": "n/a"
+      }
+    }
+  ]
+}

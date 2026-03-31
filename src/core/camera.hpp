@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdlib>
+#include <cmath>
 #include "../world/room.hpp"
 
 namespace mion {
@@ -46,6 +47,16 @@ struct Camera2D {
         float angle = (float)(rand() % 628) * 0.01f;  // 0..2π aprox
         shake_offset_x = radius * cosf(angle);
         shake_offset_y = radius * sinf(angle);
+
+        const float cap = 52.0f;
+        float       mx  = fabsf(shake_offset_x);
+        float       my  = fabsf(shake_offset_y);
+        float       m   = (mx > my) ? mx : my;
+        if (m > cap) {
+            float s = cap / m;
+            shake_offset_x *= s;
+            shake_offset_y *= s;
+        }
 
         --shake_remaining;
     }

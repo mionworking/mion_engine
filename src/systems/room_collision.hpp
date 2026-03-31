@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <vector>
 #include "../entities/actor.hpp"
 #include "../world/room.hpp"
@@ -8,6 +9,88 @@ namespace mion {
 // Resolve colisão de actors vs obstáculos estáticos e world bounds
 // Usa push-out por menor eixo (mesmo comportamento do Python)
 struct RoomCollisionSystem {
+private:
+    static float _penetration_1d(float a_center, float a_half,
+                                 float b_center, float b_half)
+    {
+        return (a_half + b_half) - std::abs(b_center - a_center);
+    }
+
+    void _apply_axis_push(Actor& a, Actor& b, bool use_x,
+                          float direction_sign, float amount) const
+    {
+        if (use_x) {
+            a.transform.x -= direction_sign * amount;
+            b.transform.x += direction_sign * amount;
+        } else {
+            a.transform.y -= direction_sign * amount;
+            b.transform.y += direction_sign * amount;
+        }
+    }
+
+    void _push_single_actor(Actor& actor, bool use_x,
+                            float direction_sign, float amount) const
+    {
+        if (use_x)
+            actor.transform.x += direction_sign * amount;
+        else
+            actor.transform.y += direction_sign * amount;
+    }
+
+    void _resolve_pair(Actor& a, Actor& b, const RoomDefinition* room) {
+        AABB ab = a.collision.bounds_at(a.transform.x, a.transform.y);
+        AABB bb = b.collision.bounds_at(b.transform.x, b.transform.y);
+        if (!ab.intersects(bb)) return;
+
+        float pen_x = _penetration_1d(a.transform.x, a.collision.half_w,
+                                      b.transform.x, b.collision.half_w);
+        float pen_y = _penetration_1d(a.transform.y, a.collision.half_h,
+                                      b.transform.y, b.collision.half_h);
+        bool  use_x = pen_x <= pen_y;
+        float pen   = use_x ? pen_x : pen_y;
+        if (pen <= 0.0f) return;
+
+        float delta = use_x ? (b.transform.x - a.transform.x)
+                            : (b.transform.y - a.transform.y);
+        float sign  = (delta >= 0.0f) ? 1.0f : -1.0f;
+
+        _apply_axis_push(a, b, use_x, sign, pen * 0.5f);
+
+        if (!room) return;
+
+        resolve(a, *room);
+        resolve(b, *room);
+
+        ab = a.collision.bounds_at(a.transform.x, a.transform.y);
+        bb = b.collision.bounds_at(b.transform.x, b.transform.y);
+        if (!ab.intersects(bb)) return;
+
+        float remaining = use_x
+            ? _penetration_1d(a.transform.x, a.collision.half_w,
+                              b.transform.x, b.collision.half_w)
+            : _penetration_1d(a.transform.y, a.collision.half_h,
+                              b.transform.y, b.collision.half_h);
+        if (remaining <= 0.0f) return;
+
+        _push_single_actor(a, use_x, -sign, remaining);
+        resolve(a, *room);
+
+        ab = a.collision.bounds_at(a.transform.x, a.transform.y);
+        bb = b.collision.bounds_at(b.transform.x, b.transform.y);
+        if (!ab.intersects(bb)) return;
+
+        remaining = use_x
+            ? _penetration_1d(a.transform.x, a.collision.half_w,
+                              b.transform.x, b.collision.half_w)
+            : _penetration_1d(a.transform.y, a.collision.half_h,
+                              b.transform.y, b.collision.half_h);
+        if (remaining <= 0.0f) return;
+
+        _push_single_actor(b, use_x, sign, remaining);
+        resolve(b, *room);
+    }
+
+public:
 
     void resolve(Actor& actor, const RoomDefinition& room) {
         if (!actor.is_alive) return;
@@ -46,7 +129,9 @@ struct RoomCollisionSystem {
     }
 
     // Colisão actor vs actor — 3 iterações para convergir quando há vários actors empilhados
-    void resolve_actors(std::vector<Actor*>& actors) {
+    void resolve_actors(std::vector<Actor*>& actors,
+                        const RoomDefinition* room = nullptr)
+    {
         for (int iter = 0; iter < 3; ++iter)
         for (size_t i = 0; i < actors.size(); ++i) {
             Actor* a = actors[i];
@@ -55,27 +140,7 @@ struct RoomCollisionSystem {
             for (size_t j = i + 1; j < actors.size(); ++j) {
                 Actor* b = actors[j];
                 if (!b->is_alive) continue;
-
-                AABB ab = a->collision.bounds_at(a->transform.x, a->transform.y);
-                AABB bb = b->collision.bounds_at(b->transform.x, b->transform.y);
-                if (!ab.intersects(bb)) continue;
-
-                float overlap_left  = ab.max_x - bb.min_x;
-                float overlap_right = bb.max_x - ab.min_x;
-                float overlap_up    = ab.max_y - bb.min_y;
-                float overlap_down  = bb.max_y - ab.min_y;
-
-                float min_x = (overlap_left < overlap_right) ? -overlap_left : overlap_right;
-                float min_y = (overlap_up   < overlap_down)  ? -overlap_up   : overlap_down;
-
-                // Push-out dividido igualmente entre os dois
-                if (std::abs(min_x) < std::abs(min_y)) {
-                    a->transform.x -= min_x * 0.5f;
-                    b->transform.x += min_x * 0.5f;
-                } else {
-                    a->transform.y -= min_y * 0.5f;
-                    b->transform.y += min_y * 0.5f;
-                }
+                _resolve_pair(*a, *b, room);
             }
         }
     }

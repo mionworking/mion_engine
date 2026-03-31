@@ -1,0 +1,727 @@
+#pragma once
+#include <cstdio>
+#include <optional>
+#include <string>
+#include <vector>
+#include <SDL3/SDL.h>
+
+#include "../core/scene.hpp"
+#include "../core/camera.hpp"
+#include "../core/bitmap_font.hpp"
+#include "../core/audio.hpp"
+#include "../core/save_system.hpp"
+#include "../core/engine_paths.hpp"
+#include "../core/ini_loader.hpp"
+#include "../components/player_config.hpp"
+#include "../components/talent_tree.hpp"
+#include "../components/spell_book.hpp"
+#include "../entities/actor.hpp"
+#include "../entities/npc.hpp"
+#include "../entities/shop.hpp"
+#include "../world/room.hpp"
+#include "../systems/movement_system.hpp"
+#include "../systems/room_collision.hpp"
+#include "../systems/room_flow_system.hpp"
+#include "../systems/dialogue_system.hpp"
+#include "../systems/player_action.hpp"
+#include "../systems/resource_system.hpp"
+#include "../systems/shop_system.hpp"
+#include "../core/ui.hpp"
+#include "../core/sprite.hpp"
+#include "../world/tilemap.hpp"
+#include "../systems/tilemap_renderer.hpp"
+
+namespace mion {
+
+namespace {
+
+void _town_draw_rect(SDL_Renderer* r, const Camera2D& cam, float cx, float cy, float hw,
+                     float hh, Uint8 R, Uint8 G, Uint8 B) {
+    SDL_SetRenderDrawColor(r, R, G, B, 255);
+    SDL_FRect rect = {cam.world_to_screen_x(cx - hw), cam.world_to_screen_y(cy - hh), hw * 2.0f,
+                      hh * 2.0f};
+    SDL_RenderFillRect(r, &rect);
+}
+
+} // namespace
+
+class TownScene : public IScene {
+public:
+    int viewport_w = 1280;
+    int viewport_h = 720;
+
+    void set_renderer(SDL_Renderer* rr) { _renderer = rr; }
+    void set_audio(AudioSystem* a) { _audio = a; }
+
+    void enter() override {
+        if (_renderer && !_tex_cache.has_value())
+            _tex_cache.emplace(_renderer);
+
+        _pending_next.clear();
+        _shop_open            = false;
+        _interacting_npc_hint = false;
+        _prev_confirm         = false;
+        _prev_cancel          = false;
+        _prev_move_nav        = false;
+        _prev_shop_move_y     = 0.0f;
+        _shop_prev_confirm    = false;
+        _shop_prev_cancel     = false;
+        _camera.viewport_w    = (float)viewport_w;
+        _camera.viewport_h    = (float)viewport_h;
+
+        reset_player_config_defaults();
+        reset_progression_config_defaults();
+        reset_talent_tree_defaults();
+        {
+            IniData d = ini_load(resolve_data_path("player.ini").c_str());
+            if (!d.sections.empty())
+                apply_player_ini(d);
+        }
+        {
+            IniData d = ini_load(resolve_data_path("progression.ini").c_str());
+            if (!d.sections.empty())
+                apply_progression_ini(d);
+        }
+        {
+            IniData d = ini_load(resolve_data_path("talents.ini").c_str());
+            if (!d.sections.empty())
+                apply_talents_ini(d);
+        }
+
+        _dialogue.clear_registry();
+        {
+            IniData dlg = ini_load(resolve_data_path("town_dialogues.ini").c_str());
+            register_dialogue_sequences_from_ini(_dialogue, dlg);
+        }
+        _dialogue.set_audio(_audio);
+
+        SaveData loaded;
+        const bool has_save = SaveSystem::load_default(loaded);
+        if (!has_save)
+            _fresh_run();
+        else
+            _apply_save(loaded);
+
+        _build_town();
+        _configure_player_base();
+        if (has_save)
+            _apply_stats_after_configure(loaded);
+        else
+            _player.health.current_hp = _player.health.max_hp;
+
+        _player.spell_book = SpellBookState{};
+        _player.spell_book.sync_from_talents(_player.talents);
+
+        _actors.clear();
+        _actors.push_back(&_player);
+
+        if (_audio) {
+            _audio->stop_all_ambient();
+            _audio->play_ambient(AmbientId::TownWind, 0.18f);
+            _audio->play_ambient(AmbientId::TownBirds, 0.11f);
+            _audio->set_music_state(MusicState::Town);
+        }
+
+        _paused        = false;
+        _settings_open = false;
+        _pause_list.items = {"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"};
+        _pause_list.disabled.assign(4, false);
+        _pause_list.disabled[1] = true;
+        _pause_list.selected      = 0;
+    }
+
+    void exit() override {
+        if (_audio) {
+            _audio->stop_all_ambient();
+            _audio->fade_music(800);
+        }
+        SaveData d = _capture_save();
+        SaveSystem::save_default(d);
+    }
+
+    void fixed_update(float dt, const InputState& input) override {
+        _pending_next.clear();
+
+        if (_dialogue.is_active()) {
+            _dialogue.fixed_update(input);
+            _flush_pause_input_prev(input);
+            _prev_confirm  = input.confirm_pressed;
+            _prev_cancel   = input.ui_cancel_pressed;
+            _prev_move_nav = input.move_y != 0.0f;
+            return;
+        }
+
+        if (_handle_pause_menu(input)) {
+            _flush_pause_input_prev(input);
+            _prev_confirm  = input.confirm_pressed;
+            _prev_cancel   = input.ui_cancel_pressed;
+            _prev_move_nav = input.move_y != 0.0f;
+            return;
+        }
+
+        if (_shop_open) {
+            _update_shop(input);
+            _flush_pause_input_prev(input);
+            _prev_confirm  = input.confirm_pressed;
+            _prev_cancel   = input.ui_cancel_pressed;
+            _prev_move_nav = input.move_y != 0.0f;
+            _resource_sys.fixed_update(_actors, dt);
+            _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
+            _camera.step_shake();
+            if (_audio)
+                _audio->tick_music();
+            return;
+        }
+
+        const bool confirm_edge = input.confirm_pressed && !_prev_confirm;
+        _prev_confirm           = input.confirm_pressed;
+        _prev_cancel            = input.ui_cancel_pressed;
+        _prev_move_nav          = input.move_y != 0.0f;
+
+        _movement_sys.fixed_update(_actors, dt);
+        _player_action.fixed_update(_player, input, dt, _audio, nullptr, nullptr);
+        _resource_sys.fixed_update(_actors, dt);
+        _col_sys.resolve_all(_actors, _room);
+
+        // Animação do player
+        if (_player.sprite_sheet) {
+            if (_player.is_dashing())
+                _player.anim.play(ActorAnim::Dash);
+            else if (_player.is_moving)
+                _player.anim.play(ActorAnim::Walk);
+            else
+                _player.anim.play(ActorAnim::Idle);
+            _player.anim.advance(dt);
+        }
+
+        _room_flow_sys.fixed_update(_actors, _player, _room);
+        if (!_room_flow_sys.scene_exit_to.empty()) {
+            _pending_next = _room_flow_sys.scene_exit_to;
+            SaveSystem::save_default(_capture_save());
+            if (_audio)
+                _audio->fade_music(350);
+        }
+
+        int near = _nearest_npc_index();
+        _interacting_npc_hint =
+            (near >= 0
+             && _dist_sq(_player.transform.x, _player.transform.y, _npcs[static_cast<size_t>(near)].x,
+                         _npcs[static_cast<size_t>(near)].y)
+                    <= _npcs[static_cast<size_t>(near)].interact_radius
+                        * _npcs[static_cast<size_t>(near)].interact_radius);
+
+        if (confirm_edge && near >= 0 && _interacting_npc_hint)
+            _start_npc_interaction(near);
+
+        _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
+        _camera.step_shake();
+        if (_audio)
+            _audio->tick_music();
+
+        _flush_pause_input_prev(input);
+    }
+
+    void render(SDL_Renderer* r) override {
+        SDL_SetRenderDrawColor(r, 24, 40, 22, 255);
+        SDL_RenderClear(r);
+
+        // Chão com tileset de grama
+        _tile_renderer.render(r, _camera, _tilemap);
+
+        // Buildings — sprite PNG ou retângulo fallback
+        for (const auto& obs : _room.obstacles) {
+            float x0 = _camera.world_to_screen_x(obs.bounds.min_x);
+            float y0 = _camera.world_to_screen_y(obs.bounds.min_y);
+            float bw  = obs.bounds.max_x - obs.bounds.min_x;
+            float bh  = obs.bounds.max_y - obs.bounds.min_y;
+
+            auto _has = [&](const char* s){ return obs.name.find(s) != obs.name.npos; };
+            const char* sprite_path = nullptr;
+            if      (_has("tavern"))   sprite_path = "assets/props/building_tavern.png";
+            else if (_has("forge"))    sprite_path = "assets/props/building_forge.png";
+            else if (_has("elder"))    sprite_path = "assets/props/building_elder.png";
+            else if (_has("fountain")) sprite_path = "assets/props/fountain.png";
+
+            SDL_Texture* btex = (sprite_path && _tex_cache.has_value())
+                                    ? _tex_cache->load(sprite_path) : nullptr;
+            if (btex) {
+                SDL_FRect dst = { x0, y0, bw, bh };
+                SDL_RenderTexture(r, btex, nullptr, &dst);
+            } else {
+                float ocx = (obs.bounds.min_x + obs.bounds.max_x) * 0.5f;
+                float ocy = (obs.bounds.min_y + obs.bounds.max_y) * 0.5f;
+                float ohw = bw * 0.5f, ohh = bh * 0.5f;
+                Uint8 R = 80, G = 90, B = 100;
+                if      (_has("tavern"))   { R=120; G=90;  B=40;  }
+                else if (_has("forge"))    { R=90;  G=88;  B=95;  }
+                else if (_has("elder"))    { R=70;  G=50;  B=90;  }
+                else if (_has("fountain")) { R=50;  G=100; B=160; }
+                _town_draw_rect(r, _camera, ocx, ocy, ohw, ohh, R, G, B);
+            }
+        }
+
+        // Porta de saída para o dungeon
+        for (const auto& door : _room.doors) {
+            float dcx = (door.bounds.min_x + door.bounds.max_x) * 0.5f;
+            float dcy = (door.bounds.min_y + door.bounds.max_y) * 0.5f;
+            float dhw = (door.bounds.max_x - door.bounds.min_x) * 0.5f;
+            float dhh = (door.bounds.max_y - door.bounds.min_y) * 0.5f;
+            SDL_Texture* dtex = _tex_cache.has_value()
+                                    ? _tex_cache->load("assets/props/door_open.png") : nullptr;
+            if (dtex) {
+                SDL_FRect dst = { _camera.world_to_screen_x(dcx - dhw),
+                                  _camera.world_to_screen_y(dcy - dhh),
+                                  dhw * 2.0f, dhh * 2.0f };
+                SDL_RenderTexture(r, dtex, nullptr, &dst);
+            } else {
+                _town_draw_rect(r, _camera, dcx, dcy, dhw, dhh, 80, 140, 80);
+            }
+        }
+
+        // NPCs — sprite animado ou retângulo fallback
+        static const struct { const char* name; const char* path; } kNpcSprites[] = {
+            { "Mira",     "assets/npcs/npc_mira.png"     },
+            { "Forge",    "assets/npcs/npc_forge.png"    },
+            { "Villager", "assets/npcs/npc_villager.png" },
+            { "Elder",    "assets/npcs/npc_elder.png"    },
+        };
+        for (const auto& npc : _npcs) {
+            SDL_Texture* ntex = nullptr;
+            if (_tex_cache.has_value()) {
+                for (const auto& s : kNpcSprites) {
+                    if (npc.name == s.name) { ntex = _tex_cache->load(s.path); break; }
+                }
+            }
+            if (ntex) {
+                // NPC sprite: frame 32x32 col 12 (idle frame 0), sheet 768x256
+                SDL_FRect src = { 12 * 32.0f, 0.0f, 32.0f, 32.0f };
+                float sx = _camera.world_to_screen_x(npc.x) - 32.0f;
+                float sy = _camera.world_to_screen_y(npc.y) - 32.0f;
+                SDL_FRect dst = { sx, sy, 64.0f, 64.0f };
+                SDL_RenderTexture(r, ntex, &src, &dst);
+            } else {
+                _town_draw_rect(r, _camera, npc.x, npc.y, 14.0f, 18.0f,
+                                npc.portrait_color.r, npc.portrait_color.g, npc.portrait_color.b);
+            }
+            draw_text(r, _camera.world_to_screen_x(npc.x - 40.0f),
+                      _camera.world_to_screen_y(npc.y - 36.0f), npc.name.c_str(), 2, 220, 220,
+                      200, 255);
+        }
+
+        {
+            float cx = _player.transform.x, cy = _player.transform.y;
+            SDL_Texture* tex = static_cast<SDL_Texture*>(_player.sprite_sheet);
+            const AnimFrame* af = _player.anim.current_frame();
+            if (tex && af) {
+                SpriteFrame frame;
+                frame.texture = tex;
+                frame.src     = { af->src.x, af->src.y, af->src.w, af->src.h };
+                draw_sprite(r, frame,
+                            _camera.world_to_screen_x(cx),
+                            _camera.world_to_screen_y(cy),
+                            _player.sprite_scale, _player.sprite_scale,
+                            _player.facing_x < 0.0f);
+            } else {
+                float hw = _player.collision.half_w, hh = _player.collision.half_h;
+                _town_draw_rect(r, _camera, cx, cy, hw, hh, 180, 210, 255);
+            }
+        }
+
+        if (_interacting_npc_hint && !_dialogue.is_active()) {
+            const char* hint = "ENTER - falar";
+            draw_text(r, 16.0f, (float)viewport_h - 80.0f, hint, 2, 255, 220, 120, 255);
+        }
+
+        char gold_buf[48];
+        snprintf(gold_buf, sizeof(gold_buf), "Gold: %d", _player.gold);
+        draw_text(r, 16.0f, 16.0f, gold_buf, 2, 255, 210, 100, 255);
+
+        _dialogue.render(r, viewport_w, viewport_h);
+        if (_shop_open)
+            ShopSystem::render_shop_ui(r, _shop_forge, _player.gold, viewport_w, viewport_h);
+        if (_paused)
+            _render_pause_overlay(r);
+        if (_settings_open)
+            _render_settings_placeholder(r);
+    }
+
+    const char* next_scene() const override {
+        return _pending_next.empty() ? nullptr : _pending_next.c_str();
+    }
+
+private:
+    static constexpr int kQuestRewardGold = 120;
+
+    RoomDefinition           _room;
+    Tilemap                  _tilemap;
+    TilemapRenderer          _tile_renderer;
+    Actor                    _player;
+    std::vector<Actor*>      _actors;
+    std::vector<NpcEntity>   _npcs;
+    ShopInventory            _shop_forge;
+    QuestState               _quest_state;
+    MovementSystem           _movement_sys;
+    RoomCollisionSystem      _col_sys;
+    RoomFlowSystem           _room_flow_sys;
+    DialogueSystem           _dialogue;
+    ResourceSystem           _resource_sys;
+    PlayerActionSystem       _player_action;
+    Camera2D                 _camera;
+    SDL_Renderer*            _renderer = nullptr;
+    AudioSystem*             _audio    = nullptr;
+    std::optional<TextureCache> _tex_cache;
+    std::string              _pending_next;
+    bool                     _shop_open = false;
+    bool                     _interacting_npc_hint = false;
+    bool                     _prev_confirm         = false;
+    bool                     _prev_cancel          = false;
+    bool                     _prev_move_nav        = false;
+    float                    _prev_shop_move_y     = 0.0f;
+    bool                     _shop_prev_confirm    = false;
+    bool                     _shop_prev_cancel     = false;
+
+    bool             _paused = false;
+    bool             _settings_open = false;
+    ui::List         _pause_list;
+    bool             _prev_esc = false;
+    bool             _prev_ui_up = false;
+    bool             _prev_ui_down = false;
+    bool             _prev_ui_cancel = false;
+
+    void _flush_pause_input_prev(const InputState& in) {
+        _prev_esc       = in.pause_pressed;
+        _prev_ui_up     = in.ui_up_pressed;
+        _prev_ui_down   = in.ui_down_pressed;
+        _prev_ui_cancel = in.ui_cancel_pressed;
+    }
+
+    bool _handle_pause_menu(const InputState& input) {
+        const bool esc_edge  = input.pause_pressed && !_prev_esc;
+        const bool up_edge   = input.ui_up_pressed && !_prev_ui_up;
+        const bool down_edge = input.ui_down_pressed && !_prev_ui_down;
+        const bool conf_edge = input.confirm_pressed && !_prev_confirm;
+        const bool back_edge = input.ui_cancel_pressed && !_prev_ui_cancel;
+
+        if (_settings_open) {
+            if (esc_edge || conf_edge || back_edge)
+                _settings_open = false;
+            _flush_pause_input_prev(input);
+            _prev_confirm = input.confirm_pressed;
+            return true;
+        }
+
+        if (_paused) {
+            if (esc_edge)
+                _paused = false;
+            else {
+                if (up_edge)
+                    _pause_list.nav_up();
+                if (down_edge)
+                    _pause_list.nav_down();
+                if (conf_edge) {
+                    switch (_pause_list.selected) {
+                    case 0:
+                        _paused = false;
+                        break;
+                    case 1:
+                        break;
+                    case 2:
+                        _settings_open = true;
+                        break;
+                    case 3:
+                        _pending_next = "title";
+                        _paused       = false;
+                        if (_audio)
+                            _audio->fade_music(400);
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+
+        if (esc_edge) {
+            _paused              = true;
+            _pause_list.selected = 0;
+            _shop_open           = false;
+            return true;
+        }
+        return false;
+    }
+
+    void _render_pause_overlay(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &full);
+
+        ui::Panel panel;
+        panel.rect = {viewport_w * 0.35f, viewport_h * 0.25f, viewport_w * 0.30f,
+                      viewport_h * 0.50f};
+        panel.render(r);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "PAUSED", 3, 255, 220, 60,
+                  255);
+        _pause_list.render(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f);
+    }
+
+    void _render_settings_placeholder(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
+        SDL_FRect dim{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &dim);
+
+        ui::Panel panel;
+        panel.rect = {viewport_w * 0.30f, viewport_h * 0.30f, viewport_w * 0.40f, viewport_h * 0.40f};
+        panel.render(r);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "SETTINGS", 3, 220, 200, 120, 255);
+        const char* l1 = "Audio e teclas vivem em config.ini";
+        const char* l2 = "por agora. Mais opcoes em breve.";
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f, l1, 2, 190, 190, 175, 255);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f, l2, 2, 190, 190, 175, 255);
+        const char* hint = "ESC / ENTER / BACKSPACE - voltar";
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f, hint, 1, 160, 200, 220,
+                  255);
+    }
+
+    static float _dist_sq(float ax, float ay, float bx, float by) {
+        float dx = ax - bx, dy = ay - by;
+        return dx * dx + dy * dy;
+    }
+
+    SaveData _capture_save() const {
+        SaveData d;
+        d.version     = kSaveFormatVersion;
+        d.room_index  = 0;
+        d.player_hp   = _player.health.current_hp;
+        d.gold        = _player.gold;
+        d.quest_state = _quest_state;
+        d.progression = _player.progression;
+        d.talents     = _player.talents;
+        d.mana        = _player.mana;
+        d.stamina     = _player.stamina;
+        return d;
+    }
+
+    void _fresh_run() {
+        _quest_state        = {};
+        _player.gold        = 0;
+        _player.progression = ProgressionState{};
+        _player.talents     = TalentState{};
+    }
+
+    void _apply_save(const SaveData& sd) {
+        _player.progression = sd.progression;
+        _player.talents     = sd.talents;
+        _player.gold        = sd.gold;
+        _quest_state        = sd.quest_state;
+    }
+
+    void _apply_stats_after_configure(const SaveData& sd) {
+        int hp = sd.player_hp;
+        if (hp > _player.health.max_hp)
+            hp = _player.health.max_hp;
+        if (hp < 1)
+            hp = 1;
+        _player.health.current_hp = hp;
+        _player.mana    = sd.mana;
+        _player.stamina = sd.stamina;
+        if (_player.mana.current > _player.mana.max)
+            _player.mana.current = _player.mana.max;
+        if (_player.stamina.current > _player.stamina.max)
+            _player.stamina.current = _player.stamina.max;
+    }
+
+    void _configure_player_base() {
+        _player.name          = "player";
+        _player.team          = Team::Player;
+        _player.attack_damage = g_player_config.melee_damage;
+        _player.ranged_damage = g_player_config.ranged_damage;
+        _player.melee_hit_box = {22.0f, 14.0f, 28.0f};
+        _player.is_alive      = true;
+        _player.was_alive     = true;
+        _player.move_speed    = g_player_config.base_move_speed;
+        _player.collision     = {16.0f, 16.0f};
+        _player.dash_speed              = g_player_config.dash_speed;
+        _player.dash_duration_seconds   = g_player_config.dash_duration;
+        _player.dash_cooldown_seconds   = g_player_config.dash_cooldown;
+        _player.dash_iframes_seconds    = g_player_config.dash_iframes;
+        _player.ranged_cooldown_seconds = g_player_config.ranged_cooldown;
+        _player.knockback_vx = _player.knockback_vy = 0.0f;
+        _player.stamina               = StaminaState{};
+        _player.stamina.current       = g_player_config.base_stamina;
+        _player.stamina.max           = g_player_config.base_stamina_max;
+        _player.stamina.regen_rate    = g_player_config.stamina_regen;
+        _player.stamina.regen_delay   = g_player_config.stamina_delay;
+        _player.mana                  = ManaState{};
+        _player.mana.current          = g_player_config.base_mana;
+        _player.mana.max              = g_player_config.base_mana_max;
+        _player.mana.regen_rate       = g_player_config.base_mana_regen;
+        _player.mana.regen_delay      = g_player_config.mana_regen_delay;
+        _player.combat.reset_for_spawn();
+        {
+            static const char* kPlayerSheet = "assets/sprites/player.png";
+            _player.sprite_sheet = (_tex_cache.has_value())
+                                       ? static_cast<void*>(_tex_cache->load(kPlayerSheet))
+                                       : nullptr;
+            if (_player.sprite_sheet)
+                _player.anim.build_puny_clips(0, 8.0f);
+        }
+        const int base_hp    = g_player_config.base_hp;
+        _player.health.max_hp = base_hp + _player.progression.bonus_max_hp;
+    }
+
+    void _build_town() {
+        _room.name   = "town";
+        _room.bounds = {0.0f, 2400.0f, 0.0f, 1600.0f};
+        _room.obstacles.clear();
+        _room.doors.clear();
+
+        // Tilemap de grama (tudo Floor)
+        const int ts = 32;
+        _tilemap.init(75, 50, ts);  // 75*32=2400, 50*32=1600
+        for (int r = 0; r < 50; ++r)
+            for (int c = 0; c < 75; ++c)
+                _tilemap.set(c, r, TileType::Floor);
+
+        if (_tex_cache.has_value()) {
+            _tile_renderer.tileset        = _tex_cache->load("assets/tiles/town_tileset.png");
+            _tile_renderer.floor_tile_col = 0; _tile_renderer.floor_tile_row = 0;
+            _tile_renderer.wall_tile_col  = 1; _tile_renderer.wall_tile_row  = 0;
+        }
+
+        _room.add_obstacle("building_tavern", 700.0f, 200.0f, 1100.0f, 500.0f);
+        _room.add_obstacle("building_forge", 1300.0f, 200.0f, 1600.0f, 500.0f);
+        _room.add_obstacle("building_elder", 300.0f, 900.0f, 600.0f, 1200.0f);
+        _room.add_obstacle("fountain", 1100.0f, 700.0f, 1300.0f, 900.0f);
+
+        _room.add_door(2350.0f, 700.0f, 2390.0f, 900.0f, false, "dungeon");
+
+        _npcs.clear();
+        {
+            NpcEntity mira;
+            mira.x               = 440.0f;
+            mira.y               = 840.0f;
+            mira.name            = "Mira";
+            mira.type            = NpcType::QuestGiver;
+            mira.interact_radius = 52.0f;
+            mira.portrait_color  = {200, 180, 80, 255};
+            mira.dialogue_default       = "mira_default";
+            mira.dialogue_quest_active  = "mira_quest_active";
+            mira.dialogue_quest_done    = "mira_quest_done";
+            _npcs.push_back(mira);
+        }
+        {
+            NpcEntity forge;
+            forge.x               = 1450.0f;
+            forge.y               = 540.0f;
+            forge.name            = "Forge";
+            forge.type            = NpcType::Merchant;
+            forge.interact_radius = 52.0f;
+            forge.portrait_color  = {220, 120, 60, 255};
+            forge.dialogue_default = "forge_greeting";
+            _npcs.push_back(forge);
+        }
+        {
+            NpcEntity v;
+            v.x = 900.0f;
+            v.y = 750.0f;
+            v.name            = "Villager";
+            v.type            = NpcType::Generic;
+            v.portrait_color  = {100, 160, 90, 255};
+            v.dialogue_default = "villager_a";
+            _npcs.push_back(v);
+        }
+        {
+            NpcEntity v;
+            v.x = 1600.0f;
+            v.y = 900.0f;
+            v.name            = "Elder";
+            v.type            = NpcType::Generic;
+            v.portrait_color  = {120, 140, 100, 255};
+            v.dialogue_default = "villager_b";
+            _npcs.push_back(v);
+        }
+
+        _shop_forge.items.clear();
+        _shop_forge.items.push_back({"HP Potion", ShopItemType::HpPotion, 20, 50});
+        _shop_forge.items.push_back({"Stamina Potion", ShopItemType::StaminaPotion, 15, 80});
+        _shop_forge.items.push_back({"Sharpening Stone", ShopItemType::AttackUpgrade, 30, 3});
+        _shop_forge.items.push_back({"Mana Crystal", ShopItemType::ManaUpgrade, 25, 10});
+        _shop_forge.selected_index = 0;
+
+        _player.transform.set_position(400.0f, 800.0f);
+    }
+
+    int _nearest_npc_index() const {
+        int   best   = -1;
+        float best_d = 1.0e12f;
+        for (int i = 0; i < static_cast<int>(_npcs.size()); ++i) {
+            const NpcEntity& n = _npcs[static_cast<size_t>(i)];
+            float            d = _dist_sq(_player.transform.x, _player.transform.y, n.x, n.y);
+            if (d < best_d) {
+                best_d = d;
+                best   = i;
+            }
+        }
+        return best;
+    }
+
+    void _start_npc_interaction(int idx) {
+        NpcEntity& n = _npcs[static_cast<size_t>(idx)];
+        if (n.type == NpcType::Merchant) {
+            _shop_open            = true;
+            _shop_forge.selected_index = 0;
+            return;
+        }
+        if (n.type == NpcType::Generic) {
+            if (!n.dialogue_default.empty())
+                _dialogue.start(n.dialogue_default);
+            return;
+        }
+        if (n.type == NpcType::QuestGiver) {
+            if (_quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::NotStarted)) {
+                _dialogue.start("mira_quest_offer", [this]() {
+                    _quest_state.set(QuestId::DefeatGrimjaw, QuestStatus::InProgress);
+                    SaveSystem::save_default(_capture_save());
+                });
+            } else if (_quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)) {
+                _dialogue.start(n.dialogue_quest_active.empty() ? "mira_quest_active"
+                                                                : n.dialogue_quest_active);
+            } else if (_quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::Completed)) {
+                _dialogue.start(n.dialogue_quest_done.empty() ? "mira_quest_done"
+                                                              : n.dialogue_quest_done,
+                                [this]() {
+                                    _quest_state.set(QuestId::DefeatGrimjaw, QuestStatus::Rewarded);
+                                    _player.gold += kQuestRewardGold;
+                                    SaveSystem::save_default(_capture_save());
+                                });
+            } else {
+                _dialogue.start(n.dialogue_default.empty() ? "mira_default" : n.dialogue_default);
+            }
+        }
+    }
+
+    void _update_shop(const InputState& input) {
+        constexpr float th = 0.35f;
+        if (! _shop_forge.items.empty()) {
+            if (input.move_y < -th && _prev_shop_move_y >= -th && _shop_forge.selected_index > 0)
+                --_shop_forge.selected_index;
+            if (input.move_y > th && _prev_shop_move_y <= th
+                && _shop_forge.selected_index < static_cast<int>(_shop_forge.items.size()) - 1)
+                ++_shop_forge.selected_index;
+        }
+        _prev_shop_move_y = input.move_y;
+
+        const bool buy_edge = input.confirm_pressed && !_shop_prev_confirm;
+        if (buy_edge) {
+            if (ShopSystem::try_buy(_player, _shop_forge, _shop_forge.selected_index) && _audio)
+                _audio->play_sfx(SoundId::UiConfirm, 0.5f);
+        }
+        if (input.ui_cancel_pressed && !_shop_prev_cancel)
+            _shop_open = false;
+        _shop_prev_confirm = input.confirm_pressed;
+        _shop_prev_cancel  = input.ui_cancel_pressed;
+    }
+};
+
+} // namespace mion

@@ -1,0 +1,72 @@
+[
+  {
+    "slot_id": "player_sprite",
+    "output_path": "assets/sprites/player.png",
+    "status": "copied",
+    "source_path": "assets/sprites/player.png",
+    "message": "png já estava no formato e caminho corretos"
+  },
+  {
+    "slot_id": "skeleton_sprite",
+    "output_path": "assets/sprites/skeleton.png",
+    "status": "copied",
+    "source_path": "assets/sprites/skeleton.png",
+    "message": "png já estava no formato e caminho corretos"
+  },
+  {
+    "slot_id": "orc_sprite",
+    "output_path": "assets/sprites/orc.png",
+    "status": "copied",
+    "source_path": "assets/sprites/orc.png",
+    "message": "png já estava no formato e caminho corretos"
+  },
+  {
+    "slot_id": "ghost_sprite",
+    "output_path": "assets/sprites/ghost.png",
+    "status": "copied",
+    "source_path": "assets/sprites/ghost.png",
+    "message": "png já estava no formato e caminho corretos"
+  },
+  {
+    "slot_id": "hit_sfx",
+    "output_path": "assets/audio/hit.wav",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  },
+  {
+    "slot_id": "player_attack_sfx",
+    "output_path": "assets/audio/player_attack.wav",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  },
+  {
+    "slot_id": "enemy_death_sfx",
+    "output_path": "assets/audio/enemy_death.wav",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  },
+  {
+    "slot_id": "player_death_sfx",
+    "output_path": "assets/audio/player_death.wav",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  },
+  {
+    "slot_id": "dungeon_ambient_music",
+    "output_path": "assets/audio/dungeon_ambient.wav",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  },
+  {
+    "slot_id": "dungeon_tileset",
+    "output_path": "assets/tiles/dungeon_tileset.png",
+    "status": "skipped",
+    "source_path": null,
+    "message": "slot sem seleção: missing"
+  }
+]

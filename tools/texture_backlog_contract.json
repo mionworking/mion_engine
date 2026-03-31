@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "description": "Planned texture contract (not yet mandatory in runtime).",
+  "groups": [
+    {
+      "name": "tiles_floor_dungeon",
+      "items": [
+        {
+          "path": "assets/tiles/dungeon_floor_base.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 32,
+          "notes": "Base floor tile for dungeon rooms."
+        },
+        {
+          "path": "assets/tiles/dungeon_floor_crack.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 32,
+          "notes": "Variation tile for floor breakup."
+        },
+        {
+          "path": "assets/tiles/dungeon_floor_moss.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 32,
+          "notes": "Variation tile for green accent."
+        }
+      ]
+    },
+    {
+      "name": "tiles_doors",
+      "items": [
+        {
+          "path": "assets/tiles/door_closed.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 48,
+          "notes": "Door closed state."
+        },
+        {
+          "path": "assets/tiles/door_open.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 48,
+          "notes": "Door opened state."
+        },
+        {
+          "path": "assets/tiles/door_locked.png",
+          "kind": "tile",
+          "width": 32,
+          "height": 48,
+          "notes": "Locked door state."
+        }
+      ]
+    },
+    {
+      "name": "spell_fx",
+      "items": [
+        {
+          "path": "assets/fx/spell_frost_sheet.png",
+          "kind": "sprite_sheet",
+          "width": 256,
+          "height": 64,
+          "frames_x": 8,
+          "frames_y": 2,
+          "notes": "Frost projectile + impact."
+        },
+        {
+          "path": "assets/fx/spell_chain_sheet.png",
+          "kind": "sprite_sheet",
+          "width": 256,
+          "height": 64,
+          "frames_x": 8,
+          "frames_y": 2,
+          "notes": "Chain lightning bolt arcs."
+        },
+        {
+          "path": "assets/fx/spell_nova_sheet.png",
+          "kind": "sprite_sheet",
+          "width": 256,
+          "height": 128,
+          "frames_x": 8,
+          "frames_y": 4,
+          "notes": "Nova expanding ring."
+        }
+      ]
+    },
+    {
+      "name": "projectiles_and_ui_vfx",
+      "items": [
+        {
+          "path": "assets/fx/arrow_sheet.png",
+          "kind": "sprite_sheet",
+          "width": 128,
+          "height": 32,
+          "frames_x": 4,
+          "frames_y": 1,
+          "notes": "Arrow travel + optional variant frame."
+        },
+        {
+          "path": "assets/fx/hit_flash_sheet.png",
+          "kind": "sprite_sheet",
+          "width": 128,
+          "height": 64,
+          "frames_x": 4,
+          "frames_y": 2,
+          "notes": "Generic hit impact."
+        },
+        {
+          "path": "assets/ui/upgrade_icons.png",
+          "kind": "sprite_sheet",
+          "width": 192,
+          "height": 64,
+          "frames_x": 6,
+          "frames_y": 2,
+          "notes": "Optional icons for upgrade/talent choices."
+        }
+      ]
+    },
+    {
+      "name": "room_obstacle_variants",
+      "items": [
+        {
+          "path": "assets/props/barrel_broken.png",
+          "kind": "prop",
+          "width": 64,
+          "height": 64,
+          "notes": "Broken barrel variant."
+        },
+        {
+          "path": "assets/props/altar_corrupted.png",
+          "kind": "prop",
+          "width": 80,
+          "height": 80,
+          "notes": "Altar variant for deeper rooms."
+        },
+        {
+          "path": "assets/props/pillar_cracked.png",
+          "kind": "prop",
+          "width": 96,
+          "height": 128,
+          "notes": "Pillar variant for visual variety."
+        }
+      ]
+    }
+  ]
+}

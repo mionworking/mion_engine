@@ -1,0 +1,11 @@
+slot_id,kind,required,status,summary,output_path,selected_source,score,confidence,action,reasons
+player_sprite,image,True,selected,candidato selecionado,assets/sprites/player.png,sprites/player.png,97,high,copy_safe,tipo compatível: image | basename exato 'player' apareceu | nome alvo 'player' apareceu | keyword 'player' apareceu
+skeleton_sprite,image,True,selected,candidato selecionado,assets/sprites/skeleton.png,sprites/skeleton.png,97,high,copy_safe,tipo compatível: image | basename exato 'skeleton' apareceu | nome alvo 'skeleton' apareceu | keyword 'skeleton' apareceu
+orc_sprite,image,True,selected,candidato selecionado,assets/sprites/orc.png,sprites/orc.png,97,high,copy_safe,tipo compatível: image | basename exato 'orc' apareceu | nome alvo 'orc' apareceu | keyword 'orc' apareceu
+ghost_sprite,image,True,selected,candidato selecionado,assets/sprites/ghost.png,sprites/ghost.png,97,high,copy_safe,tipo compatível: image | basename exato 'ghost' apareceu | nome alvo 'ghost' apareceu | keyword 'ghost' apareceu
+hit_sfx,audio,True,missing,nenhum candidato forte encontrado,assets/audio/hit.wav,,,,,
+player_attack_sfx,audio,True,missing,nenhum candidato forte encontrado,assets/audio/player_attack.wav,,,,,
+enemy_death_sfx,audio,True,missing,nenhum candidato forte encontrado,assets/audio/enemy_death.wav,,,,,
+player_death_sfx,audio,True,missing,nenhum candidato forte encontrado,assets/audio/player_death.wav,,,,,
+dungeon_ambient_music,audio,True,missing,nenhum candidato forte encontrado,assets/audio/dungeon_ambient.wav,,,,,
+dungeon_tileset,image,False,missing,nenhum candidato forte encontrado,assets/tiles/dungeon_tileset.png,,,,,

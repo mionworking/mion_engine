@@ -1,9 +1,13 @@
 #pragma once
+#include <array>
 #include <vector>
 #include <optional>
+#include <string>
 #include <cstdio>
+#include <cstdlib>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <SDL3/SDL.h>
 
 #include "../core/scene.hpp"
@@ -13,6 +17,8 @@
 #include "../core/audio.hpp"
 #include "../world/room.hpp"
 #include "../world/tilemap.hpp"
+#include "../world/dungeon_rules.hpp"
+#include "../world/room_loader.hpp"
 #include "../entities/actor.hpp"
 #include "../entities/enemy_type.hpp"
 #include "../systems/room_collision.hpp"
@@ -21,6 +27,27 @@
 #include "../systems/tilemap_renderer.hpp"
 #include "../systems/lighting.hpp"
 #include "../systems/pathfinder.hpp"
+#include "../systems/player_action.hpp"
+#include "../systems/movement_system.hpp"
+#include "../systems/resource_system.hpp"
+#include "../systems/status_effect_system.hpp"
+#include "../systems/room_flow_system.hpp"
+#include "../systems/projectile_system.hpp"
+#include "../systems/drop_system.hpp"
+#include "../systems/simple_particles.hpp"
+#include "../systems/floating_text.hpp"
+#include "../systems/dialogue_system.hpp"
+#include "../core/save_system.hpp"
+#include "../core/quest_state.hpp"
+#include "../core/run_stats.hpp"
+#include "../core/engine_paths.hpp"
+#include "../core/ini_loader.hpp"
+#include "../components/player_config.hpp"
+#include "../entities/projectile.hpp"
+#include "../entities/ground_item.hpp"
+#include "../components/talent_tree.hpp"
+#include "../components/spell_defs.hpp"
+#include "../core/ui.hpp"
 
 namespace mion {
 
@@ -48,10 +75,10 @@ static void _draw_outline(SDL_Renderer* r, const Camera2D& cam,
 }
 
 static void _draw_hp_bar(SDL_Renderer* r, const Camera2D& cam,
-                         float cx, float cy, float hw, int hp, int max_hp)
+                         float cx, float top_y, float hw, int hp, int max_hp)
 {
     const float bw = hw*2.0f, bh = 5.0f;
-    const float by = cy - 22.0f;
+    const float by = top_y - 10.0f;
     SDL_SetRenderDrawColor(r, 50, 50, 50, 255);
     SDL_FRect bg = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(by), bw, bh };
     SDL_RenderFillRect(r, &bg);
@@ -60,6 +87,71 @@ static void _draw_hp_bar(SDL_Renderer* r, const Camera2D& cam,
     SDL_FRect fill = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(by),
                        bw*ratio, bh };
     SDL_RenderFillRect(r, &fill);
+}
+
+static bool _render_obstacle_sprite(SDL_Renderer* r, const Camera2D& cam,
+                                    const Obstacle& obs, TextureCache* tex_cache)
+{
+    if (!tex_cache || obs.sprite_path.empty()) return false;
+
+    std::error_code ec;
+    if (!std::filesystem::exists(obs.sprite_path, ec) || ec) return false;
+
+    SDL_Texture* tex = tex_cache->load(obs.sprite_path);
+    if (!tex) return false;
+
+    const float bounds_w = obs.bounds.max_x - obs.bounds.min_x;
+    const float bounds_h = obs.bounds.max_y - obs.bounds.min_y;
+    const float draw_w   = obs.sprite_world_w > 0.0f ? obs.sprite_world_w : bounds_w;
+    const float draw_h   = obs.sprite_world_h > 0.0f ? obs.sprite_world_h : bounds_h;
+    const float anchor_x = (obs.bounds.min_x + obs.bounds.max_x) * 0.5f;
+    const float anchor_y = obs.bounds.max_y;
+
+    SDL_FRect dst = {
+        cam.world_to_screen_x(anchor_x - draw_w * obs.sprite_anchor_x),
+        cam.world_to_screen_y(anchor_y - draw_h * obs.sprite_anchor_y),
+        draw_w,
+        draw_h
+    };
+    SDL_RenderTexture(r, tex, nullptr, &dst);
+    return true;
+}
+
+static void _render_actor_status_overlay_screen(SDL_Renderer* r, float sx, float sy,
+                                                float sw, float sh, const Actor& a) {
+    if (a.hit_flash_timer > 0.0f) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 180);
+        SDL_FRect rect = {sx, sy, sw, sh};
+        SDL_RenderFillRect(r, &rect);
+        return;
+    }
+    if (!a.is_alive) return;
+
+    Uint8 R = 0, G = 0, B = 0, A = 0;
+    if (a.status_effects.has(StatusEffectType::Poison)) {
+        R = 80; G = 220; B = 80; A = 80;
+    } else if (a.status_effects.has(StatusEffectType::Slow)) {
+        R = 80; G = 120; B = 220; A = 80;
+    } else if (a.status_effects.has(StatusEffectType::Stun)) {
+        R = 240; G = 220; B = 60; A = 80;
+    } else
+        return;
+
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    SDL_FRect rect = {sx, sy, sw, sh};
+    SDL_RenderFillRect(r, &rect);
+}
+
+static void _render_actor_status_overlay_world(SDL_Renderer* r, const Camera2D& cam,
+                                               float cx, float cy, float hw, float hh,
+                                               const Actor& a) {
+    float sx = cam.world_to_screen_x(cx - hw);
+    float sy = cam.world_to_screen_y(cy - hh);
+    float sw = cam.world_to_screen_x(cx + hw) - sx;
+    float sh = cam.world_to_screen_y(cy + hh) - sy;
+    _render_actor_status_overlay_screen(r, sx, sy, sw, sh, a);
 }
 
 // Renderiza um actor — sprite se disponível, senão retângulo colorido
@@ -77,16 +169,25 @@ static void _render_actor(SDL_Renderer* r, const Camera2D& cam, const Actor& a)
     if (tex) {
         const AnimFrame* af = a.anim.current_frame();
         if (af) {
+            const float sprite_scale = a.sprite_scale;
+            const float sprite_hw    = (float)af->src.w * sprite_scale * 0.5f;
+            const float sprite_hh    = (float)af->src.h * sprite_scale * 0.5f;
             SpriteFrame frame;
             frame.texture = tex;
             frame.src     = { af->src.x, af->src.y, af->src.w, af->src.h };
+            const float scr_cx = cam.world_to_screen_x(cx);
+            const float scr_cy = cam.world_to_screen_y(cy);
             draw_sprite(r, frame,
-                        cam.world_to_screen_x(cx),
-                        cam.world_to_screen_y(cy),
-                        1.0f, 1.0f, a.facing_x < 0.0f);
+                        scr_cx,
+                        scr_cy,
+                        sprite_scale, sprite_scale, a.facing_x < 0.0f);
+
+            _render_actor_status_overlay_screen(
+                r, scr_cx - sprite_hw, scr_cy - sprite_hh, sprite_hw * 2.0f, sprite_hh * 2.0f, a);
 
             if (a.is_alive) {
-                _draw_hp_bar(r, cam, cx, cy, hw, a.health.current_hp, a.health.max_hp);
+                _draw_hp_bar(r, cam, cx, cy - sprite_hh, std::max(hw, sprite_hw * 0.5f),
+                             a.health.current_hp, a.health.max_hp);
                 if (a.combat.is_in_active_phase()) {
                     AABB hb = a.melee_hit_box.bounds_at(cx, cy, a.facing_x, a.facing_y);
                     float hcx=(hb.min_x+hb.max_x)*0.5f, hcy=(hb.min_y+hb.max_y)*0.5f;
@@ -123,7 +224,7 @@ static void _render_actor(SDL_Renderer* r, const Camera2D& cam, const Actor& a)
     SDL_RenderLine(r, cam.world_to_screen_x(cx), cam.world_to_screen_y(cy),
                       cam.world_to_screen_x(fx), cam.world_to_screen_y(fy));
 
-    _draw_hp_bar(r,cam,cx,cy,hw, a.health.current_hp, a.health.max_hp);
+    _draw_hp_bar(r,cam,cx,cy - hh,hw, a.health.current_hp, a.health.max_hp);
 
     if (a.combat.is_in_active_phase()) {
         AABB hb = a.melee_hit_box.bounds_at(cx,cy,a.facing_x,a.facing_y);
@@ -131,6 +232,8 @@ static void _render_actor(SDL_Renderer* r, const Camera2D& cam, const Actor& a)
         float hhw=(hb.max_x-hb.min_x)*0.5f, hhh=(hb.max_y-hb.min_y)*0.5f;
         _draw_outline(r,cam,hcx,hcy,hhw,hhh,255,60,60);
     }
+
+    _render_actor_status_overlay_world(r, cam, cx, cy, hw, hh, a);
 }
 
 // ---------------------------------------------------------------
@@ -141,88 +244,403 @@ public:
     int   viewport_w = 1280;
     int   viewport_h = 720;
 
+    static constexpr float kFootstepPlayerDist = 44.0f;
+    static constexpr float kFootstepEnemyDist  = 56.0f;
+
     void set_renderer(SDL_Renderer* r) { _renderer = r; }
     void set_audio(AudioSystem* a)     { _audio    = a; }
+    void set_show_autosave_indicator(bool v) { _show_autosave_indicator = v; }
+    void set_run_stats(RunStats* p) { _run_stats = p; }
+    void set_difficulty(DifficultyLevel* p) { _difficulty = p; }
+    void set_enemy_spawn_count(int count) { _requested_enemy_count = std::max(0, count); }
+
+    void enable_stress_mode(int enemy_count) {
+        _stress_mode = true;
+        _requested_enemy_count = std::max(3, enemy_count);
+    }
+
+    int enemy_count() const { return (int)_enemies.size(); }
+
+    int living_enemy_count() const {
+        return (int)std::count_if(_enemies.begin(), _enemies.end(),
+                                  [](const Actor& a) { return a.is_alive; });
+    }
 
     void enter() override {
         // TextureCache inicializado uma vez (persiste across restarts)
         if (_renderer && !_tex_cache.has_value())
             _tex_cache.emplace(_renderer);
 
-        _build_room();
-        _pathfinder.build_nav(_tilemap, _room);
-        _reset_all();
+        std::srand((unsigned)SDL_GetTicks());
+        _load_data_files();
+        _register_dungeon_dialogue();
+        _dialogue.set_audio(_audio);
+        {
+            SaveData          loaded;
+            if (SaveSystem::load_default(loaded))
+                _apply_save_and_build_world(loaded);
+            else
+                _full_run_reset_initial(false);
+        }
 
-        _game_over  = false;
-        _go_timer   = 0.0f;
-        _hitstop    = 0;
-        _next_scene = "";
+        _death_snapshot_done         = false;
+        _death_fade_remaining        = 0.f;
+        _prev_level_choice_pending   = false;
+        _floating_texts.texts.clear();
+        _screen_flash_duration       = 0.25f;
+        _hitstop            = 0;
+        _pending_next_scene.clear();
+        _scene_exit_pending = false;
+        _scene_exit_timer   = 0.f;
+        _scene_exit_target.clear();
+        _paused          = false;
+        _settings_open   = false;
+        _skill_tree_open = false;
+        _build_skill_tree_columns();
+        _pause_list.items = {"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"};
+        _pause_list.disabled.assign(4, false);
+        _pause_list.selected = 0;
         _camera.viewport_w = (float)viewport_w;
         _camera.viewport_h = (float)viewport_h;
 
         if (_renderer) _lighting.init(_renderer, viewport_w, viewport_h);
-        if (_audio)    _audio->play_music("assets/audio/dungeon_ambient.wav");
+        if (_audio) {
+            _audio->stop_all_ambient();
+            _audio->play_ambient(AmbientId::DungeonDrips, 0.22f);
+            _audio->play_ambient(AmbientId::DungeonTorch, 0.14f);
+            _audio->set_music_state(MusicState::DungeonCalm);
+        }
+        _sync_footstep_anchors();
+
+        if (_run_stats)
+            _run_stats->max_level_reached =
+                std::max(_run_stats->max_level_reached, _player.progression.level);
     }
 
     void exit() override {
         _lighting.destroy();
-        if (_audio) _audio->stop_music();
+        if (_audio) {
+            _audio->stop_all_ambient();
+            _audio->stop_music();
+        }
+        for (SDL_Texture* t : _tiled_textures) SDL_DestroyTexture(t);
+        _tiled_textures.clear();
+    }
+
+    // Repete cada linha da spritesheet `mult` vezes para simular mais frames.
+    // Chamado após enter() no render_stress para testar impacto de sheets maiores.
+    void tile_sprite_sheets(int mult) {
+        if (mult <= 1 || !_renderer) return;
+
+        // Cache: pares (original, tiled) — busca linear, poucos tipos de textura
+        struct TexPair { void* orig; SDL_Texture* tiled; };
+        std::vector<TexPair> cache;
+
+        // Cria (ou recupera do cache) versão N-vezes mais larga da textura
+        auto get_tiled = [&](void* orig_ptr, float orig_w, float orig_h) -> SDL_Texture* {
+            for (const auto& p : cache)
+                if (p.orig == orig_ptr) return p.tiled;
+
+            int new_w = (int)(orig_w * mult);
+            SDL_Texture* orig  = static_cast<SDL_Texture*>(orig_ptr);
+            SDL_Texture* tiled = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA8888,
+                                                   SDL_TEXTUREACCESS_TARGET,
+                                                   new_w, (int)orig_h);
+            if (!tiled) { cache.push_back({orig_ptr, nullptr}); return nullptr; }
+
+            SDL_SetTextureBlendMode(tiled, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderTarget(_renderer, tiled);
+            SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 0);
+            SDL_RenderClear(_renderer);
+            for (int i = 0; i < mult; ++i) {
+                SDL_FRect dst = { orig_w * (float)i, 0.0f, orig_w, orig_h };
+                SDL_RenderTexture(_renderer, orig, nullptr, &dst);
+            }
+            SDL_SetRenderTarget(_renderer, nullptr);
+
+            _tiled_textures.push_back(tiled);
+            cache.push_back({orig_ptr, tiled});
+            return tiled;
+        };
+
+        // Repete os frames de cada clip, ajustando o x pela largura original
+        auto expand_anim = [&](AnimPlayer& anim, int orig_w) {
+            for (auto& clip : anim.clips) {
+                if (clip.frames.empty()) continue;
+                auto src = clip.frames;
+                clip.frames.clear();
+                clip.frames.reserve(src.size() * (size_t)mult);
+                for (int m = 0; m < mult; ++m)
+                    for (auto f : src) {
+                        f.src.x += m * orig_w;
+                        clip.frames.push_back(f);
+                    }
+            }
+        };
+
+        // Player
+        if (_player.sprite_sheet) {
+            float tw = 0, th = 0;
+            SDL_GetTextureSize(static_cast<SDL_Texture*>(_player.sprite_sheet), &tw, &th);
+            SDL_Texture* t = get_tiled(_player.sprite_sheet, tw, th);
+            if (t) { _player.sprite_sheet = t; expand_anim(_player.anim, (int)tw); }
+        }
+
+        // Inimigos
+        for (auto& e : _enemies) {
+            if (!e.sprite_sheet) continue;
+            float tw = 0, th = 0;
+            SDL_GetTextureSize(static_cast<SDL_Texture*>(e.sprite_sheet), &tw, &th);
+            int ow = (int)tw;
+            void* op = e.sprite_sheet;
+            SDL_Texture* t = get_tiled(op, tw, th);
+            if (t) { e.sprite_sheet = t; expand_anim(e.anim, ow); }
+        }
     }
 
     void fixed_update(float dt, const InputState& input) override {
-        if (_game_over) {
-            _go_timer += dt;
-            if (_go_timer >= 1.0f && input.attack_pressed) {
-                _reset_all();
-                _game_over = false;
-                _go_timer  = 0.0f;
-                _hitstop   = 0;
-            }
+        _pending_next_scene.clear();
+
+        if (_autosave_flash > 0.f) {
+            _autosave_flash -= dt;
+            if (_autosave_flash < 0.f) _autosave_flash = 0.f;
+        }
+
+        if (_boss_intro_pending) {
+            _boss_intro_timer += dt;
+            if (_boss_intro_timer >= kBossIntroDuration)
+                _boss_intro_pending = false;
+        }
+        if (_screen_flash_timer > 0.0f) {
+            _screen_flash_timer -= dt;
+            if (_screen_flash_timer < 0.0f)
+                _screen_flash_timer = 0.0f;
+        }
+
+        if (_hitstop > 0) {
+            --_hitstop;
+            _flush_menu_input_prev(input);
             return;
         }
 
-        if (_hitstop > 0) { --_hitstop; return; }
+        if (_dialogue.is_active()) {
+            _dialogue.fixed_update(input);
+            _flush_menu_input_prev(input);
+            return;
+        }
 
-        // Reseta flag de movimento para este tick
-        for (auto* a : _actors) a->is_moving = false;
+        if (_handle_pause_and_skill_ui(input)) {
+            _flush_menu_input_prev(input);
+            return;
+        }
 
-        // Knockback
-        for (auto* a : _actors) if (a->is_alive) a->step_knockback(dt);
+        // Level-up: bloqueia mundo até escolher upgrade
+        if (_player.progression.level_choice_pending()) {
+            const bool edge1 = input.upgrade_1 && !_prev_upgrade_1;
+            const bool edge2 = input.upgrade_2 && !_prev_upgrade_2;
+            const bool edge3 = input.upgrade_3 && !_prev_upgrade_3;
+            _prev_upgrade_1 = input.upgrade_1;
+            _prev_upgrade_2 = input.upgrade_2;
+            _prev_upgrade_3 = input.upgrade_3;
 
-        // Player
-        if (_player.is_alive) {
-            float nx, ny;
-            input.normalized_movement(nx, ny);
-            _player.transform.translate(nx * _player.move_speed * dt,
-                                        ny * _player.move_speed * dt);
-            _player.set_facing(nx, ny);
-            _player.is_moving = (nx != 0.0f || ny != 0.0f);
+            if (edge1) {
+                _player.progression.pick_upgrade_damage();
+                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+3 ATK");
+            } else if (edge2) {
+                _player.progression.pick_upgrade_hp();
+                const int base_max = _stress_mode ? 10000 : 100;
+                _player.health.max_hp = base_max + _player.progression.bonus_max_hp;
+                _player.health.current_hp += 15;
+                if (_player.health.current_hp > _player.health.max_hp)
+                    _player.health.current_hp = _player.health.max_hp;
+                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+15 HP");
+            } else if (edge3) {
+                _player.progression.pick_upgrade_speed();
+                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+SPD");
+            }
+            _flush_menu_input_prev(input);
+            return;
+        }
 
-            if (input.attack_pressed && _player.combat.is_attack_idle()) {
-                _player.combat.begin_attack();
-                if (_audio) _audio->play_sfx(SoundId::PlayerAttack);
+        _prev_upgrade_1 = input.upgrade_1;
+        _prev_upgrade_2 = input.upgrade_2;
+        _prev_upgrade_3 = input.upgrade_3;
+
+        // Skill tree: pausa mundo enquanto houver pontos pendentes
+        if (_talent_selection_pending()) {
+            const bool t1 = input.talent_1_pressed && !_prev_talent_1;
+            const bool t2 = input.talent_2_pressed && !_prev_talent_2;
+            const bool t3 = input.talent_3_pressed && !_prev_talent_3;
+            _prev_talent_1 = input.talent_1_pressed;
+            _prev_talent_2 = input.talent_2_pressed;
+            _prev_talent_3 = input.talent_3_pressed;
+
+            TalentId opts[3];
+            const int n = _collect_spendable_talent_ids(opts);
+            if (t1 && n > 0)
+                _try_spend_talent(opts[0]);
+            else if (t2 && n > 1)
+                _try_spend_talent(opts[1]);
+            else if (t3 && n > 2)
+                _try_spend_talent(opts[2]);
+            _flush_menu_input_prev(input);
+            return;
+        }
+        _prev_talent_1 = input.talent_1_pressed;
+        _prev_talent_2 = input.talent_2_pressed;
+        _prev_talent_3 = input.talent_3_pressed;
+
+        // 1. Reset de flags + knockback (antes de qualquer input/IA)
+        const int _hp_track0 = _player.health.current_hp;
+        const int _gold_track0 = _player.gold;
+        _movement_sys.fixed_update(_actors, dt);
+
+        // 2. Player intents (input → ações) + spawn de projéteis
+        InputState play_in = input;
+        if (_boss_intro_pending && _boss_intro_timer < kBossIntroDuration && !_stress_mode) {
+            play_in.move_x = play_in.move_y = 0.0f;
+            play_in.attack_pressed          = false;
+            play_in.confirm_pressed         = false;
+            play_in.ranged_pressed          = false;
+            play_in.parry_pressed           = false;
+            play_in.dash_pressed            = false;
+            play_in.spell_1_pressed         = false;
+            play_in.spell_2_pressed         = false;
+            play_in.spell_3_pressed         = false;
+            play_in.spell_4_pressed         = false;
+            play_in.upgrade_1               = false;
+            play_in.upgrade_2               = false;
+            play_in.upgrade_3               = false;
+            play_in.talent_1_pressed        = false;
+            play_in.talent_2_pressed        = false;
+            play_in.talent_3_pressed        = false;
+        }
+        int spell_casts_frame = 0;
+        _player_action.fixed_update(_player, play_in, dt, _audio, &_projectiles, &_actors,
+                                    &spell_casts_frame);
+
+        // Atualiza timer de cast para animação (0.4 s após cada cast)
+        if (spell_casts_frame > 0)
+            _player_cast_timer = 0.4f;
+        else
+            _player_cast_timer = std::max(0.0f, _player_cast_timer - dt);
+
+        // 3. Resources tick (stamina regen) + status effects tick
+        _resource_sys.fixed_update(_actors, dt);
+        _status_sys.fixed_update(_actors, dt);
+
+        // 4. Avança timers de combate
+        for (auto* a : _actors) if (a->is_alive) a->combat.advance_time(dt);
+
+        // 5. IA de inimigos (+ projéteis inimigos)
+        _enemy_ai.fixed_update(_actors, dt, &_pathfinder, &_projectiles);
+
+        if (!_stress_mode) {
+            for (auto& e : _enemies) {
+                if (e.name != "Grimjaw") continue;
+                if (e.boss_phase == 2 && !_boss_phase2_triggered) {
+                    _boss_phase2_triggered = true;
+                    _camera.trigger_shake(18.0f, 30);
+                    _dialogue.start("boss_grimjaw_phase2");
+                    _screen_flash_timer     = 0.3f;
+                    _screen_flash_duration  = 0.3f;
+                    _screen_flash_color     = {255, 200, 50, 180};
+                }
             }
         }
 
-        for (auto* a : _actors) if (a->is_alive) a->combat.advance_time(dt);
-
-        _enemy_ai.fixed_update(_actors, dt, &_pathfinder);
+        // 6. Colisão
         _col_sys.resolve_all(_actors, _room);
-        _col_sys.resolve_actors(_actors);
+        _col_sys.resolve_actors(_actors, &_room);
+
+        const float _cam_aud_x = _camera.x + _camera.viewport_w * 0.5f;
+        const float _cam_aud_y = _camera.y + _camera.viewport_h * 0.5f;
+
+        // 6b. Projéteis
+        _projectile_sys.fixed_update(_projectiles, _actors, _room, dt);
+        if (_projectile_sys.projectile_hit_actor) {
+            _particles.spawn_burst(_projectile_sys.last_hit_world_x,
+                                   _projectile_sys.last_hit_world_y,
+                                   12, 255, 210, 120, 80.f, 200.f);
+        }
+        for (const auto& ev : _projectile_sys.last_hit_events) {
+            for (auto* ac : _actors) {
+                if (ac->name != ev.target_name) continue;
+                ac->hit_flash_timer = 0.15f;
+                _floating_texts.spawn_damage(ac->transform.x, ac->transform.y, ev.damage);
+                if (ac->team == Team::Player) {
+                    _screen_flash_timer    = 0.25f;
+                    _screen_flash_duration = 0.25f;
+                    _screen_flash_color    = {180, 20, 20, 120};
+                }
+                if (_audio)
+                    _audio->play_sfx_at(SoundId::Hit, ac->transform.x, ac->transform.y, _cam_aud_x,
+                                        _cam_aud_y, 620.f, 1.0f);
+                break;
+            }
+        }
+
+        // 7. Resolve combate melee
         _combat_sys.fixed_update(_actors, dt);
 
-        // Efeitos de hit
+        // 8. Efeitos de hit (hitstop, camera shake, áudio)
         if (_combat_sys.pending_hitstop > 0) {
             _hitstop = _combat_sys.pending_hitstop;
             if (_combat_sys.player_hit_landed)
                 _camera.trigger_shake(6.0f, 8);
         }
-        if (!_combat_sys.last_events.empty() && _audio)
-            _audio->play_sfx(SoundId::Hit);
+        if (_combat_sys.parry_success && _audio)
+            _audio->play_sfx(SoundId::Parry, 0.85f);
 
-        // Detecta mortes neste frame (para áudio) e atualiza was_alive
+        if (!_combat_sys.last_events.empty()) {
+            for (const auto& ev : _combat_sys.last_events) {
+                for (auto* ac : _actors) {
+                    if (ac->name == ev.target_name) {
+                        ac->hit_flash_timer = 0.15f;
+                        _floating_texts.spawn_damage(ac->transform.x, ac->transform.y, ev.damage);
+                        if (ac->team == Team::Player) {
+                            _screen_flash_timer    = 0.25f;
+                            _screen_flash_duration = 0.25f;
+                            _screen_flash_color    = {180, 20, 20, 120};
+                        }
+                        if (_audio)
+                            _audio->play_sfx_at(SoundId::Hit, ac->transform.x, ac->transform.y,
+                                                _cam_aud_x, _cam_aud_y, 620.f, 1.0f);
+                        _particles.spawn_burst(ac->transform.x, ac->transform.y,
+                                                 14, 255, 200, 160, 60.f, 180.f);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 9. Mortes → drops + XP
         for (auto* a : _actors) {
             if (a->was_alive && !a->is_alive) {
+                if (a->team == Team::Enemy) {
+                    _particles.spawn_burst(a->transform.x, a->transform.y,
+                                           22, 200, 60, 80, 40.f, 140.f);
+                    const EnemyDef& def = _enemy_defs[static_cast<int>(a->enemy_type)];
+                    DropSystem::on_enemy_died(_ground_items, a->transform.x, a->transform.y, def,
+                                              _drop_config, -1, -1);
+                    int gained = _player.progression.add_xp(
+                        dungeon_rules::xp_per_enemy_kill(_room_index));
+                    _player.talents.pending_points += gained;
+                    if (_run_stats)
+                        _run_stats->max_level_reached =
+                            std::max(_run_stats->max_level_reached, _player.progression.level);
+                    if (!_stress_mode && a->name == "Grimjaw") {
+                        if (_run_stats)
+                            _run_stats->boss_defeated = true;
+                        _post_mortem_dialogue_id = "miniboss_grimjaw_death";
+                        if (_quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)) {
+                            _quest_state.set(QuestId::DefeatGrimjaw, QuestStatus::Completed);
+                            _persist_save();
+                        }
+                    }
+                    if (_run_stats)
+                        _run_stats->enemies_killed++;
+                }
                 if (_audio) {
                     if (a->team == Team::Enemy)
                         _audio->play_sfx(SoundId::EnemyDeath);
@@ -233,15 +651,213 @@ public:
             a->was_alive = a->is_alive;
         }
 
-        if (!_player.is_alive) { _game_over = true; _go_timer = 0.0f; }
+        {
+            const bool lcp = _player.progression.level_choice_pending();
+            if (lcp && !_prev_level_choice_pending) {
+                _floating_texts.spawn_level_up(_player.transform.x, _player.transform.y);
+                if (_audio) _audio->play_sfx(SoundId::UiConfirm, 0.8f);
+            }
+            _prev_level_choice_pending = lcp;
+        }
 
-        // Drive animation
+        if (DropSystem::pickup_near_player(_player, _ground_items, _drop_config)
+            && !_stress_mode && !_dialogue.is_active())
+            _dialogue.start("dungeon_rare_relic");
+
+        // 10. Fluxo de sala
+        _room_flow_sys.fixed_update(_actors, _player, _room);
+        if (!_room_flow_sys.scene_exit_to.empty()) {
+            const std::string& target = _room_flow_sys.scene_exit_to;
+            if (target == "title" || target == "town") {
+                if (!_scene_exit_pending) {
+                    _scene_exit_pending = true;
+                    _scene_exit_timer   = 0.4f;
+                    _scene_exit_target  = target;
+                    _persist_save();
+                    if (_audio) _audio->fade_music(400);
+                }
+            } else {
+                _pending_next_scene = target;
+            }
+        } else if (_room_flow_sys.transition_requested) {
+            if (!_stress_mode && _room_index == 0 && !_first_door_dialogue_done
+                && !_dialogue.is_active()) {
+                _dialogue.start("dungeon_first_door", [this]() {
+                    _first_door_dialogue_done = true;
+                    _advance_room();
+                });
+            } else {
+                _advance_room();
+            }
+        }
+
+        if (!_post_mortem_dialogue_id.empty() && !_dialogue.is_active()
+            && _pending_next_scene.empty()) {
+            std::string id = _post_mortem_dialogue_id;
+            _post_mortem_dialogue_id.clear();
+            _dialogue.start(id);
+        }
+        if (_pending_room_blurb && !_dialogue.is_active() && _pending_next_scene.empty()) {
+            _pending_room_blurb = false;
+            _dialogue.start("dungeon_deeper");
+        }
+
+        if (_scene_exit_pending) {
+            _scene_exit_timer -= dt;
+            if (_scene_exit_timer <= 0.f) {
+                std::string target = _scene_exit_target;
+                _scene_exit_pending = false;
+                _scene_exit_target.clear();
+                if (target == "town" && !_stress_mode && _run_stats && _run_stats->boss_defeated
+                    && _quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::Completed)) {
+                    _snapshot_last_run_to_save();
+                    _pending_next_scene = "victory";
+                } else {
+                    _pending_next_scene = std::move(target);
+                }
+            }
+        }
+
+        if (_audio && !_stress_mode) {
+            MusicState target = MusicState::DungeonCalm;
+            bool        boss_alive = false;
+            if (_room_index == 3) {
+                for (const auto& e : _enemies) {
+                    if (e.is_alive && e.name == "Grimjaw") {
+                        boss_alive = true;
+                        break;
+                    }
+                }
+            }
+            if (boss_alive)
+                target = MusicState::DungeonBoss;
+            else {
+                bool any_aggro = false;
+                for (const auto& e : _enemies) {
+                    if (!e.is_alive) continue;
+                    float dx = _player.transform.x - e.transform.x;
+                    float dy = _player.transform.y - e.transform.y;
+                    if (dx * dx + dy * dy < e.aggro_range * e.aggro_range) {
+                        any_aggro = true;
+                        break;
+                    }
+                }
+                target = any_aggro ? MusicState::DungeonCombat : MusicState::DungeonCalm;
+            }
+            if (target != _audio->current_music_state())
+                _audio->set_music_state(target);
+        }
+
+        if (_run_stats) {
+            if (_hp_track0 > _player.health.current_hp)
+                _run_stats->damage_taken += _hp_track0 - _player.health.current_hp;
+            if (_player.gold > _gold_track0)
+                _run_stats->gold_collected += _player.gold - _gold_track0;
+            _run_stats->time_seconds += dt;
+            _run_stats->spells_cast += spell_casts_frame;
+        }
+
+        if (!_player.is_alive) {
+            if (!_death_snapshot_done) {
+                _death_snapshot_done = true;
+                _snapshot_last_run_to_save();
+                _death_fade_remaining = kDeathFadeSeconds;
+            }
+        }
+        if (_death_fade_remaining > 0.f) {
+            _death_fade_remaining -= dt;
+            if (_death_fade_remaining <= 0.f) {
+                _death_fade_remaining = 0.f;
+                if (_pending_next_scene.empty())
+                    _pending_next_scene = "game_over";
+            }
+        }
+
+        // 11. Animações + partículas
+        _particles.update(dt);
         _update_animations(dt);
 
+        // 12. Câmera
         _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
         _camera.step_shake();
 
         if (_audio) _audio->tick_music();
+
+        if (_audio && !_stress_mode && _player.is_alive) {
+            const float acx = _camera.x + _camera.viewport_w * 0.5f;
+            const float acy = _camera.y + _camera.viewport_h * 0.5f;
+            float       pdx = _player.transform.x - _player.footstep_prev_x;
+            float       pdy = _player.transform.y - _player.footstep_prev_y;
+            if (_player.is_moving) {
+                _player.footstep_accum_dist += std::sqrt(pdx * pdx + pdy * pdy);
+                while (_player.footstep_accum_dist >= kFootstepPlayerDist) {
+                    _player.footstep_accum_dist -= kFootstepPlayerDist;
+                    _audio->play_sfx(SoundId::FootstepPlayer, 0.26f);
+                }
+            } else
+                _player.footstep_accum_dist = 0.f;
+            _player.footstep_prev_x = _player.transform.x;
+            _player.footstep_prev_y = _player.transform.y;
+
+            for (auto& e : _enemies) {
+                if (!e.is_alive) continue;
+                float edx = e.transform.x - e.footstep_prev_x;
+                float edy = e.transform.y - e.footstep_prev_y;
+                if (e.is_moving) {
+                    e.footstep_accum_dist += std::sqrt(edx * edx + edy * edy);
+                    while (e.footstep_accum_dist >= kFootstepEnemyDist) {
+                        e.footstep_accum_dist -= kFootstepEnemyDist;
+                        _audio->play_sfx_at(SoundId::FootstepEnemy, e.transform.x, e.transform.y, acx,
+                                            acy, 480.f, 0.2f);
+                    }
+                } else
+                    e.footstep_accum_dist = 0.f;
+                e.footstep_prev_x = e.transform.x;
+                e.footstep_prev_y = e.transform.y;
+            }
+        }
+
+        _player.hit_flash_timer = std::max(0.f, _player.hit_flash_timer - dt);
+        for (auto& e : _enemies) e.hit_flash_timer = std::max(0.f, e.hit_flash_timer - dt);
+
+        // Animação: player
+        if (_player.sprite_sheet) {
+            if (!_player.is_alive)
+                _player.anim.play(ActorAnim::Death);
+            else if (_player.is_dashing())
+                _player.anim.play(ActorAnim::Dash);
+            else if (_player_cast_timer > 0.0f)
+                _player.anim.play(ActorAnim::Cast);
+            else if (_player.combat.attack_phase != AttackPhase::Idle)
+                _player.anim.play(ActorAnim::Attack);
+            else if (_player.combat.hurt_stun_remaining_seconds > 0.0f)
+                _player.anim.play(ActorAnim::Hurt);
+            else if (_player.is_moving)
+                _player.anim.play(ActorAnim::Walk);
+            else
+                _player.anim.play(ActorAnim::Idle);
+            _player.anim.advance(dt);
+        }
+
+        // Animação: enemies
+        for (auto& e : _enemies) {
+            if (!e.sprite_sheet) continue;
+            if (!e.is_alive)
+                e.anim.play(ActorAnim::Death);
+            else if (e.combat.attack_phase != AttackPhase::Idle)
+                e.anim.play(ActorAnim::Attack);
+            else if (e.combat.hurt_stun_remaining_seconds > 0.0f)
+                e.anim.play(ActorAnim::Hurt);
+            else if (e.is_moving)
+                e.anim.play(ActorAnim::Walk);
+            else
+                e.anim.play(ActorAnim::Idle);
+            e.anim.advance(dt);
+        }
+
+        _floating_texts.tick(dt);
+
+        _flush_menu_input_prev(input);
     }
 
     void render(SDL_Renderer* r) override {
@@ -255,11 +871,57 @@ public:
             float ocy=(obs.bounds.min_y+obs.bounds.max_y)*0.5f;
             float ohw=(obs.bounds.max_x-obs.bounds.min_x)*0.5f;
             float ohh=(obs.bounds.max_y-obs.bounds.min_y)*0.5f;
-            _draw_rect(r,_camera,ocx,ocy,ohw,ohh,60,55,70);
-            _draw_outline(r,_camera,ocx,ocy,ohw,ohh,90,85,100);
+            TextureCache* tex_cache = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+            if (!_render_obstacle_sprite(r, _camera, obs, tex_cache)) {
+                _draw_rect(r,_camera,ocx,ocy,ohw,ohh,60,55,70);
+                _draw_outline(r,_camera,ocx,ocy,ohw,ohh,90,85,100);
+            }
+        }
+
+        // Portas — sprite ou retângulo colorido como fallback
+        {
+            TextureCache* tc = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+            for (const auto& door : _room.doors) {
+                float dcx = (door.bounds.min_x + door.bounds.max_x) * 0.5f;
+                float dcy = (door.bounds.min_y + door.bounds.max_y) * 0.5f;
+                float dhw = (door.bounds.max_x - door.bounds.min_x) * 0.5f;
+                float dhh = (door.bounds.max_y - door.bounds.min_y) * 0.5f;
+                bool cleared = !door.requires_room_cleared || (living_enemy_count() == 0);
+                const char* door_path = cleared ? "assets/props/door_open.png"
+                                                 : "assets/props/door_closed.png";
+                SDL_Texture* dtex = tc ? tc->load(door_path) : nullptr;
+                if (dtex) {
+                    float sx = _camera.world_to_screen_x(dcx - dhw);
+                    float sy = _camera.world_to_screen_y(dcy - dhh);
+                    SDL_FRect dst = { sx, sy, dhw * 2.0f, dhh * 2.0f };
+                    SDL_RenderTexture(r, dtex, nullptr, &dst);
+                } else {
+                    Uint8 dr = cleared ? 80 : 160;
+                    Uint8 dg = cleared ? 140 : 80;
+                    Uint8 db = cleared ? 80 : 40;
+                    _draw_rect(r, _camera, dcx, dcy, dhw, dhh, dr, dg, db);
+                }
+            }
         }
 
         for (const auto* a : _actors) _render_actor(r, _camera, *a);
+
+        _particles.render(r, _camera);
+
+        for (const auto& pr : _projectiles) {
+            _draw_rect(r, _camera, pr.x, pr.y, pr.half_w, pr.half_h,
+                       255, 220, 60);
+        }
+        for (const auto& gi : _ground_items) {
+            if (!gi.active) continue;
+            Uint8 RR = 90, GG = 220, BB = 130;
+            if (gi.type == GroundItemType::Damage) {
+                RR = 230; GG = 120; BB = 80;
+            } else if (gi.type == GroundItemType::Speed) {
+                RR = 100; GG = 180; BB = 255;
+            }
+            _draw_rect(r, _camera, gi.x, gi.y, 10.0f, 10.0f, RR, GG, BB);
+        }
 
         // HP numérico
         for (const auto* a : _actors) {
@@ -272,18 +934,109 @@ public:
             draw_text(r, sx, sy, buf, 1, 200, 200, 200);
         }
 
+        _floating_texts.render(
+            r,
+            [&](float wx) { return _camera.world_to_screen_x(wx); },
+            [&](float wy) { return _camera.world_to_screen_y(wy); });
+
         if (_player.is_alive) {
             float lx = _camera.world_to_screen_x(_player.transform.x);
             float ly = _camera.world_to_screen_y(_player.transform.y);
             _lighting.render(r, lx, ly);
         }
 
-        if (_game_over) _render_game_over(r);
+        _render_hud(r);
+
+        if (_show_autosave_indicator && _autosave_flash > 0.f) {
+            const char* tag = "Saved";
+            float       tx  = (float)viewport_w - text_width(tag, 1) - 12.f;
+            float       ty  = (float)viewport_h - 22.f;
+            Uint8       al  = (Uint8)std::min(220.f, 90.f + 200.f * (_autosave_flash / 1.35f));
+            draw_text(r, tx, ty, tag, 1, 140, 200, 160, al);
+        }
+
+        if (_player.is_alive && _player.progression.level_choice_pending()) {
+            const char* msg = "LEVEL UP  1=DMG  2=HP  3=SPD";
+            float cx = viewport_w * 0.5f;
+            float cy = viewport_h * 0.22f;
+            draw_text(r, cx - text_width(msg, 2) * 0.5f, cy, msg, 2, 255, 230, 120);
+        }
+        if (_player.is_alive && _talent_selection_pending()) {
+            const char* msg = "TALENT  4/5/6 = next 3 options (by id)";
+            float cx = viewport_w * 0.5f;
+            float cy = viewport_h * 0.27f;
+            draw_text(r, cx - text_width(msg, 2) * 0.5f, cy, msg, 2, 140, 220, 255);
+        }
+
+        if (!_stress_mode && _room_index == 3 && _boss_intro_pending) {
+            float t       = _boss_intro_timer / kBossIntroDuration;
+            float alpha_f = (t < 0.4f) ? (t / 0.4f)
+                          : (t < 0.8f) ? 1.0f
+                                       : (1.0f - (t - 0.8f) / 0.2f);
+            Uint8 a = (Uint8)(alpha_f * 255.0f);
+
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(alpha_f * 160.0f));
+            SDL_FRect intro_full{0, 0, (float)viewport_w, (float)viewport_h};
+            SDL_RenderFillRect(r, &intro_full);
+
+            const char* boss_name = "GRIMJAW";
+            int         sc        = 5;
+            float       bx = viewport_w * 0.5f - text_width(boss_name, sc) * 0.5f;
+            float       by = viewport_h * 0.42f;
+            draw_text(r, bx, by, boss_name, sc, 220, 60, 40, a);
+
+            const char* sub  = "Guardian of the Third Depth";
+            int         sc2  = 2;
+            float sx2 = viewport_w * 0.5f - text_width(sub, sc2) * 0.5f;
+            draw_text(r, sx2, by + sc * 12 + 8, sub, sc2, 180, 140, 120,
+                      (Uint8)(alpha_f * 200.0f));
+        }
+
+        if (_death_fade_remaining > 0.f && !_player.is_alive) {
+            float u = 1.0f - (_death_fade_remaining / kDeathFadeSeconds);
+            if (u < 0.f) u = 0.f;
+            if (u > 1.f) u = 1.f;
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(r, 80, 5, 5, (Uint8)(u * 220.0f));
+            SDL_FRect df{0, 0, (float)viewport_w, (float)viewport_h};
+            SDL_RenderFillRect(r, &df);
+        }
+
+        if (_screen_flash_timer > 0.0f && _screen_flash_duration > 1e-6f) {
+            float alpha_f = _screen_flash_timer / _screen_flash_duration;
+            if (alpha_f > 1.0f) alpha_f = 1.0f;
+            Uint8 aa = (Uint8)(alpha_f * (float)_screen_flash_color.a);
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(r, _screen_flash_color.r, _screen_flash_color.g,
+                                   _screen_flash_color.b, aa);
+            SDL_FRect flash_full{0, 0, (float)viewport_w, (float)viewport_h};
+            SDL_RenderFillRect(r, &flash_full);
+        }
+
+        if (_dialogue.is_active())
+            _dialogue.render(r, viewport_w, viewport_h);
+
+        if (_skill_tree_open)
+            _render_skill_tree_overlay(r);
+        if (_paused)
+            _render_pause_overlay(r);
+        if (_settings_open)
+            _render_settings_placeholder(r);
     }
 
-    const char* next_scene() const override { return _next_scene; }
+    const char* next_scene() const override {
+        return _pending_next_scene.empty() ? "" : _pending_next_scene.c_str();
+    }
+
+    void clear_next_scene_request() override {
+        _pending_next_scene.clear();
+    }
 
 private:
+    static constexpr float kBossIntroDuration = 1.8f;
+    static constexpr float kDeathFadeSeconds    = 1.5f;
+
     RoomDefinition      _room;
     Actor               _player;
     std::vector<Actor>  _enemies;    // inimigos tipados (Feature 2)
@@ -291,7 +1044,26 @@ private:
     RoomCollisionSystem _col_sys;
     MeleeCombatSystem   _combat_sys;
     EnemyAISystem       _enemy_ai;
-    Pathfinder          _pathfinder;  // Feature 3
+    Pathfinder          _pathfinder;
+    PlayerActionSystem  _player_action;
+    MovementSystem      _movement_sys;
+    ResourceSystem      _resource_sys;
+    StatusEffectSystem  _status_sys;
+    RoomFlowSystem      _room_flow_sys;
+    EnemyDef            _enemy_defs[kEnemyTypeCount]{};
+    DropConfig          _drop_config{};
+    IniData             _rooms_ini{};
+    DialogueSystem      _dialogue;
+    ProjectileSystem    _projectile_sys;
+    std::vector<Projectile> _projectiles;
+    std::vector<GroundItem> _ground_items;
+    int                 _room_index = 0;
+    bool                _prev_upgrade_1 = false;
+    bool                _prev_upgrade_2 = false;
+    bool                _prev_upgrade_3 = false;
+    bool                _prev_talent_1 = false;
+    bool                _prev_talent_2 = false;
+    bool                _prev_talent_3 = false;
     Camera2D            _camera;
     Tilemap             _tilemap;
     TilemapRenderer     _tile_renderer;
@@ -299,18 +1071,735 @@ private:
     SDL_Renderer*       _renderer   = nullptr;
     AudioSystem*        _audio      = nullptr;  // Feature 4 (não-proprietário)
     std::optional<TextureCache> _tex_cache;     // Feature 1
+    std::vector<SDL_Texture*>   _tiled_textures; // criadas por tile_sprite_sheets, destruídas no exit()
 
-    bool        _game_over  = false;
-    float       _go_timer   = 0.0f;
+    bool                  _show_autosave_indicator = false;
+    float                 _autosave_flash          = 0.f;
+    bool                  _first_door_dialogue_done = false;
+    bool                  _pending_room_blurb        = false;
+    std::string           _post_mortem_dialogue_id;
+    SimpleParticleSystem  _particles;
+
+    FloatingTextSystem  _floating_texts;
+    bool                  _death_snapshot_done       = false;
+    float                 _death_fade_remaining      = 0.f;
+    bool                  _prev_level_choice_pending = false;
+
+    RunStats*   _run_stats   = nullptr;
+    DifficultyLevel* _difficulty = nullptr;
     int         _hitstop    = 0;
-    const char* _next_scene = "";
+    std::string _pending_next_scene;
+    int         _requested_enemy_count = 3;
+    bool        _stress_mode = false;
+
+    // Fade + transição suave para outra cena (town / title)
+    bool        _scene_exit_pending = false;
+    float       _scene_exit_timer   = 0.f;
+    std::string _scene_exit_target;
+
+    QuestState _quest_state{};
+
+    bool             _paused = false;
+    bool             _settings_open = false;
+    ui::List         _pause_list;
+    bool             _prev_esc = false;
+    bool             _prev_ui_up = false;
+    bool             _prev_ui_down = false;
+    bool             _prev_ui_left = false;
+    bool             _prev_ui_right = false;
+    bool             _prev_tab = false;
+    bool             _prev_menu_confirm = false;
+    bool             _prev_ui_cancel   = false;
+    bool             _skill_tree_open = false;
+    int              _st_selected_col = 0;
+    int              _st_selected_row = 0;
+    std::vector<int> _st_col_indices[3];
+
+    bool        _boss_phase2_triggered = false;
+    bool        _boss_intro_pending    = false;
+    float       _boss_intro_timer      = 0.0f;
+    float       _player_cast_timer     = 0.0f;  // segundos restantes da anim. Cast
+    float       _screen_flash_timer    = 0.0f;
+    float       _screen_flash_duration = 0.25f;
+    SDL_Color   _screen_flash_color    = {255, 255, 255, 0};
+
+    void _snapshot_last_run_to_save() {
+        if (_stress_mode || !_run_stats)
+            return;
+        SaveData d{};
+        if (!SaveSystem::load_default(d))
+            return;
+        d.last_run_stats = *_run_stats;
+        SaveSystem::save_default(d);
+    }
+
+    void _flush_menu_input_prev(const InputState& in) {
+        _prev_esc            = in.pause_pressed;
+        _prev_ui_up          = in.ui_up_pressed;
+        _prev_ui_down        = in.ui_down_pressed;
+        _prev_ui_left        = in.ui_left_pressed;
+        _prev_ui_right       = in.ui_right_pressed;
+        _prev_tab            = in.skill_tree_pressed;
+        _prev_menu_confirm   = in.confirm_pressed;
+        _prev_ui_cancel      = in.ui_cancel_pressed;
+    }
+
+    void _build_skill_tree_columns() {
+        for (int c = 0; c < 3; ++c)
+            _st_col_indices[c].clear();
+        for (int i = 0; i < kTalentCount; ++i) {
+            const int disc = static_cast<int>(g_talent_nodes[static_cast<size_t>(i)].discipline);
+            if (disc >= 0 && disc < 3)
+                _st_col_indices[disc].push_back(i);
+        }
+    }
+
+    void _st_clamp_cursor() {
+        const int nc = static_cast<int>(_st_col_indices[_st_selected_col].size());
+        if (nc <= 0) {
+            _st_selected_row = 0;
+            return;
+        }
+        if (_st_selected_row >= nc)
+            _st_selected_row = nc - 1;
+        if (_st_selected_row < 0)
+            _st_selected_row = 0;
+    }
+
+    bool _handle_pause_and_skill_ui(const InputState& input) {
+        const bool esc_edge   = input.pause_pressed && !_prev_esc;
+        const bool tab_edge   = input.skill_tree_pressed && !_prev_tab;
+        const bool up_edge    = input.ui_up_pressed && !_prev_ui_up;
+        const bool down_edge  = input.ui_down_pressed && !_prev_ui_down;
+        const bool left_edge  = input.ui_left_pressed && !_prev_ui_left;
+        const bool right_edge = input.ui_right_pressed && !_prev_ui_right;
+        const bool conf_edge  = input.confirm_pressed && !_prev_menu_confirm;
+        const bool back_edge  = input.ui_cancel_pressed && !_prev_ui_cancel;
+
+        if (_settings_open) {
+            if (esc_edge || conf_edge || back_edge)
+                _settings_open = false;
+            _flush_menu_input_prev(input);
+            return true;
+        }
+
+        if (_skill_tree_open) {
+            if (esc_edge || tab_edge)
+                _skill_tree_open = false;
+            else {
+                if (left_edge) {
+                    _st_selected_col = (_st_selected_col + 2) % 3;
+                    _st_clamp_cursor();
+                }
+                if (right_edge) {
+                    _st_selected_col = (_st_selected_col + 1) % 3;
+                    _st_clamp_cursor();
+                }
+                const int nrows = static_cast<int>(_st_col_indices[_st_selected_col].size());
+                if (up_edge && nrows > 0)
+                    _st_selected_row = (_st_selected_row + nrows - 1) % nrows;
+                if (down_edge && nrows > 0)
+                    _st_selected_row = (_st_selected_row + 1) % nrows;
+                if (conf_edge && !_stress_mode && nrows > 0) {
+                    const auto& col = _st_col_indices[_st_selected_col];
+                    const int   ti  = col[static_cast<size_t>(_st_selected_row)];
+                    if (_try_spend_talent(static_cast<TalentId>(ti)))
+                        _persist_save();
+                }
+            }
+            return true;
+        }
+
+        if (_paused) {
+            if (esc_edge)
+                _paused = false;
+            else {
+                if (up_edge)
+                    _pause_list.nav_up();
+                if (down_edge)
+                    _pause_list.nav_down();
+                if (conf_edge) {
+                    switch (_pause_list.selected) {
+                    case 0:
+                        _paused = false;
+                        break;
+                    case 1:
+                        _skill_tree_open   = true;
+                        _paused            = false;
+                        _st_selected_col   = 0;
+                        _st_selected_row   = 0;
+                        _st_clamp_cursor();
+                        break;
+                    case 2:
+                        _settings_open = true;
+                        break;
+                    case 3:
+                        _pending_next_scene = "title";
+                        _paused             = false;
+                        if (_audio)
+                            _audio->fade_music(400);
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+
+        if (tab_edge && !_player.progression.level_choice_pending()
+            && !_talent_selection_pending()) {
+            _skill_tree_open = !_skill_tree_open;
+            if (_skill_tree_open) {
+                _st_selected_col = 0;
+                _st_selected_row = 0;
+                _st_clamp_cursor();
+            }
+        }
+
+        if (esc_edge && !_player.progression.level_choice_pending()
+            && !_talent_selection_pending()) {
+            _paused              = true;
+            _pause_list.selected = 0;
+            return true;
+        }
+
+        return false;
+    }
+
+    void _render_pause_overlay(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &full);
+
+        ui::Panel panel;
+        panel.rect = {viewport_w * 0.35f, viewport_h * 0.25f, viewport_w * 0.30f,
+                      viewport_h * 0.50f};
+        panel.render(r);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "PAUSED", 3, 255, 220, 60,
+                  255);
+        _pause_list.render(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f);
+    }
+
+    void _render_settings_placeholder(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
+        SDL_FRect dim{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &dim);
+
+        ui::Panel panel;
+        panel.rect = {viewport_w * 0.30f, viewport_h * 0.30f, viewport_w * 0.40f, viewport_h * 0.40f};
+        panel.render(r);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "SETTINGS", 3, 220, 200, 120, 255);
+        const char* l1 = "Audio e teclas vivem em config.ini";
+        const char* l2 = "por agora. Mais opcoes em breve.";
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f, l1, 2, 190, 190, 175, 255);
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f, l2, 2, 190, 190, 175, 255);
+        const char* hint = "ESC / ENTER / BACKSPACE - voltar";
+        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f, hint, 1, 160, 200, 220,
+                  255);
+    }
+
+    void _render_skill_tree_overlay(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
+        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &full);
+
+        char pts[48];
+        SDL_snprintf(pts, sizeof(pts), "Pontos: %d", _player.talents.pending_points);
+        draw_text(r, (float)viewport_w - text_width(pts, 2) - 16.0f, 16.0f, pts, 2, 200, 220,
+                  255, 255);
+
+        const char* titles[3] = {"MELEE", "RANGED", "MAGIC"};
+        const float gap       = 12.0f;
+        const float colw      = (viewport_w - gap * 4.0f) / 3.0f;
+        const float top       = 56.0f;
+        const float height    = (float)viewport_h - top - 24.0f;
+
+        for (int c = 0; c < 3; ++c) {
+            ui::Panel col_panel;
+            col_panel.rect = {gap + (colw + gap) * (float)c, top, colw, height};
+            if (c == _st_selected_col) {
+                col_panel.border    = {255, 210, 80, 255};
+                col_panel.border_px = 3;
+            }
+            col_panel.render(r);
+            draw_text(r, col_panel.rect.x + 10.0f, col_panel.rect.y + 8.0f, titles[c], 2, 220,
+                      200, 160, 255);
+
+            float ty = col_panel.rect.y + 36.0f;
+            const auto& ids = _st_col_indices[c];
+            for (int ri = 0; ri < static_cast<int>(ids.size()); ++ri) {
+                const int        ti   = ids[static_cast<size_t>(ri)];
+                const TalentId    tid  = static_cast<TalentId>(ti);
+                const TalentNode& node = talent_def(tid);
+                const int        lv   = _player.talents.level_of(tid);
+                const bool       sel  = (c == _st_selected_col && ri == _st_selected_row);
+                const bool       lock = node.has_parent
+                    && _player.talents.level_of(node.parent) < node.parent_min_level;
+                char line[96];
+                SDL_snprintf(line, sizeof(line), "%s %d/%d", talent_display_name(tid).c_str(), lv,
+                             node.max_level);
+                Uint8 R = 200, G = 200, B = 190;
+                if (lock && lv == 0) {
+                    R = 90;
+                    G = 88;
+                    B = 85;
+                } else if (_player.talents.can_spend(tid)) {
+                    R = 180;
+                    G = 240;
+                    B = 160;
+                }
+                if (sel) {
+                    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+                    SDL_SetRenderDrawColor(r, 70, 60, 40, 220);
+                    SDL_FRect hi{col_panel.rect.x + 6.0f, ty - 2.0f, col_panel.rect.w - 12.0f,
+                                  22.0f};
+                    SDL_RenderFillRect(r, &hi);
+                }
+                draw_text(r, col_panel.rect.x + 12.0f, ty, line, 1, R, G, B, 255);
+                ty += 24.0f;
+            }
+        }
+
+        const char* hint = "SETAS  ENTER - gastar ponto  TAB/ESC - fechar";
+        draw_text(r, 16.0f, (float)viewport_h - 28.0f, hint, 2, 200, 200, 180, 255);
+    }
 
     // -------------------------------------------------------------------
     // Spawn e reset
     // -------------------------------------------------------------------
 
+    int _enemy_spawn_budget() const {
+        int b = _stress_mode ? dungeon_rules::enemy_spawn_budget_stress(_requested_enemy_count)
+                             : dungeon_rules::enemy_spawn_budget_normal(_room_index);
+        if (!_stress_mode && _difficulty)
+            b = difficulty_adjust_spawn_budget(b, *_difficulty);
+        return b;
+    }
+
+    bool _talent_selection_pending() const {
+        return _player.talents.pending_points > 0
+            && _player.talents.has_unlockable_options();
+    }
+
+    int _collect_spendable_talent_ids(TalentId out[3]) const {
+        int n = 0;
+        for (int i = 0; i < kTalentCount && n < 3; ++i) {
+            const auto id = static_cast<TalentId>(i);
+            if (_player.talents.can_spend(id))
+                out[n++] = id;
+        }
+        return n;
+    }
+
+    bool _try_spend_talent(TalentId id) {
+        if (!_player.talents.try_unlock(id))
+            return false;
+        if (id == TalentId::ArcaneReservoir) {
+            _player.mana.max += 30.0f;
+            _player.mana.current += 30.0f;
+            if (_player.mana.current > _player.mana.max)
+                _player.mana.current = _player.mana.max;
+        } else if (id == TalentId::ManaFlow) {
+            _player.mana.regen_rate += 8.0f;
+        }
+        _sync_spell_unlocks_from_talents();
+        return true;
+    }
+
+    void _sync_spell_unlocks_from_talents() {
+        _player.spell_book.sync_from_talents(_player.talents);
+    }
+
+    void _rebuild_actor_pointers() {
+        _actors.clear();
+        _actors.push_back(&_player);
+        for (auto& e : _enemies) _actors.push_back(&e);
+    }
+
+    void _sync_footstep_anchors() {
+        _player.footstep_prev_x     = _player.transform.x;
+        _player.footstep_prev_y     = _player.transform.y;
+        _player.footstep_accum_dist = 0.f;
+        for (auto& e : _enemies) {
+            e.footstep_prev_x     = e.transform.x;
+            e.footstep_prev_y     = e.transform.y;
+            e.footstep_accum_dist = 0.f;
+        }
+    }
+
+    void _configure_player_state(bool reset_health_to_max) {
+        _player.name            = "player";
+        _player.team            = Team::Player;
+        _player.attack_damage   = g_player_config.melee_damage;
+        _player.ranged_damage   = g_player_config.ranged_damage;
+        _player.melee_hit_box   = { 22.0f, 14.0f, 28.0f };
+        _player.is_alive        = true;
+        _player.was_alive       = true;
+        _player.move_speed      = g_player_config.base_move_speed;
+        _player.dash_speed               = g_player_config.dash_speed;
+        _player.dash_duration_seconds     = g_player_config.dash_duration;
+        _player.dash_cooldown_seconds      = g_player_config.dash_cooldown;
+        _player.dash_iframes_seconds       = g_player_config.dash_iframes;
+        _player.ranged_cooldown_seconds    = g_player_config.ranged_cooldown;
+        _player.knockback_vx  = 0;
+        _player.knockback_vy  = 0;
+        _player.stamina = StaminaState{};
+        _player.stamina.current = g_player_config.base_stamina;
+        _player.stamina.max     = g_player_config.base_stamina_max;
+        _player.stamina.regen_rate   = g_player_config.stamina_regen;
+        _player.stamina.regen_delay  = g_player_config.stamina_delay;
+        _player.spell_book    = SpellBookState{};
+        _sync_spell_unlocks_from_talents();
+        _player.dash_active_remaining_seconds   = 0.0f;
+        _player.dash_cooldown_remaining_seconds = 0.0f;
+        _player.ranged_cooldown_remaining_seconds = 0.0f;
+
+        // Recalcula todos os stats derivados (dano, hp, stamina, mana max).
+        recompute_player_derived_stats(
+            _player.derived,
+            _player.attributes,
+            _player.progression,
+            _player.talents,
+            _player.equipment,
+            g_player_config.melee_damage,
+            g_player_config.ranged_damage);
+
+        if (_stress_mode)
+            _player.transform.set_position(_room.bounds.max_x * 0.5f,
+                                           _room.bounds.max_y * 0.5f);
+        else
+            _player_place_intro_spawn();
+
+        const int base_hp = _stress_mode ? 10000 : g_player_config.base_hp;
+        _player.health.max_hp = base_hp + _player.derived.hp_max_bonus;
+        if (reset_health_to_max)
+            _player.health.current_hp = _player.health.max_hp;
+
+        _player.stamina = StaminaState{};
+        _player.stamina.current    = g_player_config.base_stamina;
+        _player.stamina.max        = g_player_config.base_stamina_max + _player.derived.stamina_max_bonus;
+        _player.stamina.regen_rate = g_player_config.stamina_regen;
+        _player.stamina.regen_delay = g_player_config.stamina_delay;
+
+        _player.mana = ManaState{};
+        _player.mana.current     = g_player_config.base_mana;
+        _player.mana.max         = g_player_config.base_mana_max + _player.derived.mana_max_bonus;
+        _player.mana.regen_rate  = g_player_config.base_mana_regen;
+        _player.mana.regen_delay = g_player_config.mana_regen_delay;
+
+        _player.combat.reset_for_spawn();
+        {
+            static const char* kPlayerSheet = "assets/sprites/player.png";
+            _player.sprite_sheet = (_tex_cache.has_value())
+                                       ? static_cast<void*>(_tex_cache->load(kPlayerSheet))
+                                       : nullptr;
+            if (_player.sprite_sheet)
+                _player.anim.build_puny_clips(0, 8.0f);
+        }
+
+        _player.footstep_prev_x     = _player.transform.x;
+        _player.footstep_prev_y     = _player.transform.y;
+        _player.footstep_accum_dist = 0.f;
+    }
+
+    void _spawn_enemies_for_budget(int budget) {
+        _enemies.clear();
+        if (!_stress_mode && _room_index == 3) {
+            _enemies.reserve(1);
+            const WorldBounds& b = _room.bounds;
+            float                w = b.max_x - b.min_x;
+            float                h = b.max_y - b.min_y;
+            _boss_phase2_triggered = false;
+            _boss_intro_pending    = true;
+            _boss_intro_timer      = 0.0f;
+            _spawn_enemy(EnemyType::BossGrimjaw, b.min_x + w * 0.625f, b.min_y + h * 0.5f,
+                         "Grimjaw");
+            _rebuild_actor_pointers();
+            _sync_footstep_anchors();
+            return;
+        }
+        _enemies.reserve(static_cast<size_t>(std::max(budget, 4)));
+        if (budget <= 3)
+            _spawn_default_enemies(budget);
+        else
+            _spawn_stress_enemies(budget);
+        _rebuild_actor_pointers();
+        _sync_footstep_anchors();
+    }
+
+    SaveData _capture_save_data() const {
+        SaveData d;
+        d.version     = kSaveFormatVersion;
+        d.room_index  = _room_index;
+        d.player_hp   = _player.health.current_hp;
+        d.gold        = _player.gold;
+        d.quest_state = _quest_state;
+        d.progression = _player.progression;
+        d.talents = _player.talents;
+        d.mana    = _player.mana;
+        d.stamina = _player.stamina;
+        return d;
+    }
+
+    void _persist_save() {
+        if (_stress_mode) return;
+        SaveData d = _capture_save_data();
+        SaveData disk{};
+        if (SaveSystem::load_default(disk))
+            d.victory_reached = disk.victory_reached;
+        if (_difficulty)
+            d.difficulty = static_cast<int>(*_difficulty);
+        SaveSystem::save_default(d);
+        if (_show_autosave_indicator) _autosave_flash = 1.35f;
+    }
+
+    void _apply_save_and_build_world(const SaveData& sd) {
+        _projectiles.clear();
+        _ground_items.clear();
+        _room_index           = sd.room_index;
+        _player.progression   = sd.progression;
+        _player.talents       = sd.talents;
+        _player.attributes    = sd.attributes;
+        _player.gold          = sd.gold;
+        _quest_state        = sd.quest_state;
+        if (_difficulty)
+            *_difficulty = static_cast<DifficultyLevel>(std::clamp(sd.difficulty, 0, 2));
+        _build_room();
+        _load_room_visuals();
+        _pathfinder.build_nav(_tilemap, _room);
+        _configure_player_state(false);
+        if (_stress_mode)
+            _player.transform.set_position(_room.bounds.max_x * 0.5f,
+                                           _room.bounds.max_y * 0.5f);
+        else if (_room_index == 0)
+            _player_place_intro_spawn();
+        else
+            _player_place_from_west_gate();
+
+        int hp = sd.player_hp;
+        if (hp > _player.health.max_hp) hp = _player.health.max_hp;
+        if (hp < 1) hp = 1;
+        _player.health.current_hp = hp;
+
+        _player.mana    = sd.mana;
+        _player.stamina = sd.stamina;
+        if (_player.mana.current > _player.mana.max) _player.mana.current = _player.mana.max;
+        if (_player.stamina.current > _player.stamina.max)
+            _player.stamina.current = _player.stamina.max;
+
+        _player.spell_book = SpellBookState{};
+        _sync_spell_unlocks_from_talents();
+
+        _spawn_enemies_for_budget(_enemy_spawn_budget());
+        _first_door_dialogue_done = (_room_index > 0);
+        _post_mortem_dialogue_id.clear();
+        _pending_room_blurb       = false;
+    }
+
+    void _load_data_files() {
+        reset_progression_config_defaults();
+        reset_player_config_defaults();
+        reset_talent_tree_defaults();
+
+        for (int i = 0; i < kEnemyTypeCount; ++i)
+            _enemy_defs[i] = get_enemy_def(static_cast<EnemyType>(i));
+        _drop_config = DropConfig{};
+
+        {
+            IniData d = ini_load(resolve_data_path("progression.ini").c_str());
+            if (!d.sections.empty())
+                apply_progression_ini(d);
+        }
+        {
+            IniData d = ini_load(resolve_data_path("player.ini").c_str());
+            if (!d.sections.empty())
+                apply_player_ini(d);
+        }
+        {
+            IniData d = ini_load(resolve_data_path("talents.ini").c_str());
+            if (!d.sections.empty())
+                apply_talents_ini(d);
+        }
+
+        {
+            IniData d = ini_load(resolve_data_path("enemies.ini").c_str());
+            static std::array<std::string, kEnemyTypeCount> enemy_sprite_paths;
+            static const char* kEnemyIniSecs[kEnemyTypeCount] = {
+                "skeleton",      "orc",           "ghost",
+                "archer",        "patrol_guard",  "elite_skeleton",
+                "boss_grimjaw",
+            };
+            for (int i = 0; i < kEnemyTypeCount; ++i)
+                apply_enemy_ini_section(d, kEnemyIniSecs[i], _enemy_defs[i],
+                                        &enemy_sprite_paths[static_cast<size_t>(i)]);
+        }
+
+        // spells.ini
+        {
+            IniData d = ini_load(resolve_data_path("spells.ini").c_str());
+            apply_spell_ini_section(d, "frost_bolt",
+                                    g_spell_defs[static_cast<int>(SpellId::FrostBolt)]);
+            apply_spell_ini_section(d, "bolt",
+                                    g_spell_defs[static_cast<int>(SpellId::FrostBolt)]);
+            apply_spell_ini_section(d, "nova",
+                                    g_spell_defs[static_cast<int>(SpellId::Nova)]);
+            apply_spell_ini_section(
+                d, "chain_lightning",
+                g_spell_defs[static_cast<int>(SpellId::ChainLightning)]);
+            apply_spell_ini_section(d, "multi_shot",
+                                    g_spell_defs[static_cast<int>(SpellId::MultiShot)]);
+            apply_spell_ini_section(d, "poison_arrow",
+                                    g_spell_defs[static_cast<int>(SpellId::PoisonArrow)]);
+            apply_spell_ini_section(d, "strafe",
+                                    g_spell_defs[static_cast<int>(SpellId::Strafe)]);
+            apply_spell_ini_section(d, "cleave",
+                                    g_spell_defs[static_cast<int>(SpellId::Cleave)]);
+            apply_spell_ini_section(d, "battle_cry",
+                                    g_spell_defs[static_cast<int>(SpellId::BattleCry)]);
+        }
+
+        // items.ini
+        {
+            IniData d = ini_load(resolve_data_path("items.ini").c_str());
+            _drop_config.drop_chance_pct = d.get_int  ("drops", "drop_chance_pct", _drop_config.drop_chance_pct);
+            _drop_config.pickup_radius   = d.get_float("drops", "pickup_radius",   _drop_config.pickup_radius);
+            _drop_config.health_bonus    = d.get_int  ("drops", "health_bonus",    _drop_config.health_bonus);
+            _drop_config.damage_bonus    = d.get_int  ("drops", "damage_bonus",    _drop_config.damage_bonus);
+            _drop_config.speed_bonus     = d.get_float("drops", "speed_bonus",     _drop_config.speed_bonus);
+            _drop_config.lore_drop_chance_pct =
+                d.get_int("drops", "lore_drop_chance_pct", _drop_config.lore_drop_chance_pct);
+        }
+
+        _rooms_ini = ini_load(resolve_data_path("rooms.ini").c_str());
+    }
+
+    void _register_dungeon_dialogue() {
+        {
+            DialogueSequence prologue;
+            prologue.id = "dungeon_prologue";
+            prologue.lines = {
+                { "Voice", "Few have braved these steps in years.", {180, 200, 255, 255} },
+                { "Voice", "Torchlight on wet stone. Something stirs below.", {170, 210, 240, 255} },
+                { "Voice", "Steel ready. The ruin remembers every footfall.", {200, 160, 120, 255} },
+            };
+            _dialogue.register_sequence(std::move(prologue));
+        }
+        {
+            DialogueSequence deeper;
+            deeper.id = "dungeon_room2";
+            deeper.lines = {
+                { "Voice", "Deeper now. The walls grow older here.", {160, 180, 220, 255} },
+                { "Voice", "Whatever lurks ahead has not seen daylight in years.", {200, 160, 120, 255} },
+            };
+            _dialogue.register_sequence(std::move(deeper));
+        }
+        {
+            DialogueSequence first;
+            first.id = "dungeon_first_door";
+            first.lines = {
+                { "Voice", "The east gate only opens when the hall is silent.", {150, 200, 255, 255} },
+                { "Voice", "Step through — the stone will remember your stride.", {180, 170, 140, 255} },
+            };
+            _dialogue.register_sequence(std::move(first));
+        }
+        {
+            DialogueSequence deeper2;
+            deeper2.id = "dungeon_deeper";
+            deeper2.lines = {
+                { "Voice", "Another span of carved darkness. Keep the rhythm.", {140, 190, 230, 255} },
+            };
+            _dialogue.register_sequence(std::move(deeper2));
+        }
+        {
+            DialogueSequence relic;
+            relic.id = "dungeon_rare_relic";
+            relic.lines = {
+                { "Voice", "A relic hums in your palm — old magic, thin but sharp.", {220, 200, 120, 255} },
+            };
+            _dialogue.register_sequence(std::move(relic));
+        }
+        {
+            DialogueSequence mb;
+            mb.id = "miniboss_grimjaw_death";
+            mb.lines = {
+                { "Grimjaw", "Hrk… the depths… were meant… to keep you…", {200, 80, 70, 255} },
+                { "Voice", "The named brute falls. What waits past him listens closer now.", {160, 200, 240, 255} },
+            };
+            _dialogue.register_sequence(std::move(mb));
+        }
+        {
+            DialogueSequence ph2;
+            ph2.id = "boss_grimjaw_phase2";
+            ph2.lines = {
+                { "Grimjaw", "RAAAAGH! You dare…!!", {255, 80, 40, 255} },
+            };
+            _dialogue.register_sequence(std::move(ph2));
+        }
+    }
+
+    void _full_run_reset_initial(bool clear_saved_progress) {
+        if (clear_saved_progress)
+            SaveSystem::remove_default_saves();
+        if (_run_stats)
+            _run_stats->reset();
+        _room_index = 0;
+        _projectiles.clear();
+        _ground_items.clear();
+        _player.progression = ProgressionState{};
+        _player.talents     = TalentState{};
+        _player.gold        = 0;
+        _quest_state        = {};
+        _build_room();
+        _load_room_visuals();
+        _pathfinder.build_nav(_tilemap, _room);
+        _configure_player_state(true);
+        _spawn_enemies_for_budget(_enemy_spawn_budget());
+        if (!_stress_mode)
+            _dialogue.start("dungeon_prologue");
+        _first_door_dialogue_done = false;
+        _post_mortem_dialogue_id.clear();
+        _pending_room_blurb = false;
+    }
+
+    void _advance_room() {
+        _room_index++;
+        if (_run_stats)
+            _run_stats->rooms_cleared++;
+        _projectiles.clear();
+        _ground_items.clear();
+        _build_room();
+        _load_room_visuals();
+        _pathfinder.build_nav(_tilemap, _room);
+        if (!_stress_mode)
+            _player_place_from_west_gate();
+        else
+            _player.transform.set_position(_room.bounds.max_x * 0.5f,
+                                           _room.bounds.max_y * 0.5f);
+        _player.knockback_vx = 0.0f;
+        _player.knockback_vy = 0.0f;
+        _spawn_enemies_for_budget(_enemy_spawn_budget());
+        if (!_stress_mode && _room_index == 2)
+            _dialogue.start("dungeon_room2");
+        else if (!_stress_mode && _room_index >= 3)
+            _pending_room_blurb = true;
+        _persist_save();
+        _sync_footstep_anchors();
+    }
+
+    void _load_room_visuals() {
+        if (_tex_cache.has_value()) {
+            _tile_renderer.tileset      = _tex_cache->load("assets/tiles/dungeon_tileset.png");
+            _tile_renderer.floor_tile_col = 0; _tile_renderer.floor_tile_row = 0;
+            _tile_renderer.wall_tile_col  = 1; _tile_renderer.wall_tile_row  = 0;
+        } else {
+            _tile_renderer.tileset = nullptr;
+        }
+    }
+
     void _spawn_enemy(EnemyType type, float x, float y, const char* name) {
-        const EnemyDef& def = get_enemy_def(type);
+        const EnemyDef& def = _enemy_defs[static_cast<int>(type)];
         Actor a;
         a.name               = name;
         a.team               = Team::Enemy;
@@ -320,11 +1809,22 @@ private:
         a.attack_range_ai    = def.attack_range;
         a.stop_range_ai      = def.stop_range;
         a.move_speed         = def.move_speed;
+        a.base_move_speed_at_spawn = def.move_speed;
         a.knockback_friction = def.knockback_friction;
         a.collision          = def.collision;
         a.hurt_box           = def.hurt_box;
         a.melee_hit_box      = def.melee_hit_box;
         a.health             = { def.max_hp, def.max_hp };
+        if (_difficulty && !_stress_mode) {
+            float hm, dm;
+            difficulty_enemy_multipliers(*_difficulty, hm, dm);
+            int hp = (int)std::lround((float)def.max_hp * hm);
+            int ad = (int)std::lround((float)def.damage * dm);
+            hp     = std::max(1, hp);
+            ad     = std::max(1, ad);
+            a.health        = { hp, hp };
+            a.attack_damage = ad;
+        }
         a.combat.attack_startup_duration_seconds  = def.startup_sec;
         a.combat.attack_active_duration_seconds   = def.active_sec;
         a.combat.attack_recovery_duration_seconds = def.recovery_sec;
@@ -334,79 +1834,238 @@ private:
         a.was_alive          = true;
         a.knockback_vx       = 0;
         a.knockback_vy       = 0;
-        // Escala o timer inicial para distribuir replans entre inimigos
+        a.sprite_scale       = def.sprite_scale;
         a.path_replan_timer  = (float)_enemies.size() * 0.1f;
+        a.sprite_sheet       = (_tex_cache.has_value() && def.sprite_sheet_path && def.sprite_sheet_path[0])
+                                   ? static_cast<void*>(_tex_cache->load(def.sprite_sheet_path))
+                                   : nullptr;
+        if (a.sprite_sheet)
+            a.anim.build_puny_clips(def.dir_row, def.frame_fps);
 
-        // Spritesheet (Feature 1)
-        if (_tex_cache.has_value()) {
-            a.sprite_sheet = _tex_cache->load(def.sprite_sheet_path);
-        }
-        a.anim.build_default_clips(def.frame_w, def.frame_h,
-                                   def.idle_frames, def.walk_frames,
-                                   def.attack_frames, def.hurt_frames,
-                                   def.death_frames, def.frame_fps);
+        a.ai_behavior        = def.ai_behavior;
+        a.ranged_fire_rate   = def.ranged_fire_rate;
+        a.ranged_keep_dist   = def.ranged_keep_dist;
+        a.ranged_proj_damage = def.ranged_proj_damage;
+        a.ranged_fire_cd     = def.ranged_fire_rate * 0.35f;
+        a.is_elite           = def.is_elite_base;
+        a.boss_phase         = 1;
+        a.boss_charging      = false;
+        a.boss_charge_cd     = 1.2f;
+        a.patrol_state       = PatrolState::Patrol;
+        a.alert_timer        = 0.0f;
+        a.patrol_wp_index    = 0;
+        a.patrol_waypoints.clear();
+
+        if (type == EnemyType::PatrolGuard)
+            a.patrol_waypoints = {{x - 90.0f, y}, {x + 90.0f, y}, {x, y - 70.0f}, {x, y + 70.0f}};
+        if (type == EnemyType::BossGrimjaw)
+            a.patrol_waypoints = {{x - 180.0f, y - 130.0f},
+                                  {x + 180.0f, y - 130.0f},
+                                  {x + 180.0f, y + 130.0f},
+                                  {x - 180.0f, y + 130.0f}};
+
+        a.footstep_prev_x     = x;
+        a.footstep_prev_y     = y;
+        a.footstep_accum_dist = 0.f;
 
         _enemies.push_back(std::move(a));
     }
 
-    void _reset_all() {
-        // Player
-        _player.name         = "player";
-        _player.team         = Team::Player;
-        _player.attack_damage = 10;
-        _player.melee_hit_box = { 22.0f, 14.0f, 28.0f };
-        _player.is_alive     = true;
-        _player.was_alive    = true;
-        _player.move_speed   = 200.0f;
-        _player.knockback_vx = 0; _player.knockback_vy = 0;
-        _player.transform.set_position(400.0f, 600.0f);
-        _player.health = { 100, 100 };
-        _player.combat.reset_for_spawn();
+    void _spawn_default_enemies(int count) {
+        const WorldBounds& b = _room.bounds;
+        float              w = b.max_x - b.min_x;
+        float              h = b.max_y - b.min_y;
+        if (count >= 1)
+            _spawn_enemy(EnemyType::Skeleton, b.min_x + w * 0.56f, b.min_y + h * 0.5f,
+                         "skeleton_01");
+        if (count >= 2)
+            _spawn_enemy(EnemyType::Orc, b.min_x + w * 0.69f, b.min_y + h * 0.33f, "orc_01");
+        if (count >= 3)
+            _spawn_enemy(EnemyType::Ghost, b.min_x + w * 0.44f, b.min_y + h * 0.25f,
+                         "ghost_01");
+    }
 
-        // Sprite do player (Feature 1)
-        if (_tex_cache.has_value()) {
-            _player.sprite_sheet = _tex_cache->load("assets/sprites/player.png");
+    void _spawn_stress_enemies(int count) {
+        const float player_clear_radius_sq = 180.0f * 180.0f;
+        const int   step_tiles = 2;
+        int spawned = 0;
+
+        for (int row = 1; row < _tilemap.rows - 1 && spawned < count; row += step_tiles) {
+            for (int col = 1; col < _tilemap.cols - 1 && spawned < count; col += step_tiles) {
+                if (!_pathfinder.nav.is_walkable(col, row)) continue;
+
+                float x = (col + 0.5f) * (float)_tilemap.tile_size;
+                float y = (row + 0.5f) * (float)_tilemap.tile_size;
+                float dx = x - _player.transform.x;
+                float dy = y - _player.transform.y;
+                if (dx * dx + dy * dy < player_clear_radius_sq) continue;
+
+                EnemyType type = dungeon_rules::enemy_type_for_spawn_index(spawned);
+                char name[32];
+                SDL_snprintf(name, sizeof(name), "%s_%03d",
+                             dungeon_rules::enemy_type_name(type), spawned + 1);
+                _spawn_enemy(type, x, y, name);
+                ++spawned;
+            }
         }
-        _player.anim.build_default_clips(32, 32, 4, 4, 4, 2, 4, 8.0f);
 
-        // Inimigos (Feature 2)
-        _enemies.clear();
-        _spawn_enemy(EnemyType::Skeleton, 900.0f,  600.0f, "skeleton_01");
-        _spawn_enemy(EnemyType::Orc,      1100.0f, 400.0f, "orc_01");
-        _spawn_enemy(EnemyType::Ghost,    700.0f,  300.0f, "ghost_01");
+        if (spawned < count) {
+            SDL_Log("DungeonScene: stress spawn truncado em %d inimigos (pedido=%d)",
+                    spawned, count);
+        }
+    }
 
-        // Reconstrói o vetor de ponteiros (invalidado após _enemies.push_back)
-        _actors.clear();
-        _actors.push_back(&_player);
-        for (auto& e : _enemies) _actors.push_back(&e);
+    void _player_place_intro_spawn() {
+        const WorldBounds& b = _room.bounds;
+        float              w = b.max_x - b.min_x;
+        float              h = b.max_y - b.min_y;
+        _player.transform.set_position(b.min_x + w * 0.25f, b.min_y + h * 0.5f);
+    }
+
+    void _player_place_from_west_gate() {
+        const WorldBounds& b = _room.bounds;
+        float              w = b.max_x - b.min_x;
+        _player.transform.set_position(b.min_x + w * 0.1f,
+                                       (b.min_y + b.max_y) * 0.5f);
+    }
+
+    void _layout_intro(const WorldBounds& b) {
+        float w  = b.max_x - b.min_x;
+        float cx = (b.min_x + b.max_x) * 0.5f + w * 0.04f;
+        float cy = (b.min_y + b.max_y) * 0.5f;
+        _room.add_altar(cx, cy);
+    }
+
+    void _layout_boss_arena(const WorldBounds& b) {
+        float              w = b.max_x - b.min_x;
+        float              h = b.max_y - b.min_y;
+        const float        ph = 40.0f;
+        const float        ix = w * 0.18f;
+        const float        iy = h * 0.18f;
+        auto pillar = [&](float px, float py) {
+            _room.add_obstacle("pillar", px - ph, py - ph, px + ph, py + ph,
+                               "assets/props/dungeon_pillar.png", 96.0f, 128.0f);
+        };
+        pillar(b.min_x + ix, b.min_y + iy);
+        pillar(b.max_x - ix, b.min_y + iy);
+        pillar(b.min_x + ix, b.max_y - iy);
+        pillar(b.max_x - ix, b.max_y - iy);
+    }
+
+    void _layout_arena(const WorldBounds& b) {
+        float w  = b.max_x - b.min_x;
+        float h  = b.max_y - b.min_y;
+        float cx = (b.min_x + b.max_x) * 0.5f;
+        float cy = (b.min_y + b.max_y) * 0.5f;
+        float ox = w * 0.2f;
+        float oy = h * 0.2f;
+        const float ph = 40.0f;
+        auto pillar = [&](float px, float py) {
+            _room.add_obstacle("pillar", px - ph, py - ph, px + ph, py + ph,
+                               "assets/props/dungeon_pillar.png", 96.0f, 128.0f);
+        };
+        pillar(cx - ox, cy - oy);
+        pillar(cx + ox, cy - oy);
+        pillar(cx - ox, cy + oy);
+        pillar(cx + ox, cy + oy);
+        _room.add_barrel_cluster(b.min_x + w * 0.14f, b.min_y + h * 0.14f);
+        _room.add_barrel_cluster(b.max_x - w * 0.14f, b.max_y - h * 0.14f);
+    }
+
+    void _layout_corredor(const WorldBounds& b) {
+        float w = b.max_x - b.min_x;
+        float h = b.max_y - b.min_y;
+        float cx = (b.min_x + b.max_x) * 0.5f;
+        float cy = (b.min_y + b.max_y) * 0.5f;
+        _room.add_wall_L(b.min_x + w * 0.22f, b.min_y + h * 0.22f, 0);
+        _room.add_wall_L(b.max_x - w * 0.22f, b.max_y - h * 0.22f, 3);
+        _room.add_pillar_pair(cx, cy - h * 0.12f, 0);
+        _room.add_pillar_pair(cx, cy + h * 0.12f, 1);
+    }
+
+    void _layout_cruzamento(const WorldBounds& b) {
+        float w = b.max_x - b.min_x;
+        float h = b.max_y - b.min_y;
+        float cx = (b.min_x + b.max_x) * 0.5f;
+        float cy = (b.min_y + b.max_y) * 0.5f;
+        float inset_x = w * 0.15f;
+        float inset_y = h * 0.15f;
+        _room.add_obstacle(
+            "cross_v", cx - 20.0f, b.min_y + inset_y, cx + 20.0f, b.max_y - inset_y,
+            "assets/props/dungeon_wall_mid.png", 40.0f, h * 0.7f, 0.5f, 0.5f);
+        _room.add_obstacle(
+            "cross_h", b.min_x + inset_x, cy - 20.0f, b.max_x - inset_x, cy + 20.0f,
+            "assets/props/dungeon_wall_mid.png", w * 0.7f, 40.0f, 0.5f, 0.5f);
+    }
+
+    void _layout_labirinto(const WorldBounds& b) {
+        float w = b.max_x - b.min_x;
+        float h = b.max_y - b.min_y;
+        float cx = (b.min_x + b.max_x) * 0.5f;
+        float cy = (b.min_y + b.max_y) * 0.5f;
+        _room.add_wall_L(b.min_x + w * 0.28f, b.max_y - h * 0.28f, 2);
+        _room.add_wall_L(b.max_x - w * 0.28f, b.min_y + h * 0.28f, 1);
+        _room.add_altar(cx, cy);
+    }
+
+    void _apply_room_layout_template(int tmpl, const WorldBounds& b) {
+        switch (tmpl) {
+        case 0: _layout_arena(b); break;
+        case 1: _layout_corredor(b); break;
+        case 2: _layout_cruzamento(b); break;
+        case 3: _layout_labirinto(b); break;
+        case 4: _layout_boss_arena(b); break;
+        default: _layout_intro(b); break;
+        }
     }
 
     void _build_room() {
-        _room.name   = "dungeon_01";
-        _room.bounds = { 0, 1600, 0, 1200 };
+        char rn[48];
+        SDL_snprintf(rn, sizeof(rn), "dungeon_r%02d", _room_index);
+        _room.name = rn;
+        _room.bounds = dungeon_rules::room_bounds(_room_index);
         _room.obstacles.clear();
-        _room.add_obstacle("pillar_nw",  200,  200,  280,  280);
-        _room.add_obstacle("pillar_ne", 1320,  200, 1400,  280);
-        _room.add_obstacle("pillar_sw",  200,  920,  280, 1000);
-        _room.add_obstacle("pillar_se", 1320,  920, 1400, 1000);
-        _room.add_obstacle("wall_mid",   680,  500,  920,  540);
+        _room.doors.clear();
+
+        const WorldBounds& b = _room.bounds;
+        float              midy = (b.min_y + b.max_y) * 0.5f;
+        _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true);
+        _room.add_door(b.min_x + 20.0f, midy - 56.0f, b.min_x + 72.0f, midy + 56.0f, false,
+                       "town");
+
+        const int          tmpl = dungeon_rules::room_template(_room_index);
+        const char*        tkey = dungeon_rules::room_template_id_name(tmpl);
+        const std::string  tstr(tkey);
+        if (!load_room_obstacles_from_ini(_room, _rooms_ini, b, tstr))
+            _apply_room_layout_template(tmpl, b);
 
         const int TS = 32;
-        int cols = (int)(_room.bounds.max_x / TS) + 1;
-        int rows = (int)(_room.bounds.max_y / TS) + 1;
+        int       cols = (int)(b.max_x / TS) + 1;
+        int       rows = (int)(b.max_y / TS) + 1;
         _tilemap.init(cols, rows, TS);
-        _tilemap.fill(0, 0, cols-1, rows-1, TileType::Floor);
-        _tilemap.fill(0,      0,      cols-1, 0,      TileType::Wall);
-        _tilemap.fill(0,      rows-1, cols-1, rows-1, TileType::Wall);
-        _tilemap.fill(0,      0,      0,      rows-1, TileType::Wall);
-        _tilemap.fill(cols-1, 0,      cols-1, rows-1, TileType::Wall);
+        _tilemap.fill(0, 0, cols - 1, rows - 1, TileType::Floor);
+        _tilemap.fill(0, 0, cols - 1, 0, TileType::Wall);
+        _tilemap.fill(0, rows - 1, cols - 1, rows - 1, TileType::Wall);
+        _tilemap.fill(0, 0, 0, rows - 1, TileType::Wall);
+        _tilemap.fill(cols - 1, 0, cols - 1, rows - 1, TileType::Wall);
     }
 
     // -------------------------------------------------------------------
+    // Mapeia facing para linha do Puny Characters (layout 8-direções).
+    // Row 0 = Sul | Row 4 = Norte | Row 6 = Leste (Oeste é Row 6 + flip).
+    static int _facing_to_puny_row(float fx, float fy) {
+        const float ax = fx < 0.0f ? -fx : fx;
+        const float ay = fy < 0.0f ? -fy : fy;
+        if (ay > ax)
+            return fy > 0.0f ? 0 : 4;  // Sul ou Norte
+        return 6;                        // horizontal: Leste; Oeste via flip
+    }
+
     // Drive de animação — chamado uma vez por fixed_update
     // -------------------------------------------------------------------
     void _update_animations(float dt) {
         for (auto* a : _actors) {
+            a->anim.update_puny_dir_row(_facing_to_puny_row(a->facing_x, a->facing_y));
             if (!a->is_alive) {
                 a->anim.play(ActorAnim::Death);
             } else if (a->combat.is_hurt_stunned()) {
@@ -423,23 +2082,150 @@ private:
     }
 
     // -------------------------------------------------------------------
-    // Game over
+    // HUD (screen-space)
     // -------------------------------------------------------------------
-    void _render_game_over(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 180);
-        SDL_FRect ov = { 0, 0, (float)viewport_w, (float)viewport_h };
-        SDL_RenderFillRect(r, &ov);
+    void _render_hud(SDL_Renderer* r) {
+        if (!_player.is_alive) return;
 
-        const int   scale = 4;
-        const char* msg1  = "GAME OVER";
-        const char* msg2  = "PRESS SPACE TO RESTART";
-        float cx = viewport_w * 0.5f, cy = viewport_h * 0.5f;
+        const float x = 20.0f;
+        const float y_hp  = (float)viewport_h - 28.0f;
+        const float y_st  = y_hp - 18.0f;
+        const float y_mp  = y_st - 18.0f;
+        const float y_xp  = 18.0f;
+        const float w = 160.0f, h = 10.0f;
 
-        draw_text(r, cx - text_width(msg1,scale)*0.5f, cy - 40, msg1, scale, 220, 40, 40);
-        if (_go_timer >= 1.0f)
-            draw_text(r, cx - text_width(msg2,2)*0.5f, cy + 30, msg2, 2, 180, 180, 180);
+        // XP / nível
+        float xp_ratio = (_player.progression.xp_to_next > 0)
+            ? (float)_player.progression.xp / _player.progression.xp_to_next : 0.0f;
+        SDL_SetRenderDrawColor(r, 30, 30, 50, 220);
+        SDL_FRect xp_bg = { x, y_xp, w, h };
+        SDL_RenderFillRect(r, &xp_bg);
+        SDL_SetRenderDrawColor(r, 120, 180, 255, 255);
+        SDL_FRect xp_fill = { x, y_xp, w * xp_ratio, h };
+        SDL_RenderFillRect(r, &xp_fill);
+        char xb[48];
+        SDL_snprintf(xb, sizeof(xb), "ROOM %d", _room_index + 1);
+        draw_text(r, x, 2.0f, xb, 1, 200, 200, 220);
+        char lb[16];
+        SDL_snprintf(lb, sizeof(lb), "Lv%d", _player.progression.level);
+        draw_text(r, 8.0f, 48.0f, lb, 2, 200, 200, 180, 255);
+        char gb[32];
+        SDL_snprintf(gb, sizeof(gb), "G %d", _player.gold);
+        draw_text(r, (float)viewport_w - text_width(gb, 2) - 12.0f, 12.0f, gb, 2, 255, 215, 0,
+                  255);
+        if (_player.talents.pending_points > 0) {
+            char tb[24];
+            SDL_snprintf(tb, sizeof(tb), "TP %d", _player.talents.pending_points);
+            draw_text(r, x + 120.0f, 2.0f, tb, 1, 150, 220, 255);
+        }
+        draw_text(r, x + w + 5.0f, y_xp + 1.0f, "XP", 1, 150, 180, 230);
+
+        // Stamina
+        float st_ratio = (_player.stamina.max > 0.0f)
+            ? _player.stamina.current / _player.stamina.max : 0.0f;
+        SDL_SetRenderDrawColor(r, 20, 40, 25, 220);
+        SDL_FRect st_bg = { x, y_st, w, h };
+        SDL_RenderFillRect(r, &st_bg);
+        SDL_SetRenderDrawColor(r, 80, 220, 120, 255);
+        SDL_FRect st_fill = { x, y_st, w * st_ratio, h };
+        SDL_RenderFillRect(r, &st_fill);
+        draw_text(r, x + w + 5.0f, y_st + 1.0f, "ST", 1, 130, 210, 150);
+
+        // Mana
+        float mp_ratio = (_player.mana.max > 0.0f)
+            ? _player.mana.current / _player.mana.max : 0.0f;
+        SDL_SetRenderDrawColor(r, 15, 25, 55, 220);
+        SDL_FRect mp_bg = { x, y_mp, w, h };
+        SDL_RenderFillRect(r, &mp_bg);
+        SDL_SetRenderDrawColor(r, 90, 150, 255, 255);
+        SDL_FRect mp_fill = { x, y_mp, w * mp_ratio, h };
+        SDL_RenderFillRect(r, &mp_fill);
+        draw_text(r, x + w + 5.0f, y_mp + 1.0f, "MP", 1, 120, 170, 240);
+
+        // HP
+        float hp_ratio = (_player.health.max_hp > 0)
+            ? (float)_player.health.current_hp / _player.health.max_hp : 0.0f;
+        SDL_SetRenderDrawColor(r, 40, 10, 10, 220);
+        SDL_FRect bg = { x, y_hp, w, h };
+        SDL_RenderFillRect(r, &bg);
+        SDL_SetRenderDrawColor(r,
+            (Uint8)(255*(1.0f-hp_ratio)), (Uint8)(255*hp_ratio), 30, 255);
+        SDL_FRect fill = { x, y_hp, w * hp_ratio, h };
+        SDL_RenderFillRect(r, &fill);
+        char buf[28];
+        SDL_snprintf(buf, sizeof(buf), "HP %d/%d",
+                     _player.health.current_hp, _player.health.max_hp);
+        draw_text(r, x, y_hp - 14.0f, buf, 1, 200, 200, 200);
+
+        float ystat = y_hp - 42.0f;
+        if (_player.status_effects.has(StatusEffectType::Poison)) {
+            draw_text(r, x, ystat, "[POISON]", 1, 150, 230, 130);
+            ystat -= 12.0f;
+        }
+        if (_player.status_effects.has(StatusEffectType::Slow)) {
+            draw_text(r, x, ystat, "[SLOW]", 1, 120, 200, 255);
+            ystat -= 12.0f;
+        }
+        if (_player.status_effects.has(StatusEffectType::Stun)) {
+            draw_text(r, x, ystat, "[STUN]", 1, 255, 220, 100);
+        }
+
+        {
+            float xp_ratio = (_player.progression.xp_to_next > 0)
+                ? (float)_player.progression.xp / (float)_player.progression.xp_to_next : 0.0f;
+            ui::ProgressBar xp_footer;
+            xp_footer.rect       = {0.0f, (float)viewport_h - 6.0f, (float)viewport_w, 6.0f};
+            xp_footer.value      = xp_ratio;
+            xp_footer.color_fill = {80, 160, 255, 255};
+            xp_footer.color_bg   = {25, 30, 45, 220};
+            xp_footer.render(r);
+        }
+
+        const float hot_y = (float)viewport_h - 52.0f;
+        const float slot_w = 64.0f;
+        const float cx       = (float)viewport_w * 0.5f;
+        auto        draw_slot = [&](int idx, const char* key, SpellId sid, const char* abbrev) {
+            const float sx   = cx - slot_w * 2.0f - 24.0f + (slot_w + 10.0f) * (float)idx;
+            const int   si   = static_cast<int>(sid);
+            const bool  unlk = _player.spell_book.is_unlocked(sid);
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(r, 20, 18, 35, 230);
+            SDL_FRect box{sx, hot_y, slot_w, 40.0f};
+            SDL_RenderFillRect(r, &box);
+            SDL_SetRenderDrawColor(r, 120, 100, 80, 255);
+            SDL_RenderRect(r, &box);
+            draw_text(r, sx + 4.0f, hot_y + 2.0f, key, 1, 160, 160, 200, 255);
+            const char* tag = unlk ? abbrev : "--";
+            draw_text(r, sx + 4.0f, hot_y + 16.0f, tag, 1, unlk ? 200 : 90, unlk ? 220 : 80,
+                      unlk ? 200 : 80, 255);
+            if (unlk && _player.spell_book.cooldown_remaining[si] > 0.0f) {
+                const SpellDef& def = spell_def(sid);
+                const float     cd  = def.effective_cooldown(
+                    spell_damage_rank(sid, _player.talents));
+                const float t  = _player.spell_book.cooldown_remaining[si];
+                const float p  = cd > 0.001f ? std::clamp(t / cd, 0.0f, 1.0f) : 1.0f;
+                SDL_SetRenderDrawColor(r, 0, 0, 0, 140);
+                SDL_FRect dim{sx, hot_y, slot_w, 40.0f * p};
+                SDL_RenderFillRect(r, &dim);
+            }
+        };
+        draw_slot(0, "Q", SpellId::FrostBolt, "Ice");
+        draw_slot(1, "E", SpellId::Nova, "Nova");
+        {
+            SpellId rid = SpellId::ChainLightning;
+            const char* lab = "Chn";
+            if (!_player.spell_book.is_unlocked(SpellId::ChainLightning)
+                && _player.spell_book.is_unlocked(SpellId::Strafe)) {
+                rid = SpellId::Strafe;
+                lab = "Str";
+            } else if (!_player.spell_book.is_unlocked(SpellId::ChainLightning)) {
+                lab = "--";
+            }
+            draw_slot(2, "R", rid, lab);
+        }
+        draw_slot(3, "F", SpellId::BattleCry, "Cry");
     }
+
 };
 
 } // namespace mion

@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "textures": [
+    {
+      "path": "assets/props/barrel.png",
+      "kind": "prop",
+      "palette": "dungeon_prop",
+      "width": 64,
+      "height": 64,
+      "label": "BARREL"
+    },
+    {
+      "path": "assets/props/altar.png",
+      "kind": "prop",
+      "palette": "dungeon_prop",
+      "width": 80,
+      "height": 80,
+      "label": "ALTAR"
+    },
+    {
+      "path": "assets/props/dungeon_pillar.png",
+      "kind": "prop",
+      "palette": "dungeon_stone",
+      "width": 96,
+      "height": 128,
+      "label": "PILLAR"
+    },
+    {
+      "path": "assets/props/dungeon_wall_mid.png",
+      "kind": "tile",
+      "palette": "dungeon_stone",
+      "width": 128,
+      "height": 128,
+      "label": "WALL"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Soldier-Red.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_red",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "SOLDIER-R"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_orc",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "ORC"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Mage-Cyan.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_cyan",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "MAGE-C"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Mage-Purple.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_purple",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "MAGE-P"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Soldier-Blue.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_blue",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "SOLDIER-B"
+    },
+    {
+      "path": "assets/sprites/player.png",
+      "kind": "sprite_sheet",
+      "palette": "default",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "PLAYER"
+    }
+  ]
+}

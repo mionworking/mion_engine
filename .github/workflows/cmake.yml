@@ -1,0 +1,50 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        run: MION_TEXTURE_INTEGRATION_TESTS=1 ctest --test-dir build --output-on-failure
+
+  linux-asan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (Debug + sanitizers nos testes)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DMION_ENABLE_TEST_SANITIZERS=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        run: MION_TEXTURE_INTEGRATION_TESTS=1 ctest --test-dir build --output-on-failure
+
+  linux-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (coverage em mion_tests)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DMION_ENABLE_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        run: MION_TEXTURE_INTEGRATION_TESTS=1 ctest --test-dir build --output-on-failure

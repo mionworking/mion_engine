@@ -23,8 +23,11 @@ static constexpr int CHECKER_OFFSET = 4;
 struct TilemapRenderer {
     // Textura do tileset (opcional).
     // Se nullptr, usa retângulos coloridos como fallback.
-    // Layout esperado: tiles em linha horizontal, tile_size × tile_size cada.
-    SDL_Texture* tileset = nullptr;
+    // Suporta atlas 2D: configure floor/wall_tile_{col,row} para apontar
+    // para o tile correto dentro da grade do tileset.
+    SDL_Texture* tileset       = nullptr;
+    int floor_tile_col = 0,  floor_tile_row = 0;  // padrão: col 0, linha 0
+    int wall_tile_col  = 1,  wall_tile_row  = 0;  // padrão: col 1, linha 0
 
     void render(SDL_Renderer* r,
                 const Camera2D& cam,
@@ -55,9 +58,10 @@ struct TilemapRenderer {
                 SDL_FRect dst = { sx, sy, ts, ts };
 
                 if (tileset) {
-                    // Tileset PNG: cada tile ocupa uma coluna na textura
-                    int tx = (int)type - 1;  // índice na spritesheet
-                    SDL_FRect src = { (float)(tx * map.tile_size), 0.0f,
+                    // Tileset PNG: suporta atlas 2D via floor/wall_tile_{col,row}
+                    int tc = (type == TileType::Floor) ? floor_tile_col : wall_tile_col;
+                    int tr = (type == TileType::Floor) ? floor_tile_row : wall_tile_row;
+                    SDL_FRect src = { (float)(tc * map.tile_size), (float)(tr * map.tile_size),
                                       (float)map.tile_size, (float)map.tile_size };
                     SDL_RenderTexture(r, tileset, &src, &dst);
                 } else {
