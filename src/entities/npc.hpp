@@ -4,6 +4,8 @@
 
 namespace mion {
 
+struct Actor;
+
 enum class NpcType { QuestGiver, Merchant, Generic };
 
 struct NpcEntity {
@@ -27,6 +29,9 @@ struct NpcEntity {
     float wander_dir_x    = 0.0f;  // direção atual de movimento
     float wander_dir_y    = 0.0f;
     float collision_half  = 14.0f; // meia-largura/altura do AABB NPC
+
+    // Actor associado na cena (Town) para integrar com MovementSystem/RoomCollisionSystem.
+    Actor*      actor           = nullptr;
 };
 
 } // namespace mion

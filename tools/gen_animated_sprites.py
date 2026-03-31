@@ -208,6 +208,47 @@ PALETTES: dict[str, dict[str, RGBA]] = {
         "shadow":  (10,  20,  60,  80),
         "style":   "soldier",
     },
+    # NPCs da town em estilo Puny — variações de soldier/mage com cores civis.
+    "npc_mira": {
+        "body":    (190, 150, 80,  255),   # vestido amarelo/dourado
+        "outline": (110, 80,  40,  255),
+        "head":    (225, 190, 145, 255),
+        "weapon":  (150, 140, 160, 255),
+        "accent":  (245, 215, 100, 255),
+        "hurt":    (255, 255, 255, 255),
+        "shadow":  (35,  30,  20,  80),
+        "style":   "soldier",
+    },
+    "npc_forge": {
+        "body":    (150, 90,  50,  255),   # avental marrom/laranja
+        "outline": (90,  45,  25,  255),
+        "head":    (210, 170, 130, 255),
+        "weapon":  (160, 150, 130, 255),
+        "accent":  (230, 140, 70,  255),
+        "hurt":    (255, 240, 200, 255),
+        "shadow":  (40,  25,  18,  80),
+        "style":   "soldier",
+    },
+    "npc_villager": {
+        "body":    (90,  140, 90,  255),   # tons de verde/terra
+        "outline": (50,  80,  45,  255),
+        "head":    (215, 180, 135, 255),
+        "weapon":  (150, 150, 140, 255),
+        "accent":  (130, 190, 120, 255),
+        "hurt":    (240, 255, 240, 255),
+        "shadow":  (25,  45,  25,  80),
+        "style":   "soldier",
+    },
+    "npc_elder": {
+        "body":    (110, 115, 95,  255),   # túnica neutra
+        "outline": (60,  65,  45,  255),
+        "head":    (220, 215, 200, 255),
+        "weapon":  (170, 150, 200, 255),
+        "accent":  (170, 180, 140, 255),
+        "hurt":    (255, 255, 255, 255),
+        "shadow":  (25,  25,  20,  80),
+        "style":   "mage",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -717,6 +758,27 @@ SPRITES: list[dict] = [
         "path":    "assets/sprites/player.png",
         "palette": "player",
         "weapon":  "melee",
+    },
+    # NPCs da town em estilo Puny (usarão o mesmo rig de soldier/mage)
+    {
+        "path":    "assets/npcs/npc_mira.png",
+        "palette": "npc_mira",
+        "weapon":  "melee",
+    },
+    {
+        "path":    "assets/npcs/npc_forge.png",
+        "palette": "npc_forge",
+        "weapon":  "melee",
+    },
+    {
+        "path":    "assets/npcs/npc_villager.png",
+        "palette": "npc_villager",
+        "weapon":  "melee",
+    },
+    {
+        "path":    "assets/npcs/npc_elder.png",
+        "palette": "npc_elder",
+        "weapon":  "staff",
     },
 ]
 

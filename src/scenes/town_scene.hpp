@@ -37,6 +37,7 @@
 #include "../systems/world_renderer.hpp"
 #include "../systems/player_configurator.hpp"
 #include "../core/pause_menu.hpp"
+#include "../core/sprite_layout.hpp"
 
 namespace mion {
 
@@ -107,6 +108,7 @@ public:
 
         _actors.clear();
         _actors.push_back(&_player);
+        _rebuild_npc_actors();
 
         if (_audio) {
             _audio->stop_all_ambient();
@@ -179,6 +181,7 @@ public:
         _player_action.fixed_update(_player, input, dt, _audio, nullptr, nullptr);
         _resource_sys.fixed_update(_actors, dt);
         _col_sys.resolve_all(_actors, _room);
+        _col_sys.resolve_actors(_actors, &_room);
         _update_npcs(dt);
 
         // Animação do player — atualiza dir_row igual ao dungeon
@@ -280,10 +283,9 @@ public:
             }
         }
 
-        // NPCs — sprite animado ou retângulo fallback
-        // sprite_scale=2.0 → frame 32x32 lógico fica 64x64 no mundo,
-        // consistente com inimigos do dungeon que usam sprite_scale=2.0.
-        static constexpr float kNpcSpriteScale = 2.0f;
+        // NPCs — sprite animado ou retângulo fallback.
+        // Escala de NPC = mesma escala de sprite do player, para manter
+        // coerência visual de tamanho entre todos os personagens 2D.
         static const struct { const char* name; const char* path; } kNpcSprites[] = {
             { "Mira",     "assets/npcs/npc_mira.png"     },
             { "Forge",    "assets/npcs/npc_forge.png"    },
@@ -298,24 +300,35 @@ public:
                 }
             }
             if (ntex) {
-                // Idle frame 0 da linha Sul (row 0, col 12): frame 32×32 px
-                constexpr float kFW = 32.0f, kFH = 32.0f;
-                SDL_FRect src = { 12 * kFW, 0.0f, kFW, kFH };
-                // Centralizado em npc.{x,y} com tamanho escalado
-                float draw_w = kFW * kNpcSpriteScale;
-                float draw_h = kFH * kNpcSpriteScale;
+                // Idle frame 0 da linha Sul (row 0, col 12).
+                // Usa o mesmo tamanho lógico de frame do layout Puny e a mesma
+                // escala de sprite do player, para que NPCs tenham o mesmo
+                // "tamanho em mundo".
+                constexpr float kFW = (float)mion::SpriteLayout::PunyFrameW;
+                constexpr float kFH = (float)mion::SpriteLayout::PunyFrameH;
+                SDL_FRect src = { 12.0f * kFW, 0.0f, kFW, kFH };
+
+                float npc_scale = _player.sprite_scale;
+                if (npc_scale <= 0.0f) npc_scale = 2.0f; // fallback seguro
+
+                float draw_w = kFW * npc_scale;
+                float draw_h = kFH * npc_scale;
                 SDL_FRect dst = {
-                    _camera.world_to_screen_x(npc.x) - draw_w * 0.5f,
-                    _camera.world_to_screen_y(npc.y) - draw_h * 0.5f,
+                    _camera.world_to_screen_x(npc.actor ? npc.actor->transform.x : npc.x) - draw_w * 0.5f,
+                    _camera.world_to_screen_y(npc.actor ? npc.actor->transform.y : npc.y) - draw_h * 0.5f,
                     draw_w, draw_h
                 };
                 SDL_RenderTexture(r, ntex, &src, &dst);
             } else {
-                draw_world_rect(r, _camera, npc.x, npc.y, 14.0f, 18.0f,
+                const float cx = npc.actor ? npc.actor->transform.x : npc.x;
+                const float cy = npc.actor ? npc.actor->transform.y : npc.y;
+                draw_world_rect(r, _camera, cx, cy, 14.0f, 18.0f,
                                 npc.portrait_color.r, npc.portrait_color.g, npc.portrait_color.b);
             }
-            draw_text(r, _camera.world_to_screen_x(npc.x - 40.0f),
-                      _camera.world_to_screen_y(npc.y - 36.0f), npc.name.c_str(), 2, 220, 220,
+            const float label_x = (npc.actor ? npc.actor->transform.x : npc.x) - 40.0f;
+            const float label_y = (npc.actor ? npc.actor->transform.y : npc.y) - 36.0f;
+            draw_text(r, _camera.world_to_screen_x(label_x),
+                      _camera.world_to_screen_y(label_y), npc.name.c_str(), 2, 220, 220,
                       200, 255);
         }
 
@@ -370,6 +383,7 @@ private:
     TilemapRenderer          _tile_renderer;
     Actor                    _player;
     std::vector<Actor*>      _actors;
+    std::vector<Actor>       _npc_actors;
     std::vector<NpcEntity>   _npcs;
     ShopInventory            _shop_forge;
     QuestState               _quest_state;
@@ -551,6 +565,32 @@ private:
         _player.transform.set_position(400.0f, 800.0f);
     }
 
+    void _rebuild_npc_actors() {
+        _npc_actors.clear();
+        _npc_actors.reserve(_npcs.size());
+        // Mantém o player sempre no início de _actors.
+        _actors.clear();
+        _actors.push_back(&_player);
+
+        for (auto& npc : _npcs) {
+            Actor a;
+            a.name      = npc.name;
+            a.team      = Team::Enemy; // neutro para town; não participa de combate.
+            a.transform.set_position(npc.x, npc.y);
+            a.collision.half_w = npc.collision_half;
+            a.collision.half_h = npc.collision_half;
+            a.is_alive         = true;
+            a.was_alive        = true;
+            a.move_speed       = npc.wander_speed;
+            a.sprite_sheet     = nullptr;
+            a.sprite_scale     = _player.sprite_scale > 0.0f ? _player.sprite_scale : 2.0f;
+
+            _npc_actors.push_back(a);
+            npc.actor = &_npc_actors.back();
+            _actors.push_back(npc.actor);
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Wander + colisão de NPCs
     // -----------------------------------------------------------------------
@@ -567,10 +607,15 @@ private:
             return (float)(_rng_next() & 0xFFFFu) / 65535.0f;
         };
 
-        const float phw = _player.collision.half_w;
-        const float phh = _player.collision.half_h;
-
         for (auto& npc : _npcs) {
+            Actor* a = npc.actor;
+            if (!a) {
+                // Fallback: mantém NPC estático se não houver Actor associado.
+                continue;
+            }
+            float& nx = a->transform.x;
+            float& ny = a->transform.y;
+
             // --- Wander timer ---
             npc.wander_timer -= dt;
             if (npc.wander_timer <= 0.0f) {
@@ -591,71 +636,25 @@ private:
                 npc.wander_timer = 1.4f + _rng_f01() * 1.2f; // 1.4–2.6 s
             }
 
-            // --- Mover NPC ---
-            npc.x += npc.wander_dir_x * npc.wander_speed * dt;
-            npc.y += npc.wander_dir_y * npc.wander_speed * dt;
+            // --- Mover NPC (via Actor) ---
+            nx += npc.wander_dir_x * npc.wander_speed * dt;
+            ny += npc.wander_dir_y * npc.wander_speed * dt;
+            a->is_moving = (npc.wander_dir_x != 0.0f || npc.wander_dir_y != 0.0f);
 
             // --- Conter dentro do raio de spawn ---
-            float sdx = npc.x - npc.spawn_x;
-            float sdy = npc.y - npc.spawn_y;
+            float sdx = nx - npc.spawn_x;
+            float sdy = ny - npc.spawn_y;
             float sdist2 = sdx * sdx + sdy * sdy;
             if (sdist2 > npc.wander_radius * npc.wander_radius) {
                 float sdist = std::sqrt(sdist2);
-                npc.x = npc.spawn_x + sdx / sdist * npc.wander_radius;
-                npc.y = npc.spawn_y + sdy / sdist * npc.wander_radius;
+                nx = npc.spawn_x + sdx / sdist * npc.wander_radius;
+                ny = npc.spawn_y + sdy / sdist * npc.wander_radius;
                 npc.wander_dir_x = 0.0f;
                 npc.wander_dir_y = 0.0f;
             }
-
-            // --- Push-out NPC vs world bounds ---
-            float nh = npc.collision_half;
-            if (npc.x - nh < _room.bounds.min_x) npc.x = _room.bounds.min_x + nh;
-            if (npc.x + nh > _room.bounds.max_x) npc.x = _room.bounds.max_x - nh;
-            if (npc.y - nh < _room.bounds.min_y) npc.y = _room.bounds.min_y + nh;
-            if (npc.y + nh > _room.bounds.max_y) npc.y = _room.bounds.max_y - nh;
-
-            // --- Push-out NPC vs obstáculos ---
-            for (const auto& obs : _room.obstacles) {
-                float nmin_x = npc.x - nh, nmax_x = npc.x + nh;
-                float nmin_y = npc.y - nh, nmax_y = npc.y + nh;
-                if (nmax_x <= obs.bounds.min_x || nmin_x >= obs.bounds.max_x) continue;
-                if (nmax_y <= obs.bounds.min_y || nmin_y >= obs.bounds.max_y) continue;
-                float ol = nmax_x - obs.bounds.min_x;
-                float or_ = obs.bounds.max_x - nmin_x;
-                float ou = nmax_y - obs.bounds.min_y;
-                float od = obs.bounds.max_y - nmin_y;
-                float mx = (ol < or_) ? -ol : or_;
-                float my = (ou < od) ? -ou : od;
-                if (std::abs(mx) < std::abs(my))
-                    npc.x += mx;
-                else
-                    npc.y += my;
-                npc.wander_dir_x = 0.0f;
-                npc.wander_dir_y = 0.0f;
-            }
-
-            // --- Colisão Player ↔ NPC (push-out mútuo) ---
-            float pcx = _player.transform.x, pcy = _player.transform.y;
-            float pmin_x = pcx - phw, pmax_x = pcx + phw;
-            float pmin_y = pcy - phh, pmax_y = pcy + phh;
-            float nmin_x2 = npc.x - nh, nmax_x2 = npc.x + nh;
-            float nmin_y2 = npc.y - nh, nmax_y2 = npc.y + nh;
-            if (pmax_x > nmin_x2 && pmin_x < nmax_x2 &&
-                pmax_y > nmin_y2 && pmin_y < nmax_y2) {
-                float pen_x = std::min(pmax_x - nmin_x2, nmax_x2 - pmin_x);
-                float pen_y = std::min(pmax_y - nmin_y2, nmax_y2 - pmin_y);
-                if (pen_x < pen_y) {
-                    float sign = (pcx < npc.x) ? -1.0f : 1.0f;
-                    _player.transform.x -= sign * pen_x * 0.5f;
-                    npc.x              += sign * pen_x * 0.5f;
-                } else {
-                    float sign = (pcy < npc.y) ? -1.0f : 1.0f;
-                    _player.transform.y -= sign * pen_y * 0.5f;
-                    npc.y              += sign * pen_y * 0.5f;
-                }
-                // Re-conter player nos bounds
-                _col_sys.resolve(_player, _room);
-            }
+            // Sincroniza posição espelhada usada em interações/render.
+            npc.x = nx;
+            npc.y = ny;
         }
     }
 

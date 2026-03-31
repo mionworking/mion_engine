@@ -100,89 +100,60 @@ target_compile_options(mion_sprite_bench PRIVATE
 )
 
 # --- Testes ---
-# Suíte oficial: tests_v2/ (mion_tests_v2 + alvos modulares). Código compartilhado com a suíte
-# legada vive em tests_legacy/ (sem test_main.cpp no V2 — usa-se tests_v2/test_v2_*.cpp).
-# Runner monolítico legado: mion_tests_legacy (opcional, etiqueta ctest "legacy").
-option(MION_ENABLE_LEGACY_TESTS
-    "Compilar e registrar o executável monolítico tests_legacy/test_main.cpp no ctest"
-    ON)
+# Suíte única em tests/ (modularizada por mains específicos).
 option(MION_ENABLE_COVERAGE "Compilar alvos de teste com --coverage (gcov/llvm-cov)" OFF)
 option(MION_ENABLE_TEST_SANITIZERS "ASan+UBSan nos alvos de teste (recomendado com Debug)" OFF)
 
 enable_testing()
-file(GLOB TEST_SOURCES_LEGACY CONFIGURE_DEPENDS "tests_legacy/*.cpp")
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "tests/*.cpp")
 
-if(MION_ENABLE_LEGACY_TESTS AND TEST_SOURCES_LEGACY)
-    add_executable(mion_tests_legacy ${TEST_SOURCES_LEGACY} ${ENGINE_SOURCES})
-    target_include_directories(mion_tests_legacy PRIVATE src tests_legacy ${stb_SOURCE_DIR})
-    target_link_libraries(mion_tests_legacy PRIVATE SDL3::SDL3-static)
-    add_test(NAME mion_tests_legacy COMMAND mion_tests_legacy)
-    set_tests_properties(mion_tests_legacy PROPERTIES LABELS "legacy")
-
-    if(MION_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(mion_tests_legacy PRIVATE --coverage -O0 -g)
-        target_link_options(mion_tests_legacy PRIVATE --coverage)
-    endif()
-    if(MION_ENABLE_TEST_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(mion_tests_legacy PRIVATE
-            -fsanitize=address,undefined
-            -fno-omit-frame-pointer
-            -g)
-        target_link_options(mion_tests_legacy PRIVATE -fsanitize=address,undefined)
-    endif()
-endif()
-
-file(GLOB TEST_SOURCES_V2 CONFIGURE_DEPENDS "tests_v2/*.cpp")
-if(TEST_SOURCES_LEGACY AND TEST_SOURCES_V2)
-    set(TEST_SOURCES_SHARED ${TEST_SOURCES_LEGACY})
-    list(REMOVE_ITEM TEST_SOURCES_SHARED "${CMAKE_CURRENT_SOURCE_DIR}/tests_legacy/test_main.cpp")
-
-    set(V2_COMMON_SOURCES ${TEST_SOURCES_SHARED} ${TEST_SOURCES_V2})
+if(TEST_SOURCES)
+    set(V2_COMMON_SOURCES ${TEST_SOURCES})
 
     set(V2_ALL_SOURCES ${V2_COMMON_SOURCES})
     list(REMOVE_ITEM V2_ALL_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_core_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_scenes_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_input_main.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_core_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_scenes_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_input_main.cpp")
 
     set(V2_CORE_SOURCES ${V2_COMMON_SOURCES})
     list(REMOVE_ITEM V2_CORE_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_scenes_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_input_main.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_scenes_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_input_main.cpp")
 
     set(V2_SCENES_SOURCES ${V2_COMMON_SOURCES})
     list(REMOVE_ITEM V2_SCENES_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_core_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_input_main.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_core_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_input_main.cpp")
 
     set(V2_INPUT_SOURCES ${V2_COMMON_SOURCES})
     list(REMOVE_ITEM V2_INPUT_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_core_main.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests_v2/test_v2_scenes_main.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_core_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_v2_scenes_main.cpp")
 
     add_executable(mion_tests_v2 ${V2_ALL_SOURCES} ${ENGINE_SOURCES})
-    target_include_directories(mion_tests_v2 PRIVATE src tests_legacy ${stb_SOURCE_DIR})
+    target_include_directories(mion_tests_v2 PRIVATE src tests ${stb_SOURCE_DIR})
     target_link_libraries(mion_tests_v2 PRIVATE SDL3::SDL3-static)
     add_test(NAME mion_tests_v2 COMMAND mion_tests_v2)
     set_tests_properties(mion_tests_v2 PROPERTIES LABELS "official")
 
     add_executable(mion_tests_v2_core ${V2_CORE_SOURCES} ${ENGINE_SOURCES})
-    target_include_directories(mion_tests_v2_core PRIVATE src tests_legacy ${stb_SOURCE_DIR})
+    target_include_directories(mion_tests_v2_core PRIVATE src tests ${stb_SOURCE_DIR})
     target_link_libraries(mion_tests_v2_core PRIVATE SDL3::SDL3-static)
     add_test(NAME mion_tests_v2_core COMMAND mion_tests_v2_core)
     set_tests_properties(mion_tests_v2_core PROPERTIES LABELS "official")
 
     add_executable(mion_tests_v2_scenes ${V2_SCENES_SOURCES} ${ENGINE_SOURCES})
-    target_include_directories(mion_tests_v2_scenes PRIVATE src tests_legacy ${stb_SOURCE_DIR})
+    target_include_directories(mion_tests_v2_scenes PRIVATE src tests ${stb_SOURCE_DIR})
     target_link_libraries(mion_tests_v2_scenes PRIVATE SDL3::SDL3-static)
     add_test(NAME mion_tests_v2_scenes COMMAND mion_tests_v2_scenes)
     set_tests_properties(mion_tests_v2_scenes PROPERTIES LABELS "official")
 
     add_executable(mion_tests_v2_input ${V2_INPUT_SOURCES} ${ENGINE_SOURCES})
-    target_include_directories(mion_tests_v2_input PRIVATE src tests_legacy ${stb_SOURCE_DIR})
+    target_include_directories(mion_tests_v2_input PRIVATE src tests ${stb_SOURCE_DIR})
     target_link_libraries(mion_tests_v2_input PRIVATE SDL3::SDL3-static)
     add_test(NAME mion_tests_v2_input COMMAND mion_tests_v2_input)
     set_tests_properties(mion_tests_v2_input PROPERTIES LABELS "official")

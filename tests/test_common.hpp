@@ -10,9 +10,9 @@ inline int s_fail = 0;
 #define EXPECT_TRUE(expr)                                                                          \
     do {                                                                                           \
         if (expr) {                                                                                \
-            ++s_pass;                                                                            \
+            ++s_pass;                                                                              \
         } else {                                                                                   \
-            ++s_fail;                                                                            \
+            ++s_fail;                                                                              \
             std::printf("  FAIL  %s:%d  %s\n", __FILE__, __LINE__, #expr);                        \
         }                                                                                          \
     } while (0)

@@ -56,6 +56,16 @@ static void test_town_scene_stable_without_transition_on_idle_ticks() {
     EXPECT_TRUE(next == nullptr || std::strcmp(next, "") == 0);
 }
 
+static void test_town_scene_npc_wander_stable() {
+    mion::TownScene s;
+    s.enter();
+    mion::InputState idle;
+    for (int i = 0; i < 600; ++i)
+        s.fixed_update(1.0f / 60.0f, idle);
+    const char* next = s.next_scene();
+    EXPECT_TRUE(next == nullptr || std::strcmp(next, "") == 0);
+}
+
 static void test_victory_scene_continue_and_quit_paths() {
     mion::VictoryScene s;
     s.enter();
@@ -109,6 +119,7 @@ void run_scenes_v2_tests() {
     run("V2.SceneRegistry.EndgameScenes", test_scene_registry_creates_new_endgame_scenes);
     run("V2.TownScene.PauseQuitTitle", test_town_scene_pause_quit_to_title);
     run("V2.TownScene.IdleStable", test_town_scene_stable_without_transition_on_idle_ticks);
+    run("V2.TownScene.NpcWanderStable", test_town_scene_npc_wander_stable);
     run("V2.VictoryScene.Flow", test_victory_scene_continue_and_quit_paths);
     run("V2.GameOverScene.Flow", test_game_over_scene_retry_title_and_quit);
 }
