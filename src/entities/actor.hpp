@@ -16,6 +16,8 @@
 #include "../core/animation.hpp"
 #include "enemy_type.hpp"
 
+struct SDL_Texture;
+
 namespace mion {
 
 enum class Team { Player, Enemy };
@@ -59,7 +61,7 @@ struct Actor {
 
     // Feature 1 — Animação por spritesheet
     AnimPlayer   anim;
-    void*        sprite_sheet = nullptr;  // SDL_Texture* — void* para manter actor.hpp sem SDL
+    SDL_Texture* sprite_sheet = nullptr;
     float        sprite_scale = 1.0f;
 
     // Feature 2 — Tipo de inimigo + stats por-actor

@@ -2,17 +2,20 @@
 
 Motor de jogo 2D em C++17 com SDL3: dungeon com tilemap, iluminação estilo *fake lighting*, combate corpo a corpo e à distância, IA com pathfinding, áudio, save/load, diálogo básico e uma **cena de dungeon** jogável com progressão, maná, magias e árvore de talentos.
 
-> **Modo atual:** placeholders geométricos (retângulos coloridos + seta de direção). **Tileset e sprites finais são a última fase** — depois do jogo estar funcionalmente completo; ver [ROADMAP.md](ROADMAP.md) (secção *Ordem de trabalho* e *Arte final*).
+> **Modo atual:** placeholders geométricos (retângulos coloridos + seta de direção) com spritesheets Puny Characters integradas. **Tileset e sprites finais são a última fase** — depois do jogo estar funcionalmente completo; ver [ROADMAP.md](ROADMAP.md).
 
 Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New Game`, `Continue`, `Settings`, `Extras` e `Quit`. `New Game` abre o seletor de dificuldade e segue para a **cidade** (`town`); `Continue` carrega a run existente quando há save; `Extras` inclui `Credits`; `Settings` permite alterar **mute**, **volume master** e **idioma** (EN/PT-BR) com persistência em `config.ini`.
 
 ## Estado atual
 
 - Cena de título com menu completo (`New Game`, `Continue`, `Settings`, `Extras`, `Quit`)
-- Save/load automático da run
-- `config.ini` para resolução, áudio e idioma de UI
-- `data/*.ini` para stats de inimigos, magias e drops
-- Testes locais cobrindo core, save/load, config/runtime, diálogo e integrações
+- Save/load automático da run com migração de schema (`v1` → `v5`)
+- `config.ini` para resolução, áudio, idioma de UI e rebinding de teclado
+- `data/*.ini` para stats de inimigos, magias, talentos, progressão, drops, salas e diálogos
+- Cenas e sistemas modularizados por responsabilidade (4 sprints SRP completos)
+- Type safety: `Actor::sprite_sheet` usa `SDL_Texture*` com forward declaration (Sprint 4 — F-001)
+- Suporte a gamepad SDL3 com detecção automática de conexão/desconexão
+- Testes locais cobrindo core, save/load, config/runtime, diálogo, input, cenas e integrações (~660 asserts em 5 targets)
 
 ## Requisitos
 
@@ -44,17 +47,35 @@ cmake --build build -j$(nproc)
 
 ### Configuração e dados externos
 
-- `config.ini` é procurado ao lado do executável e, se não existir lá, no diretório atual (`cwd`)
-- `data/enemies.ini`, `data/spells.ini` e `data/items.ini` são carregados em runtime; se faltarem, o jogo usa defaults do código
+- `config.ini` é procurado ao lado do executável (`SDL_GetBasePath()`) e, se não existir lá, no diretório atual (`cwd`)
+- os arquivos `data/*.ini` seguem a mesma lógica de resolução de path (`resolve_data_path()`)
 - para uma release empacotada, o esperado é distribuir `data/` ao lado do binário
+
+Arquivos de dados carregados em runtime:
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| `data/enemies.ini` | Stats, sprite path e IA por tipo de inimigo |
+| `data/spells.ini` | Dano, cooldown, velocidade e área de cada magia |
+| `data/items.ini` | Taxas de drop, bônus de HP/dano/velocidade |
+| `data/player.ini` | Stats base do player (HP, velocidade, dano, dash, etc.) |
+| `data/progression.ini` | XP por level, bônus de progressão |
+| `data/talents.ini` | Custos e pré-requisitos da árvore de talentos |
+| `data/rooms.ini` | Layout e templates de salas da dungeon |
+| `data/town_dialogues.ini` | Linhas de diálogo dos NPCs da cidade |
+| `data/locale_en.ini` | Strings de UI em inglês |
+| `data/locale_ptbr.ini` | Strings de UI em português |
+
+Se um arquivo `.ini` faltar, o jogo usa defaults do código.
 
 ### Save/load
 
-- `Play` no title abre a seleção de dificuldade e continua a run
+- `New Game` no title abre a seleção de dificuldade e inicia a run
 - `N` no title apaga o save atual
 - `Continue` no title fica desativado quando não há save
 - o save atual é gravado em `SDL_GetPrefPath("mion", "mion_engine")/save.txt`
 - o loader também aceita o save legado `mion_save.txt`
+- migrações automáticas de `v1` até `v5` garantem compatibilidade com saves antigos
 
 ## Testes
 
@@ -64,52 +85,85 @@ make test
 cd build && ctest --output-on-failure
 ```
 
-O alvo `mion_tests` roda asserts locais (sem framework externo); na árvore atual cobre **650+ asserts** em dezenas de grupos, incluindo física, combate, save/load, config, menu de título/settings, diálogo, `SceneManager`/`SceneRegistry`, fluxo de portas e integrações com `ScriptedInputSource`.
+**5 targets de teste** via CTest:
 
-No bloco de distribuição (keybinds), há testes dedicados para `scancode_from_name()` e `load_keybinds()`, cobrindo:
-- defaults sem secção `[keybinds]`
-- parsing de nomes válidos e inválidos
-- fallback quando a tecla é inválida
-- carregamento de todos os campos de rebinding
+| Target | Etiqueta | Escopo |
+|--------|----------|--------|
+| `mion_tests_legacy` | `legacy` | Suíte original: física, combate, save/load, config, menus, diálogo, portas, fluxo de cenas |
+| `mion_tests_v2` | `official` | Gaps de cobertura, player action, integrações |
+| `mion_tests_v2_core` | `official` | Core systems |
+| `mion_tests_v2_scenes` | `official` | Testes de cena |
+| `mion_tests_v2_input` | `official` | Input (teclado, gamepad, keybinds) |
+
+**~660 asserts** no total (macros `EXPECT_TRUE`, `EXPECT_EQ`, etc. — framework interno, sem dependência externa).
+
+Para rodar apenas a suíte V2:
+
+```bash
+ctest --test-dir build -L official
+```
+
+O alvo legacy pode ser desativado com `-DMION_ENABLE_LEGACY_TESTS=OFF`.
+
+### Gates de teste opcionais (variáveis de ambiente)
+
+| Variável | Efeito |
+|----------|--------|
+| `MION_AUDIO_INTEGRATION_TESTS=1` | Habilita testes que precisam do subsistema de áudio |
+| `MION_TEXTURE_INTEGRATION_TESTS=1` | Habilita testes que carregam texturas reais |
+| `MION_DUNGEON_SMOKE=1` | Habilita smoke test da dungeon completa |
 
 ## Ferramentas opcionais
 
-| Alvo Makefile   | Descrição |
-|-----------------|-----------|
-| `stress`        | Simulação headless com muitos inimigos |
+| Alvo Makefile | Descrição |
+|---------------|-----------|
+| `stress` | Simulação headless com muitos inimigos |
 | `render_stress` | Stress de render com janela SDL |
-| `sprite_bench`  | Bench sintético focado em custo de sprites/frames |
+| `sprite_bench` | Bench sintético focado em custo de sprites/frames |
+| `gen-placeholders` | Gera texturas placeholder via `tools/gen_placeholder_textures.py` |
+| `preview-placeholders` | Visualiza placeholders gerados |
+| `verify-placeholders` | Gera + visualiza + roda testes de textura |
 
-Variáveis de ambiente úteis:
+### Variáveis de ambiente
 
-- `MION_STRESS_ENEMIES`: no boot, ajusta o número de inimigos na dungeon. `0` (omissão) = comportamento normal. `1`–`3` fixa o spawn count em salas normais. Valores **maiores que 3** ativam o *stress mode* (spawn massivo / headless em `mion_stress`).
+| Variável | Onde | Descrição |
+|----------|------|-----------|
+| `MION_STRESS_ENEMIES` | `mion_engine`, `mion_stress` | Número de inimigos. `0` = normal; `1–3` = spawn fixo; `>3` = stress mode |
+| `MION_STRESS_FRAMES` | `mion_stress` | Frames a simular (default 600) |
+| `RS_WIDTH`, `RS_HEIGHT` | `mion_render_stress` | Resolução da janela |
+| `RS_MAX`, `RS_STEP`, `RS_FRAMES` | `mion_render_stress` | Máximo de actors, passo de incremento, frames por passo |
+| `RS_FRAMES_MULT` | `mion_render_stress` | Multiplicador de frames de animação |
+| `SB_WIDTH`, `SB_HEIGHT` | `mion_sprite_bench` | Resolução da janela |
+| `SB_MAX_ACTORS`, `SB_STEP_ACTORS` | `mion_sprite_bench` | Máximo de actors e passo de incremento |
+| `SB_FRAMES_PER_ANIM`, `SB_RENDER_FRAMES` | `mion_sprite_bench` | Frames de animação e frames de render |
 
 ## Controles (teclado)
 
-| Ação | Tecla |
-|------|--------|
+| Ação | Tecla padrão |
+|------|--------------|
 | Mover | WASD ou setas |
-| Ataque corpo a corpo | Espaço ou Z |
+| Ataque corpo a corpo | Z (alt: Espaço) |
 | Esquivar / dash | Shift esquerdo |
 | Ataque à distância | X |
 | Aparar | C |
 | Magia 1 (ex.: Bolt) | Q |
 | Magia 2 (ex.: Nova) | E |
-| Avançar diálogo | Enter |
+| Magia 3 | R |
+| Magia 4 | F |
+| Avançar diálogo / confirmar | Enter |
+| Pausar | Escape |
+| Árvore de talentos | Tab |
 | Melhorias no level-up | 1 / 2 / 3 |
 | Talentos (overlay) | 4 / 5 / 6 |
 | Apagar save / nova run | N |
 | Navegação em menus | Setas |
-| Confirmar em menus | Enter |
 | Voltar (menus/credits) | Backspace |
 
 Maná e stamina regeneram com o tempo; magias consomem maná e obedecem cooldown do grimório. Ao ganhar XP (por exemplo ao derrotar inimigos), você pode receber **pontos de talento** para gastar na árvore (com pré-requisitos).
 
-No título, o submenu **Extras** contém **Credits** (retorno via `Backspace`).
-
 ### Rebinding de teclado (`config.ini`)
 
-Você pode customizar teclas na secção `[keybinds]` usando nomes aceitos por `SDL_GetScancodeFromName` (inglês, case-insensitive), por exemplo:
+Você pode customizar teclas na secção `[keybinds]` usando nomes aceitos por `SDL_GetScancodeFromName` (inglês, case-insensitive):
 
 ```ini
 [keybinds]
@@ -118,6 +172,8 @@ dash=Left Shift
 spell_1=Q
 pause=Escape
 ```
+
+Campos disponíveis: `attack`, `attack_alt`, `ranged`, `dash`, `parry`, `spell_1`–`spell_4`, `confirm`, `pause`, `skill_tree`, `erase_save`, `upgrade_1`–`upgrade_3`, `talent_1`–`talent_3`.
 
 Se uma chave faltar ou for inválida, o jogo usa automaticamente o default interno.
 
@@ -140,34 +196,113 @@ language=en   # en | ptbr
 - O jogo tenta detectar gamepad automaticamente no boot e também ao conectar/desconectar durante a execução.
 - Se houver gamepad conectado, a leitura de input prioriza gamepad; sem gamepad, usa teclado normalmente.
 - Mapeamento atual:
-  - Movimento: analógico esquerdo
-  - Ataque: South (A / Cruz)
-  - Ranged: West (X / Quadrado)
-  - Dash: East (B / Círculo)
-  - Parry: Left Shoulder (LB / L1)
-  - Spell 1: Right Shoulder (RB / R1)
-  - Spell 2: Right Trigger
-  - Spell 3/4: D-pad Left / Up
-  - Confirm: South
-  - Pause/Cancel: Start
+
+| Ação | Botão |
+|------|-------|
+| Movimento | Analógico esquerdo |
+| Ataque | South (A / Cruz) |
+| Ranged | West (X / Quadrado) |
+| Dash | East (B / Círculo) |
+| Parry | Left Shoulder (LB / L1) |
+| Spell 1 | Right Shoulder (RB / R1) |
+| Spell 2 | Right Trigger |
+| Spell 3 / 4 | D-pad Left / Up |
+| Confirm | South |
+| Pause / Cancel | Start |
+| Navegação de menus | D-pad |
+| Árvore de talentos | Back (Select) |
+
+## `config.ini` — opções completas
+
+```ini
+[window]
+width=1280
+height=720
+
+[audio]
+volume_master=1.0
+mute=0
+
+[ui]
+language=en
+autosave_indicator=0
+
+[keybinds]
+# ver seção Rebinding acima
+```
 
 ## Layout do código
 
 | Pasta | Conteúdo |
 |-------|-----------|
-| `src/core/` | Engine: config, input, áudio, camera, sprites, animação, bitmap font, UI widgets, scene manager/registry, save system, pause menu, locale, diálogo, scripted input |
+| `src/core/` | Engine: config, input, áudio, camera, sprites, animação, bitmap font, UI widgets, scene manager/registry, save system (`save_data`, `save_migration`, `save_system`), pause menu, locale, diálogo, scripted input, `title_menu`, `scene_fader`, `engine_paths`, `asset_manifest` |
 | `src/components/` | Dados puros de gameplay: health, combat, collision, transform, mana, stamina, spell book/defs, talent tree/state, attributes, progression, equipment, status effects, player config |
-| `src/systems/` | Lógica por frame e UI: combate melee, IA inimiga, projéteis, drops, magias (spell effects), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, diálogo, shop; **rendering**: world renderer, dungeon HUD, skill tree UI, attribute screen UI; **config**: player configurator |
-| `src/world/` | Salas (`Room`), tilemap, navgrid, dungeon rules, room loader |
+| `src/systems/` | Lógica por frame e UI: combate melee, IA inimiga (`ai_patrol`, `ai_combat`, `ai_boss`, `enemy_ai`), projéteis, drops, magias (`spell_system`, `spell_effects`), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, floating text, diálogo, shop; **rendering**: world renderer, dungeon world renderer, screen FX, dungeon HUD, skill tree UI, attribute screen UI; **gameplay modularizado**: enemy spawner, room manager, dash system; **config**: player configurator |
+| `src/world/` | Salas (`Room`), tilemap, dungeon rules, room loader |
 | `src/entities/` | `Actor`, `Projectile`, `GroundItem`, `NPC`, `Shop`, `EnemyType` |
 | `src/scenes/` | Cenas: title, town, dungeon, game over, victory, credits |
-| `assets/` | Áudio (WAVs), sprites e tiles |
-| `data/` | Definições externas de inimigos, magias, drops e locale (INI) |
-| `tools/` | Stress tests, sprite bench, asset pipeline, task tracker |
-| `tests_legacy/` | Suíte compartilhada + runner monolítico `test_main.cpp` (ctest `legacy`) |
-| `tests_v2/` | Suíte oficial modular (`mion_tests_v2`, etiqueta ctest `official`) |
+| `src/vendor/` | `stb_image_impl.cpp` (implementação de stb_image) |
+| `assets/` | Áudio (WAVs), sprites, tiles, props, NPCs, Puny Characters |
+| `data/` | Definições externas (INI): inimigos, magias, items, player, progressão, talentos, salas, diálogos, locales |
+| `tools/` | Stress tests, sprite bench, geradores de placeholders, asset pipeline, task tracker |
+| `tools/asset_pipeline/` | Pipeline de classificação e conversão de assets (Python + Pillow vendorado) |
+| `tests_legacy/` | Suíte compartilhada + runner `test_main.cpp` (ctest etiqueta `legacy`) |
+| `tests_v2/` | Suíte oficial modular (4 targets, etiqueta ctest `official`) |
+| `legacy/` | Documentação arquivada (`PLAYER_DOCUMENTATION.md`, `README_ASSET_SCRIPTS.md`, `ROADMAP_FALHAS.md`) |
 
-**Testes:** após `cmake -S . -B build && cmake --build build`, executar `ctest --test-dir build` (todos) ou `ctest --test-dir build -L official` (apenas a suíte V2). O alvo `mion_tests_legacy` permanece disponível com a etiqueta `legacy`; desative com `-DMION_ENABLE_LEGACY_TESTS=OFF` se quiser só V2 no build.
+## Módulos extraídos na refatoração SRP
+
+Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades específicas. O efeito prático é que `DungeonScene`, `TitleScene`, `EnemyAISystem` e `PlayerActionSystem` hoje atuam mais como orquestradores do que como "god objects".
+
+### Sprint 1
+
+| Módulo | O que contém |
+|--------|--------------|
+| `src/systems/world_renderer.hpp` | Primitivas de render em coordenadas de mundo, render de actor com sprite/fallback, overlays de status, barras de HP e helpers compartilhados entre cenas. Inclui `facing_to_puny_row()` — fonte única, usada por dungeon e town. |
+| `src/systems/player_configurator.hpp` | Configuração unificada do `Actor` do player a partir de `g_player_config`, atributos derivados, cooldowns, recursos, spell book e stats base. |
+| `src/core/pause_menu.hpp` | State machine de pause compartilhada por dungeon/town, com navegação, callbacks por item e render do overlay. |
+| `src/systems/dungeon_hud.hpp` | HUD principal da dungeon: XP, level, ouro, HP, stamina, mana, status e atalhos de habilidades. |
+| `src/systems/skill_tree_ui.hpp` | Overlay da árvore de talentos com colunas, highlight de cursor, níveis e pré-requisitos. |
+| `src/systems/attribute_screen_ui.hpp` | Overlay de level-up para distribuição de atributos com seleção de linha e descrições. |
+
+### Sprint 2
+
+| Módulo | O que contém |
+|--------|--------------|
+| `src/systems/enemy_spawner.hpp` | Cálculo de budget por sala/dificuldade/stress mode, spawn default/stress, spawn de boss e montagem do `Actor` inimigo a partir de `EnemyDef`. |
+| `src/systems/room_manager.hpp` | Reset de runtime da sala, avanço de sala, construção de layout/tilemap, portas, templates/INI e posicionamento do player por contexto. |
+| `src/systems/dungeon_world_renderer.hpp` | Pass completo de render do mundo da dungeon: tilemap, obstáculos, portas, actors, projéteis, drops, floating texts e lighting. |
+| `src/systems/screen_fx.hpp` | Overlays full-screen independentes do mundo: intro de boss, death fade e screen flash. |
+| `src/core/save_data.hpp` | Schema persistido do save (`SaveData`) e constantes de versão/limites. |
+| `src/core/save_migration.hpp` | Cadeia de migração de save (`v1` → `v5`) e clamps/sanitização de compatibilidade. |
+| `src/core/save_system.hpp` | Resolução de paths, parser do formato key-value, serialização, load/save e fallback entre save atual e legado. |
+
+### Sprint 3
+
+| Módulo | O que contém |
+|--------|--------------|
+| `src/core/title_menu.hpp` | Estado do menu de título, listas (`main`, `difficulty`, `settings`, `extras`), render e controller de ações (`New Game`, `Continue`, `Settings`, `Extras`, `Quit`). |
+| `src/systems/ai_combat.hpp` | Separação de inimigos, replan de path, chase melee, ranged AI e spawn de projéteis inimigos. |
+| `src/systems/ai_patrol.hpp` | Waypoints de patrulha, alerta de vizinhos, steering em nav path e transições `Patrol → Alert → Chase`. |
+| `src/systems/ai_boss.hpp` | Lógica faseada de boss, trigger de phase 2 e charge attack. |
+| `src/systems/enemy_ai.hpp` | Orquestrador da IA: localiza o player, filtra actors válidos e delega por `AiBehavior`. |
+| `src/systems/dash_system.hpp` | Tick de cooldown do dash, dash ativo, consumo de stamina, iframes e áudio do dash. |
+| `src/systems/spell_system.hpp` | Cooldowns de ranged/spells, cálculo de dano mágico/físico, spawn de projéteis e casts (`FrostBolt`, `Nova`, `ChainLightning`, `Strafe`, `BattleCry`). |
+| `src/systems/player_action.hpp` | Orquestrador das ações do player: movimento básico, parry, melee e delegação para dash/ranged/spells. |
+
+### Sprint 4 — F-001: Type Safety
+
+| Mudança | Detalhe |
+|---------|---------|
+| `src/entities/actor.hpp` | `void* sprite_sheet` → `SDL_Texture* sprite_sheet` com forward declaration `struct SDL_Texture;` |
+| 4 arquivos de rendering/cena | Removidos todos os `static_cast<SDL_Texture*>` (acesso direto ao campo tipado) |
+| 2 arquivos de spawn/config | Removidos `static_cast<void*>` na atribuição de texturas |
+
+### Como ler a arquitetura
+
+- `src/scenes/dungeon_scene.hpp`: coordena fluxo de dungeon, chama módulos de sala, spawn, render, HUD, save e efeitos.
+- `src/scenes/title_scene.hpp`: coordena áudio/locale e delega menu/render/ações para `title_menu`.
+- `src/systems/enemy_ai.hpp` e `src/systems/player_action.hpp`: permanecem como fachadas pequenas para integrar submódulos durante o `fixed_update`.
 
 ## Licença / créditos
 

@@ -168,16 +168,15 @@ public:
         if (mult <= 1 || !_renderer) return;
 
         // Cache: pares (original, tiled) — busca linear, poucos tipos de textura
-        struct TexPair { void* orig; SDL_Texture* tiled; };
+        struct TexPair { SDL_Texture* orig; SDL_Texture* tiled; };
         std::vector<TexPair> cache;
 
-        // Cria (ou recupera do cache) versão N-vezes mais larga da textura
-        auto get_tiled = [&](void* orig_ptr, float orig_w, float orig_h) -> SDL_Texture* {
+        auto get_tiled = [&](SDL_Texture* orig_ptr, float orig_w, float orig_h) -> SDL_Texture* {
             for (const auto& p : cache)
                 if (p.orig == orig_ptr) return p.tiled;
 
             int new_w = (int)(orig_w * mult);
-            SDL_Texture* orig  = static_cast<SDL_Texture*>(orig_ptr);
+            SDL_Texture* orig = orig_ptr;
             SDL_Texture* tiled = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA8888,
                                                    SDL_TEXTUREACCESS_TARGET,
                                                    new_w, (int)orig_h);
@@ -216,7 +215,7 @@ public:
         // Player
         if (_player.sprite_sheet) {
             float tw = 0, th = 0;
-            SDL_GetTextureSize(static_cast<SDL_Texture*>(_player.sprite_sheet), &tw, &th);
+            SDL_GetTextureSize(_player.sprite_sheet, &tw, &th);
             SDL_Texture* t = get_tiled(_player.sprite_sheet, tw, th);
             if (t) { _player.sprite_sheet = t; expand_anim(_player.anim, (int)tw); }
         }
@@ -225,9 +224,9 @@ public:
         for (auto& e : _enemies) {
             if (!e.sprite_sheet) continue;
             float tw = 0, th = 0;
-            SDL_GetTextureSize(static_cast<SDL_Texture*>(e.sprite_sheet), &tw, &th);
+            SDL_GetTextureSize(e.sprite_sheet, &tw, &th);
             int ow = (int)tw;
-            void* op = e.sprite_sheet;
+            SDL_Texture* op = e.sprite_sheet;
             SDL_Texture* t = get_tiled(op, tw, th);
             if (t) { e.sprite_sheet = t; expand_anim(e.anim, ow); }
         }

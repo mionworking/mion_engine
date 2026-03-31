@@ -141,7 +141,7 @@ inline void render_actor(SDL_Renderer* r, const Camera2D& cam, const Actor& a)
     float hw = a.collision.half_w,  hh = a.collision.half_h;
 
     // --- Sprite path ---
-    SDL_Texture* tex = static_cast<SDL_Texture*>(a.sprite_sheet);
+    SDL_Texture* tex = a.sprite_sheet;
     if (tex) {
         const AnimFrame* af = a.anim.current_frame();
         if (af) {

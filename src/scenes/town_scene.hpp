@@ -182,7 +182,7 @@ public:
         // Animação do player — atualiza dir_row igual ao dungeon
         if (_player.sprite_sheet) {
             _player.anim.update_puny_dir_row(
-                _facing_to_puny_row(_player.facing_x, _player.facing_y));
+                facing_to_puny_row(_player.facing_x, _player.facing_y));
             if (_player.is_dashing())
                 _player.anim.play(ActorAnim::Dash);
             else if (_player.combat.attack_phase != AttackPhase::Idle)
@@ -319,7 +319,7 @@ public:
 
         {
             float cx = _player.transform.x, cy = _player.transform.y;
-            SDL_Texture* tex = static_cast<SDL_Texture*>(_player.sprite_sheet);
+            SDL_Texture* tex = _player.sprite_sheet;
             const AnimFrame* af = _player.anim.current_frame();
             if (tex && af) {
                 SpriteFrame frame;
@@ -361,15 +361,7 @@ private:
     // Espelho do campo SaveData::scene_flags mantido na Town.
     unsigned int             _scene_flags  = 0;
 
-    // Mapeia facing para linha do Puny Characters (igual ao DungeonScene).
-    // Row 0 = Sul | Row 4 = Norte | Row 6 = Leste (Oeste = Row 6 + flip).
-    static int _facing_to_puny_row(float fx, float fy) {
-        const float ax = fx < 0.0f ? -fx : fx;
-        const float ay = fy < 0.0f ? -fy : fy;
-        if (ay > ax)
-            return fy > 0.0f ? 0 : 4;  // Sul ou Norte
-        return 6;                        // horizontal; Oeste via flip em facing_x
-    }
+    // facing_to_puny_row() extraído para world_renderer.hpp
 
     RoomDefinition           _room;
     Tilemap                  _tilemap;

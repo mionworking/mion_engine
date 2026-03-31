@@ -94,9 +94,7 @@ inline void configure_player(Actor& player, TextureCache* tex_cache,
     // Sprite
     {
         static const char* kPlayerSheet = "assets/sprites/player.png";
-        player.sprite_sheet = tex_cache
-                                  ? static_cast<void*>(tex_cache->load(kPlayerSheet))
-                                  : nullptr;
+        player.sprite_sheet = tex_cache ? tex_cache->load(kPlayerSheet) : nullptr;
         if (player.sprite_sheet)
             player.anim.build_puny_clips(0, 8.0f);
     }

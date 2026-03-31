@@ -22,6 +22,9 @@
 - [x] Modificar `dungeon_scene.hpp` — usar novos módulos de UI
 - [x] Verificar compilação (652 testes OK)
 
+### Limpeza pós-Sprint 1
+- [x] Remover `_facing_to_puny_row` de `town_scene.hpp` — substituir por `facing_to_puny_row()` de `world_renderer.hpp`
+
 ---
 
 ## Sprint 2: Fases 4-6 — dungeon_scene + save_system ✓ COMPLETO
@@ -66,6 +69,21 @@
 - [x] Criar `src/systems/spell_system.hpp` — spell casting, cooldowns, projectile spawn
 - [x] Simplificar `player_action.hpp` — orquestrador melee/ranged/dash/spells
 - [x] Verificar compilação + testes
+
+---
+
+## Sprint 4 — F-001: `void*` → `SDL_Texture*` (Type Safety) ✓ COMPLETO
+
+> **Contexto:** `Actor::sprite_sheet` era `void*` para evitar incluir `<SDL3/SDL.h>` em `actor.hpp`.
+> Isso gerava `static_cast<SDL_Texture*>` em 5+ pontos do código — Undefined Behavior silencioso.
+
+- [x] **Passo 1 — Forward declaration em `actor.hpp`**
+  - `struct SDL_Texture;` antes do namespace
+  - `void* sprite_sheet` → `SDL_Texture* sprite_sheet`
+- [x] **Passo 2 — Remover static_cast<SDL_Texture*>** (world_renderer, dungeon_scene ×3, town_scene)
+- [x] **Passo 3 — Remover static_cast<void*>** (player_configurator, enemy_spawner)
+- [x] **Passo 4 — Build completo** (0 erros, 0 warnings nossos)
+- [x] **Passo 5 — Testes** (5/5 passed)
 
 ---
 

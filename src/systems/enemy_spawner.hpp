@@ -117,7 +117,7 @@ private:
         actor.sprite_scale       = def.sprite_scale;
         actor.path_replan_timer  = static_cast<float>(enemies.size()) * 0.1f;
         actor.sprite_sheet = (tex_cache && def.sprite_sheet_path && def.sprite_sheet_path[0])
-            ? static_cast<void*>(tex_cache->load(def.sprite_sheet_path))
+            ? tex_cache->load(def.sprite_sheet_path)
             : nullptr;
         if (actor.sprite_sheet)
             actor.anim.build_puny_clips(def.dir_row, def.frame_fps);
