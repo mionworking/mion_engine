@@ -46,26 +46,26 @@
 
 ---
 
-## Sprint 3: Fases 7-9 — enemy_ai + title_scene + player_action
+## Sprint 3: Fases 7-9 — enemy_ai + title_scene + player_action ✓ COMPLETO
 
 ### Fase 7: Refatorar enemy_ai.hpp (364 linhas)
-- [ ] Criar `src/systems/ai_patrol.hpp` — patrol/waypoint/separation behavior
-- [ ] Criar `src/systems/ai_combat.hpp` — chase/melee/ranged behavior + projectile spawn
-- [ ] Criar `src/systems/ai_boss.hpp` — boss phased logic (phase2 trigger, special attacks)
-- [ ] Simplificar `enemy_ai.hpp` — orquestrador que delega aos sub-sistemas
-- [ ] Verificar compilação + testes
+- [x] Criar `src/systems/ai_patrol.hpp` — patrol/waypoint/separation behavior
+- [x] Criar `src/systems/ai_combat.hpp` — chase/melee/ranged behavior + projectile spawn
+- [x] Criar `src/systems/ai_boss.hpp` — boss phased logic (phase2 trigger, special attacks)
+- [x] Simplificar `enemy_ai.hpp` — orquestrador que delega aos sub-sistemas
+- [x] Verificar compilação + testes
 
 ### Fase 8: Refatorar title_scene.hpp (350 linhas)
-- [ ] Criar `src/core/title_menu.hpp` — UI modes (main/difficulty/settings/extras), navigation, rendering
-- [ ] Extrair ações de menu para helpers/controller — continue/new game, erase save, settings, persistência de dificuldade/config
-- [ ] Simplificar `title_scene.hpp` — lifecycle + estado de cena + delegação ao menu/controller
-- [ ] Verificar compilação + testes
+- [x] Criar `src/core/title_menu.hpp` — UI modes (main/difficulty/settings/extras), navigation, rendering
+- [x] Extrair ações de menu para helpers/controller — continue/new game, erase save, settings, persistência de dificuldade/config
+- [x] Simplificar `title_scene.hpp` — lifecycle + estado de cena + delegação ao menu/controller
+- [x] Verificar compilação + testes
 
 ### Fase 9: Refatorar player_action.hpp (311 linhas)
-- [ ] Criar `src/systems/dash_system.hpp` — dash logic + stamina drain + iframes
-- [ ] Criar `src/systems/spell_system.hpp` — spell casting, cooldowns, projectile spawn
-- [ ] Simplificar `player_action.hpp` — orquestrador melee/ranged/dash/spells
-- [ ] Verificar compilação + testes
+- [x] Criar `src/systems/dash_system.hpp` — dash logic + stamina drain + iframes
+- [x] Criar `src/systems/spell_system.hpp` — spell casting, cooldowns, projectile spawn
+- [x] Simplificar `player_action.hpp` — orquestrador melee/ranged/dash/spells
+- [x] Verificar compilação + testes
 
 ---
 
