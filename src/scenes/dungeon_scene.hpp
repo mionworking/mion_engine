@@ -26,6 +26,12 @@
 #include "../systems/enemy_ai.hpp"
 #include "../systems/tilemap_renderer.hpp"
 #include "../systems/lighting.hpp"
+#include "../systems/world_renderer.hpp"
+#include "../systems/player_configurator.hpp"
+#include "../core/pause_menu.hpp"
+#include "../systems/dungeon_hud.hpp"
+#include "../systems/skill_tree_ui.hpp"
+#include "../systems/attribute_screen_ui.hpp"
 #include "../systems/pathfinder.hpp"
 #include "../systems/player_action.hpp"
 #include "../systems/movement_system.hpp"
@@ -50,191 +56,6 @@
 #include "../core/ui.hpp"
 
 namespace mion {
-
-// ---------------------------------------------------------------
-// Helpers de render (privados à cena)
-// ---------------------------------------------------------------
-static void _draw_rect(SDL_Renderer* r, const Camera2D& cam,
-                       float cx, float cy, float hw, float hh,
-                       Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255)
-{
-    SDL_SetRenderDrawColor(r, R, G, B, A);
-    SDL_FRect rect = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(cy-hh),
-                       hw*2.0f, hh*2.0f };
-    SDL_RenderFillRect(r, &rect);
-}
-
-static void _draw_outline(SDL_Renderer* r, const Camera2D& cam,
-                          float cx, float cy, float hw, float hh,
-                          Uint8 R, Uint8 G, Uint8 B)
-{
-    SDL_SetRenderDrawColor(r, R, G, B, 255);
-    SDL_FRect rect = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(cy-hh),
-                       hw*2.0f, hh*2.0f };
-    SDL_RenderRect(r, &rect);
-}
-
-static void _draw_hp_bar(SDL_Renderer* r, const Camera2D& cam,
-                         float cx, float top_y, float hw, int hp, int max_hp)
-{
-    const float bw = hw*2.0f, bh = 5.0f;
-    const float by = top_y - 10.0f;
-    SDL_SetRenderDrawColor(r, 50, 50, 50, 255);
-    SDL_FRect bg = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(by), bw, bh };
-    SDL_RenderFillRect(r, &bg);
-    float ratio = (max_hp > 0) ? (float)hp / max_hp : 0.0f;
-    SDL_SetRenderDrawColor(r, (Uint8)(255*(1-ratio)), (Uint8)(255*ratio), 30, 255);
-    SDL_FRect fill = { cam.world_to_screen_x(cx-hw), cam.world_to_screen_y(by),
-                       bw*ratio, bh };
-    SDL_RenderFillRect(r, &fill);
-}
-
-static bool _render_obstacle_sprite(SDL_Renderer* r, const Camera2D& cam,
-                                    const Obstacle& obs, TextureCache* tex_cache)
-{
-    if (!tex_cache || obs.sprite_path.empty()) return false;
-
-    std::error_code ec;
-    if (!std::filesystem::exists(obs.sprite_path, ec) || ec) return false;
-
-    SDL_Texture* tex = tex_cache->load(obs.sprite_path);
-    if (!tex) return false;
-
-    const float bounds_w = obs.bounds.max_x - obs.bounds.min_x;
-    const float bounds_h = obs.bounds.max_y - obs.bounds.min_y;
-    const float draw_w   = obs.sprite_world_w > 0.0f ? obs.sprite_world_w : bounds_w;
-    const float draw_h   = obs.sprite_world_h > 0.0f ? obs.sprite_world_h : bounds_h;
-    const float anchor_x = (obs.bounds.min_x + obs.bounds.max_x) * 0.5f;
-    const float anchor_y = obs.bounds.max_y;
-
-    SDL_FRect dst = {
-        cam.world_to_screen_x(anchor_x - draw_w * obs.sprite_anchor_x),
-        cam.world_to_screen_y(anchor_y - draw_h * obs.sprite_anchor_y),
-        draw_w,
-        draw_h
-    };
-    SDL_RenderTexture(r, tex, nullptr, &dst);
-    return true;
-}
-
-static void _render_actor_status_overlay_screen(SDL_Renderer* r, float sx, float sy,
-                                                float sw, float sh, const Actor& a) {
-    if (a.hit_flash_timer > 0.0f) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 255, 255, 255, 180);
-        SDL_FRect rect = {sx, sy, sw, sh};
-        SDL_RenderFillRect(r, &rect);
-        return;
-    }
-    if (!a.is_alive) return;
-
-    Uint8 R = 0, G = 0, B = 0, A = 0;
-    if (a.status_effects.has(StatusEffectType::Poison)) {
-        R = 80; G = 220; B = 80; A = 80;
-    } else if (a.status_effects.has(StatusEffectType::Slow)) {
-        R = 80; G = 120; B = 220; A = 80;
-    } else if (a.status_effects.has(StatusEffectType::Stun)) {
-        R = 240; G = 220; B = 60; A = 80;
-    } else
-        return;
-
-    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(r, R, G, B, A);
-    SDL_FRect rect = {sx, sy, sw, sh};
-    SDL_RenderFillRect(r, &rect);
-}
-
-static void _render_actor_status_overlay_world(SDL_Renderer* r, const Camera2D& cam,
-                                               float cx, float cy, float hw, float hh,
-                                               const Actor& a) {
-    float sx = cam.world_to_screen_x(cx - hw);
-    float sy = cam.world_to_screen_y(cy - hh);
-    float sw = cam.world_to_screen_x(cx + hw) - sx;
-    float sh = cam.world_to_screen_y(cy + hh) - sy;
-    _render_actor_status_overlay_screen(r, sx, sy, sw, sh, a);
-}
-
-// Renderiza um actor — sprite se disponível, senão retângulo colorido
-static void _render_actor(SDL_Renderer* r, const Camera2D& cam, const Actor& a)
-{
-    // Continua renderizando mortos até a animação de morte terminar
-    bool death_done = !a.is_alive && a.anim.finished;
-    if (death_done) return;
-
-    float cx = a.transform.x, cy = a.transform.y;
-    float hw = a.collision.half_w,  hh = a.collision.half_h;
-
-    // --- Caminho sprite ---
-    SDL_Texture* tex = static_cast<SDL_Texture*>(a.sprite_sheet);
-    if (tex) {
-        const AnimFrame* af = a.anim.current_frame();
-        if (af) {
-            const float sprite_scale = a.sprite_scale;
-            const float sprite_hw    = (float)af->src.w * sprite_scale * 0.5f;
-            const float sprite_hh    = (float)af->src.h * sprite_scale * 0.5f;
-            SpriteFrame frame;
-            frame.texture = tex;
-            frame.src     = { af->src.x, af->src.y, af->src.w, af->src.h };
-            const float scr_cx = cam.world_to_screen_x(cx);
-            const float scr_cy = cam.world_to_screen_y(cy);
-            draw_sprite(r, frame,
-                        scr_cx,
-                        scr_cy,
-                        sprite_scale, sprite_scale, a.facing_x < 0.0f);
-
-            _render_actor_status_overlay_screen(
-                r, scr_cx - sprite_hw, scr_cy - sprite_hh, sprite_hw * 2.0f, sprite_hh * 2.0f, a);
-
-            if (a.is_alive) {
-                _draw_hp_bar(r, cam, cx, cy - sprite_hh, std::max(hw, sprite_hw * 0.5f),
-                             a.health.current_hp, a.health.max_hp);
-                if (a.combat.is_in_active_phase()) {
-                    AABB hb = a.melee_hit_box.bounds_at(cx, cy, a.facing_x, a.facing_y);
-                    float hcx=(hb.min_x+hb.max_x)*0.5f, hcy=(hb.min_y+hb.max_y)*0.5f;
-                    float hhw=(hb.max_x-hb.min_x)*0.5f, hhh=(hb.max_y-hb.min_y)*0.5f;
-                    _draw_outline(r, cam, hcx, hcy, hhw, hhh, 255, 60, 60);
-                }
-            }
-            return;
-        }
-    }
-
-    // --- Fallback retângulo ---
-    if (!a.is_alive) return;
-
-    if (a.team == Team::Player) {
-        switch (a.combat.attack_phase) {
-            case AttackPhase::Idle:     _draw_rect(r,cam,cx,cy,hw,hh,180,210,255); break;
-            case AttackPhase::Startup:  _draw_rect(r,cam,cx,cy,hw,hh,255,220, 50); break;
-            case AttackPhase::Active:   _draw_rect(r,cam,cx,cy,hw,hh,255, 60, 60); break;
-            case AttackPhase::Recovery: _draw_rect(r,cam,cx,cy,hw,hh, 80, 80,220); break;
-        }
-    } else {
-        if (a.combat.hurt_stun_remaining_seconds > 0.0f)
-            _draw_rect(r,cam,cx,cy,hw,hh,255,255,255);
-        else
-            _draw_rect(r,cam,cx,cy,hw,hh,180,40,40);
-    }
-
-    _draw_outline(r,cam,cx,cy,hw,hh,220,220,220);
-
-    float fx = cx + a.facing_x*(hw+6.0f);
-    float fy = cy + a.facing_y*(hh+6.0f);
-    SDL_SetRenderDrawColor(r,255,255,100,255);
-    SDL_RenderLine(r, cam.world_to_screen_x(cx), cam.world_to_screen_y(cy),
-                      cam.world_to_screen_x(fx), cam.world_to_screen_y(fy));
-
-    _draw_hp_bar(r,cam,cx,cy - hh,hw, a.health.current_hp, a.health.max_hp);
-
-    if (a.combat.is_in_active_phase()) {
-        AABB hb = a.melee_hit_box.bounds_at(cx,cy,a.facing_x,a.facing_y);
-        float hcx=(hb.min_x+hb.max_x)*0.5f, hcy=(hb.min_y+hb.max_y)*0.5f;
-        float hhw=(hb.max_x-hb.min_x)*0.5f, hhh=(hb.max_y-hb.min_y)*0.5f;
-        _draw_outline(r,cam,hcx,hcy,hhw,hhh,255,60,60);
-    }
-
-    _render_actor_status_overlay_world(r, cam, cx, cy, hw, hh, a);
-}
 
 // ---------------------------------------------------------------
 // DungeonScene
@@ -293,13 +114,23 @@ public:
         _scene_exit_pending = false;
         _scene_exit_timer   = 0.f;
         _scene_exit_target.clear();
-        _paused          = false;
-        _settings_open   = false;
         _skill_tree_open = false;
         _build_skill_tree_columns();
-        _pause_list.items = {"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"};
-        _pause_list.disabled.assign(4, false);
-        _pause_list.selected = 0;
+        _pause_menu.init({"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"});
+        _pause_menu.on_item_selected(0, [this]{ _pause_menu.paused = false; });
+        _pause_menu.on_item_selected(1, [this]{
+            _skill_tree_open = true;
+            _pause_menu.paused = false;
+            _st_selected_col = 0;
+            _st_selected_row = 0;
+            _st_clamp_cursor();
+        });
+        _pause_menu.on_item_selected(2, [this]{ _pause_menu.settings_open = true; });
+        _pause_menu.on_item_selected(3, [this]{
+            _pending_next_scene = "title";
+            _pause_menu.paused  = false;
+            if (_audio) _audio->fade_music(400);
+        });
         _camera.viewport_w = (float)viewport_w;
         _camera.viewport_h = (float)viewport_h;
 
@@ -841,9 +672,9 @@ public:
             float ohw=(obs.bounds.max_x-obs.bounds.min_x)*0.5f;
             float ohh=(obs.bounds.max_y-obs.bounds.min_y)*0.5f;
             TextureCache* tex_cache = _tex_cache.has_value() ? &*_tex_cache : nullptr;
-            if (!_render_obstacle_sprite(r, _camera, obs, tex_cache)) {
-                _draw_rect(r,_camera,ocx,ocy,ohw,ohh,60,55,70);
-                _draw_outline(r,_camera,ocx,ocy,ohw,ohh,90,85,100);
+            if (!render_obstacle_sprite(r, _camera, obs, tex_cache)) {
+                draw_world_rect(r,_camera,ocx,ocy,ohw,ohh,60,55,70);
+                draw_world_outline(r,_camera,ocx,ocy,ohw,ohh,90,85,100);
             }
         }
 
@@ -868,17 +699,17 @@ public:
                     Uint8 dr = cleared ? 80 : 160;
                     Uint8 dg = cleared ? 140 : 80;
                     Uint8 db = cleared ? 80 : 40;
-                    _draw_rect(r, _camera, dcx, dcy, dhw, dhh, dr, dg, db);
+                    draw_world_rect(r, _camera, dcx, dcy, dhw, dhh, dr, dg, db);
                 }
             }
         }
 
-        for (const auto* a : _actors) _render_actor(r, _camera, *a);
+        for (const auto* a : _actors) render_actor(r, _camera, *a);
 
         _particles.render(r, _camera);
 
         for (const auto& pr : _projectiles) {
-            _draw_rect(r, _camera, pr.x, pr.y, pr.half_w, pr.half_h,
+            draw_world_rect(r, _camera, pr.x, pr.y, pr.half_w, pr.half_h,
                        255, 220, 60);
         }
         for (const auto& gi : _ground_items) {
@@ -889,7 +720,7 @@ public:
             } else if (gi.type == GroundItemType::Speed) {
                 RR = 100; GG = 180; BB = 255;
             }
-            _draw_rect(r, _camera, gi.x, gi.y, 10.0f, 10.0f, RR, GG, BB);
+            draw_world_rect(r, _camera, gi.x, gi.y, 10.0f, 10.0f, RR, GG, BB);
         }
 
         // HP numérico
@@ -914,7 +745,7 @@ public:
             _lighting.render(r, lx, ly);
         }
 
-        _render_hud(r);
+        render_dungeon_hud(r, viewport_w, viewport_h, _player, _room_index);
 
         if (_show_autosave_indicator && _autosave_flash > 0.f) {
             const char* tag = "Saved";
@@ -925,7 +756,10 @@ public:
         }
 
         if (_player.is_alive && _attr_screen_open)
-            _render_attr_screen_overlay(r);
+            render_attribute_screen(r, viewport_w, viewport_h,
+                                    _player.attributes,
+                                    _player.progression.pending_level_ups,
+                                    _attr_selected);
 
         if (!_stress_mode && _room_index == 3 && _boss_intro_pending) {
             float t       = _boss_intro_timer / kBossIntroDuration;
@@ -977,13 +811,16 @@ public:
             _dialogue.render(r, viewport_w, viewport_h);
 
         if (_attr_screen_open)
-            _render_attr_screen_overlay(r);
+            render_attribute_screen(r, viewport_w, viewport_h,
+                                    _player.attributes,
+                                    _player.progression.pending_level_ups,
+                                    _attr_selected);
         if (_skill_tree_open)
-            _render_skill_tree_overlay(r);
-        if (_paused)
-            _render_pause_overlay(r);
-        if (_settings_open)
-            _render_settings_placeholder(r);
+            render_skill_tree_overlay(r, viewport_w, viewport_h,
+                                      _player.talents,
+                                      _st_selected_col, _st_selected_row,
+                                      _st_col_indices);
+        _pause_menu.render(r, viewport_w, viewport_h);
     }
 
     const char* next_scene() const override {
@@ -1061,17 +898,11 @@ private:
 
     QuestState _quest_state{};
 
-    bool             _paused = false;
-    bool             _settings_open = false;
-    ui::List         _pause_list;
-    bool             _prev_esc = false;
-    bool             _prev_ui_up = false;
-    bool             _prev_ui_down = false;
+    PauseMenu        _pause_menu;
     bool             _prev_ui_left = false;
     bool             _prev_ui_right = false;
     bool             _prev_tab = false;
     bool             _prev_menu_confirm = false;
-    bool             _prev_ui_cancel   = false;
     bool             _skill_tree_open = false;
     int              _st_selected_col = 0;
     int              _st_selected_row = 0;
@@ -1100,14 +931,11 @@ private:
     }
 
     void _flush_menu_input_prev(const InputState& in) {
-        _prev_esc            = in.pause_pressed;
-        _prev_ui_up          = in.ui_up_pressed;
-        _prev_ui_down        = in.ui_down_pressed;
+        _pause_menu.flush_input(in);
         _prev_ui_left        = in.ui_left_pressed;
         _prev_ui_right       = in.ui_right_pressed;
         _prev_tab            = in.skill_tree_pressed;
         _prev_menu_confirm   = in.confirm_pressed;
-        _prev_ui_cancel      = in.ui_cancel_pressed;
     }
 
     void _build_skill_tree_columns() {
@@ -1133,21 +961,14 @@ private:
     }
 
     bool _handle_pause_and_skill_ui(const InputState& input) {
-        const bool esc_edge   = input.pause_pressed && !_prev_esc;
-        const bool tab_edge   = input.skill_tree_pressed && !_prev_tab;
-        const bool up_edge    = input.ui_up_pressed && !_prev_ui_up;
-        const bool down_edge  = input.ui_down_pressed && !_prev_ui_down;
-        const bool left_edge  = input.ui_left_pressed && !_prev_ui_left;
-        const bool right_edge = input.ui_right_pressed && !_prev_ui_right;
-        const bool conf_edge  = input.confirm_pressed && !_prev_menu_confirm;
-        const bool back_edge  = input.ui_cancel_pressed && !_prev_ui_cancel;
-
-        if (_settings_open) {
-            if (esc_edge || conf_edge || back_edge)
-                _settings_open = false;
-            _flush_menu_input_prev(input);
-            return true;
-        }
+        const bool esc_edge   = input.pause_pressed       && !_pause_menu.prev_esc;
+        const bool tab_edge   = input.skill_tree_pressed  && !_prev_tab;
+        const bool up_edge    = input.ui_up_pressed        && !_pause_menu.prev_up;
+        const bool down_edge  = input.ui_down_pressed      && !_pause_menu.prev_down;
+        const bool left_edge  = input.ui_left_pressed      && !_prev_ui_left;
+        const bool right_edge = input.ui_right_pressed     && !_prev_ui_right;
+        const bool conf_edge  = input.confirm_pressed      && !_prev_menu_confirm;
+        const bool back_edge  = input.ui_cancel_pressed    && !_pause_menu.prev_cancel;
 
         // --- Attribute Screen (level-up) ---
         if (_attr_screen_open) {
@@ -1215,41 +1036,6 @@ private:
             return true;
         }
 
-        if (_paused) {
-            if (esc_edge)
-                _paused = false;
-            else {
-                if (up_edge)
-                    _pause_list.nav_up();
-                if (down_edge)
-                    _pause_list.nav_down();
-                if (conf_edge) {
-                    switch (_pause_list.selected) {
-                    case 0:
-                        _paused = false;
-                        break;
-                    case 1:
-                        _skill_tree_open   = true;
-                        _paused            = false;
-                        _st_selected_col   = 0;
-                        _st_selected_row   = 0;
-                        _st_clamp_cursor();
-                        break;
-                    case 2:
-                        _settings_open = true;
-                        break;
-                    case 3:
-                        _pending_next_scene = "title";
-                        _paused             = false;
-                        if (_audio)
-                            _audio->fade_music(400);
-                        break;
-                    }
-                }
-            }
-            return true;
-        }
-
         if (tab_edge && !_player.progression.level_choice_pending()
             && !_talent_selection_pending()) {
             _skill_tree_open = !_skill_tree_open;
@@ -1260,195 +1046,12 @@ private:
             }
         }
 
-        if (esc_edge && !_player.progression.level_choice_pending()
-            && !_talent_selection_pending()) {
-            _paused              = true;
-            _pause_list.selected = 0;
-            return true;
-        }
+        bool blocked_open = _player.progression.level_choice_pending()
+                            || _talent_selection_pending();
+        if (blocked_open)
+            return false;
 
-        return false;
-    }
-
-    void _render_pause_overlay(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
-        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &full);
-
-        ui::Panel panel;
-        panel.rect = {viewport_w * 0.35f, viewport_h * 0.25f, viewport_w * 0.30f,
-                      viewport_h * 0.50f};
-        panel.render(r);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "PAUSED", 3, 255, 220, 60,
-                  255);
-        _pause_list.render(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f);
-    }
-
-    void _render_settings_placeholder(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
-        SDL_FRect dim{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &dim);
-
-        ui::Panel panel;
-        panel.rect = {viewport_w * 0.30f, viewport_h * 0.30f, viewport_w * 0.40f, viewport_h * 0.40f};
-        panel.render(r);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "SETTINGS", 3, 220, 200, 120, 255);
-        const char* l1 = "Audio e teclas vivem em config.ini";
-        const char* l2 = "por agora. Mais opcoes em breve.";
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f, l1, 2, 190, 190, 175, 255);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f, l2, 2, 190, 190, 175, 255);
-        const char* hint = "ESC / ENTER / BACKSPACE - voltar";
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f, hint, 1, 160, 200, 220,
-                  255);
-    }
-
-    void _render_attr_screen_overlay(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 210);
-        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &full);
-
-        // Título
-        const char* title = "LEVEL UP - Distribute Attribute Point";
-        draw_text(r, viewport_w * 0.5f - text_width(title, 2) * 0.5f, 18.0f,
-                  title, 2, 255, 220, 80, 255);
-
-        char pts_buf[48];
-        SDL_snprintf(pts_buf, sizeof(pts_buf), "Points remaining: %d",
-                     _player.progression.pending_level_ups);
-        draw_text(r, viewport_w * 0.5f - text_width(pts_buf, 2) * 0.5f, 42.0f,
-                  pts_buf, 2, 200, 200, 180, 255);
-
-        // Definições de cada atributo
-        struct AttrRow {
-            const char* name;
-            const char* desc;
-            int         current;
-        };
-        const AttrRow rows[5] = {
-            { "Vigor",        "+HP max por ponto",                _player.attributes.vigor        },
-            { "Forca",        "+Dano melee por ponto",            _player.attributes.forca        },
-            { "Destreza",     "+Dano ranged por ponto",           _player.attributes.destreza     },
-            { "Inteligencia", "+Dano magic / +Mana max",          _player.attributes.inteligencia },
-            { "Endurance",    "+Stamina max por ponto",           _player.attributes.endurance    },
-        };
-
-        const float panel_w = viewport_w * 0.55f;
-        const float panel_h = viewport_h * 0.65f;
-        const float panel_x = (viewport_w - panel_w) * 0.5f;
-        const float panel_y = 72.0f;
-
-        ui::Panel panel;
-        panel.rect   = {panel_x, panel_y, panel_w, panel_h};
-        panel.border = {180, 140, 60, 255};
-        panel.render(r);
-
-        const float row_h  = panel_h / 5.0f;
-        for (int i = 0; i < 5; ++i) {
-            const float ry  = panel_y + (float)i * row_h;
-            const bool  sel = (i == _attr_selected);
-
-            if (sel) {
-                SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-                SDL_SetRenderDrawColor(r, 80, 65, 30, 200);
-                SDL_FRect hi{panel_x + 4.0f, ry + 4.0f, panel_w - 8.0f, row_h - 8.0f};
-                SDL_RenderFillRect(r, &hi);
-                SDL_SetRenderDrawColor(r, 255, 210, 80, 255);
-                SDL_RenderRect(r, &hi);
-            }
-
-            // Nome do atributo
-            Uint8 nr = sel ? 255 : 200, ng = sel ? 220 : 200, nb = sel ? 80 : 180;
-            draw_text(r, panel_x + 18.0f, ry + 10.0f,
-                      rows[i].name, 2, nr, ng, nb, 255);
-
-            // Nível atual
-            char lvbuf[16];
-            SDL_snprintf(lvbuf, sizeof(lvbuf), "%d", rows[i].current);
-            draw_text(r, panel_x + panel_w - text_width(lvbuf, 3) - 20.0f, ry + 8.0f,
-                      lvbuf, 3, nr, ng, nb, 255);
-
-            // Descrição
-            draw_text(r, panel_x + 18.0f, ry + 32.0f,
-                      rows[i].desc, 1, 160, 165, 145, 200);
-        }
-
-        // Hint
-        const char* hint = sel_hint_text();
-        draw_text(r, 16.0f, (float)viewport_h - 28.0f, hint, 2, 200, 200, 180, 255);
-    }
-
-    static const char* sel_hint_text() {
-        return "UP/DOWN selecionar   ENTER confirmar   ESC fechar";
-    }
-
-    void _render_skill_tree_overlay(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
-        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &full);
-
-        char pts[48];
-        SDL_snprintf(pts, sizeof(pts), "Pontos: %d", _player.talents.pending_points);
-        draw_text(r, (float)viewport_w - text_width(pts, 2) - 16.0f, 16.0f, pts, 2, 200, 220,
-                  255, 255);
-
-        const char* titles[3] = {"MELEE", "RANGED", "MAGIC"};
-        const float gap       = 12.0f;
-        const float colw      = (viewport_w - gap * 4.0f) / 3.0f;
-        const float top       = 56.0f;
-        const float height    = (float)viewport_h - top - 24.0f;
-
-        for (int c = 0; c < 3; ++c) {
-            ui::Panel col_panel;
-            col_panel.rect = {gap + (colw + gap) * (float)c, top, colw, height};
-            if (c == _st_selected_col) {
-                col_panel.border    = {255, 210, 80, 255};
-                col_panel.border_px = 3;
-            }
-            col_panel.render(r);
-            draw_text(r, col_panel.rect.x + 10.0f, col_panel.rect.y + 8.0f, titles[c], 2, 220,
-                      200, 160, 255);
-
-            float ty = col_panel.rect.y + 36.0f;
-            const auto& ids = _st_col_indices[c];
-            for (int ri = 0; ri < static_cast<int>(ids.size()); ++ri) {
-                const int        ti   = ids[static_cast<size_t>(ri)];
-                const TalentId    tid  = static_cast<TalentId>(ti);
-                const TalentNode& node = talent_def(tid);
-                const int        lv   = _player.talents.level_of(tid);
-                const bool       sel  = (c == _st_selected_col && ri == _st_selected_row);
-                const bool       lock = node.has_parent
-                    && _player.talents.level_of(node.parent) < node.parent_min_level;
-                char line[96];
-                SDL_snprintf(line, sizeof(line), "%s %d/%d", talent_display_name(tid).c_str(), lv,
-                             node.max_level);
-                Uint8 R = 200, G = 200, B = 190;
-                if (lock && lv == 0) {
-                    R = 90;
-                    G = 88;
-                    B = 85;
-                } else if (_player.talents.can_spend(tid)) {
-                    R = 180;
-                    G = 240;
-                    B = 160;
-                }
-                if (sel) {
-                    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-                    SDL_SetRenderDrawColor(r, 70, 60, 40, 220);
-                    SDL_FRect hi{col_panel.rect.x + 6.0f, ty - 2.0f, col_panel.rect.w - 12.0f,
-                                  22.0f};
-                    SDL_RenderFillRect(r, &hi);
-                }
-                draw_text(r, col_panel.rect.x + 12.0f, ty, line, 1, R, G, B, 255);
-                ty += 24.0f;
-            }
-        }
-
-        const char* hint = "SETAS  ENTER - gastar ponto  TAB/ESC - fechar";
-        draw_text(r, 16.0f, (float)viewport_h - 28.0f, hint, 2, 200, 200, 180, 255);
+        return _pause_menu.handle_input(input);
     }
 
     // -------------------------------------------------------------------
@@ -1515,78 +1118,17 @@ private:
     }
 
     void _configure_player_state(bool reset_health_to_max) {
-        _player.name            = "player";
-        _player.team            = Team::Player;
-        _player.attack_damage   = g_player_config.melee_damage;
-        _player.ranged_damage   = g_player_config.ranged_damage;
-        _player.melee_hit_box   = { 22.0f, 14.0f, 28.0f };
-        _player.is_alive        = true;
-        _player.was_alive       = true;
-        _player.move_speed      = g_player_config.base_move_speed;
-        _player.dash_speed               = g_player_config.dash_speed;
-        _player.dash_duration_seconds     = g_player_config.dash_duration;
-        _player.dash_cooldown_seconds      = g_player_config.dash_cooldown;
-        _player.dash_iframes_seconds       = g_player_config.dash_iframes;
-        _player.ranged_cooldown_seconds    = g_player_config.ranged_cooldown;
-        _player.knockback_vx  = 0;
-        _player.knockback_vy  = 0;
-        _player.stamina = StaminaState{};
-        _player.stamina.current = g_player_config.base_stamina;
-        _player.stamina.max     = g_player_config.base_stamina_max;
-        _player.stamina.regen_rate   = g_player_config.stamina_regen;
-        _player.stamina.regen_delay  = g_player_config.stamina_delay;
-        _player.spell_book    = SpellBookState{};
-        _sync_spell_unlocks_from_talents();
-        _player.dash_active_remaining_seconds   = 0.0f;
-        _player.dash_cooldown_remaining_seconds = 0.0f;
-        _player.ranged_cooldown_remaining_seconds = 0.0f;
-
-        // Recalcula todos os stats derivados (dano, hp, stamina, mana max).
-        recompute_player_derived_stats(
-            _player.derived,
-            _player.attributes,
-            _player.progression,
-            _player.talents,
-            _player.equipment,
-            g_player_config.melee_damage,
-            g_player_config.ranged_damage);
+        TextureCache* tc = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+        PlayerConfigureOptions opts;
+        opts.reset_health_to_max = reset_health_to_max;
+        opts.stress_mode         = _stress_mode;
+        configure_player(_player, tc, opts);
 
         if (_stress_mode)
             _player.transform.set_position(_room.bounds.max_x * 0.5f,
                                            _room.bounds.max_y * 0.5f);
         else
             _player_place_intro_spawn();
-
-        const int base_hp = _stress_mode ? 10000 : g_player_config.base_hp;
-        _player.health.max_hp = base_hp + _player.derived.hp_max_bonus;
-        if (reset_health_to_max)
-            _player.health.current_hp = _player.health.max_hp;
-
-        _player.stamina = StaminaState{};
-        _player.stamina.current    = g_player_config.base_stamina;
-        _player.stamina.max        = g_player_config.base_stamina_max + _player.derived.stamina_max_bonus;
-        _player.stamina.regen_rate = g_player_config.stamina_regen;
-        _player.stamina.regen_delay = g_player_config.stamina_delay;
-
-        _player.mana = ManaState{};
-        _player.mana.current     = g_player_config.base_mana;
-        _player.mana.max         = g_player_config.base_mana_max + _player.derived.mana_max_bonus;
-        _player.mana.regen_rate  = g_player_config.base_mana_regen;
-        _player.mana.regen_delay = g_player_config.mana_regen_delay;
-
-        _player.combat.reset_for_spawn();
-        {
-            static const char* kPlayerSheet = "assets/sprites/player.png";
-            _player.sprite_sheet = (_tex_cache.has_value())
-                                       ? static_cast<void*>(_tex_cache->load(kPlayerSheet))
-                                       : nullptr;
-            if (_player.sprite_sheet)
-                _player.anim.build_puny_clips(0, 8.0f);
-        }
-
-        _player.footstep_prev_x     = _player.transform.x;
-        _player.footstep_prev_y     = _player.transform.y;
-        _player.footstep_accum_dist = 0.f;
     }
 
     void _spawn_enemies_for_budget(int budget) {
@@ -2142,22 +1684,13 @@ private:
         _tilemap.fill(cols - 1, 0, cols - 1, rows - 1, TileType::Wall);
     }
 
-    // -------------------------------------------------------------------
-    // Mapeia facing para linha do Puny Characters (layout 8-direções).
-    // Row 0 = Sul | Row 4 = Norte | Row 6 = Leste (Oeste é Row 6 + flip).
-    static int _facing_to_puny_row(float fx, float fy) {
-        const float ax = fx < 0.0f ? -fx : fx;
-        const float ay = fy < 0.0f ? -fy : fy;
-        if (ay > ax)
-            return fy > 0.0f ? 0 : 4;  // Sul ou Norte
-        return 6;                        // horizontal: Leste; Oeste via flip
-    }
+    // _facing_to_puny_row extracted to world_renderer.hpp → facing_to_puny_row()
 
     // Drive de animação — chamado uma vez por fixed_update
     // -------------------------------------------------------------------
     void _update_animations(float dt) {
         for (auto* a : _actors) {
-            a->anim.update_puny_dir_row(_facing_to_puny_row(a->facing_x, a->facing_y));
+            a->anim.update_puny_dir_row(facing_to_puny_row(a->facing_x, a->facing_y));
             if (!a->is_alive) {
                 a->anim.play(ActorAnim::Death);
             } else if (a->combat.is_hurt_stunned()) {
@@ -2171,151 +1704,6 @@ private:
             }
             a->anim.advance(dt);
         }
-    }
-
-    // -------------------------------------------------------------------
-    // HUD (screen-space)
-    // -------------------------------------------------------------------
-    void _render_hud(SDL_Renderer* r) {
-        if (!_player.is_alive) return;
-
-        const float x = 20.0f;
-        const float y_hp  = (float)viewport_h - 28.0f;
-        const float y_st  = y_hp - 18.0f;
-        const float y_mp  = y_st - 18.0f;
-        const float y_xp  = 18.0f;
-        const float w = 160.0f, h = 10.0f;
-
-        // XP / nível
-        float xp_ratio = (_player.progression.xp_to_next > 0)
-            ? (float)_player.progression.xp / _player.progression.xp_to_next : 0.0f;
-        SDL_SetRenderDrawColor(r, 30, 30, 50, 220);
-        SDL_FRect xp_bg = { x, y_xp, w, h };
-        SDL_RenderFillRect(r, &xp_bg);
-        SDL_SetRenderDrawColor(r, 120, 180, 255, 255);
-        SDL_FRect xp_fill = { x, y_xp, w * xp_ratio, h };
-        SDL_RenderFillRect(r, &xp_fill);
-        char xb[48];
-        SDL_snprintf(xb, sizeof(xb), "ROOM %d", _room_index + 1);
-        draw_text(r, x, 2.0f, xb, 1, 200, 200, 220);
-        char lb[16];
-        SDL_snprintf(lb, sizeof(lb), "Lv%d", _player.progression.level);
-        draw_text(r, 8.0f, 48.0f, lb, 2, 200, 200, 180, 255);
-        char gb[32];
-        SDL_snprintf(gb, sizeof(gb), "G %d", _player.gold);
-        draw_text(r, (float)viewport_w - text_width(gb, 2) - 12.0f, 12.0f, gb, 2, 255, 215, 0,
-                  255);
-        if (_player.talents.pending_points > 0) {
-            char tb[24];
-            SDL_snprintf(tb, sizeof(tb), "TP %d", _player.talents.pending_points);
-            draw_text(r, x + 120.0f, 2.0f, tb, 1, 150, 220, 255);
-        }
-        draw_text(r, x + w + 5.0f, y_xp + 1.0f, "XP", 1, 150, 180, 230);
-
-        // Stamina
-        float st_ratio = (_player.stamina.max > 0.0f)
-            ? _player.stamina.current / _player.stamina.max : 0.0f;
-        SDL_SetRenderDrawColor(r, 20, 40, 25, 220);
-        SDL_FRect st_bg = { x, y_st, w, h };
-        SDL_RenderFillRect(r, &st_bg);
-        SDL_SetRenderDrawColor(r, 80, 220, 120, 255);
-        SDL_FRect st_fill = { x, y_st, w * st_ratio, h };
-        SDL_RenderFillRect(r, &st_fill);
-        draw_text(r, x + w + 5.0f, y_st + 1.0f, "ST", 1, 130, 210, 150);
-
-        // Mana
-        float mp_ratio = (_player.mana.max > 0.0f)
-            ? _player.mana.current / _player.mana.max : 0.0f;
-        SDL_SetRenderDrawColor(r, 15, 25, 55, 220);
-        SDL_FRect mp_bg = { x, y_mp, w, h };
-        SDL_RenderFillRect(r, &mp_bg);
-        SDL_SetRenderDrawColor(r, 90, 150, 255, 255);
-        SDL_FRect mp_fill = { x, y_mp, w * mp_ratio, h };
-        SDL_RenderFillRect(r, &mp_fill);
-        draw_text(r, x + w + 5.0f, y_mp + 1.0f, "MP", 1, 120, 170, 240);
-
-        // HP
-        float hp_ratio = (_player.health.max_hp > 0)
-            ? (float)_player.health.current_hp / _player.health.max_hp : 0.0f;
-        SDL_SetRenderDrawColor(r, 40, 10, 10, 220);
-        SDL_FRect bg = { x, y_hp, w, h };
-        SDL_RenderFillRect(r, &bg);
-        SDL_SetRenderDrawColor(r,
-            (Uint8)(255*(1.0f-hp_ratio)), (Uint8)(255*hp_ratio), 30, 255);
-        SDL_FRect fill = { x, y_hp, w * hp_ratio, h };
-        SDL_RenderFillRect(r, &fill);
-        char buf[28];
-        SDL_snprintf(buf, sizeof(buf), "HP %d/%d",
-                     _player.health.current_hp, _player.health.max_hp);
-        draw_text(r, x, y_hp - 14.0f, buf, 1, 200, 200, 200);
-
-        float ystat = y_hp - 42.0f;
-        if (_player.status_effects.has(StatusEffectType::Poison)) {
-            draw_text(r, x, ystat, "[POISON]", 1, 150, 230, 130);
-            ystat -= 12.0f;
-        }
-        if (_player.status_effects.has(StatusEffectType::Slow)) {
-            draw_text(r, x, ystat, "[SLOW]", 1, 120, 200, 255);
-            ystat -= 12.0f;
-        }
-        if (_player.status_effects.has(StatusEffectType::Stun)) {
-            draw_text(r, x, ystat, "[STUN]", 1, 255, 220, 100);
-        }
-
-        {
-            float xp_ratio = (_player.progression.xp_to_next > 0)
-                ? (float)_player.progression.xp / (float)_player.progression.xp_to_next : 0.0f;
-            ui::ProgressBar xp_footer;
-            xp_footer.rect       = {0.0f, (float)viewport_h - 6.0f, (float)viewport_w, 6.0f};
-            xp_footer.value      = xp_ratio;
-            xp_footer.color_fill = {80, 160, 255, 255};
-            xp_footer.color_bg   = {25, 30, 45, 220};
-            xp_footer.render(r);
-        }
-
-        const float hot_y = (float)viewport_h - 52.0f;
-        const float slot_w = 64.0f;
-        const float cx       = (float)viewport_w * 0.5f;
-        auto        draw_slot = [&](int idx, const char* key, SpellId sid, const char* abbrev) {
-            const float sx   = cx - slot_w * 2.0f - 24.0f + (slot_w + 10.0f) * (float)idx;
-            const int   si   = static_cast<int>(sid);
-            const bool  unlk = _player.spell_book.is_unlocked(sid);
-            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(r, 20, 18, 35, 230);
-            SDL_FRect box{sx, hot_y, slot_w, 40.0f};
-            SDL_RenderFillRect(r, &box);
-            SDL_SetRenderDrawColor(r, 120, 100, 80, 255);
-            SDL_RenderRect(r, &box);
-            draw_text(r, sx + 4.0f, hot_y + 2.0f, key, 1, 160, 160, 200, 255);
-            const char* tag = unlk ? abbrev : "--";
-            draw_text(r, sx + 4.0f, hot_y + 16.0f, tag, 1, unlk ? 200 : 90, unlk ? 220 : 80,
-                      unlk ? 200 : 80, 255);
-            if (unlk && _player.spell_book.cooldown_remaining[si] > 0.0f) {
-                const SpellDef& def = spell_def(sid);
-                const float     cd  = def.effective_cooldown(
-                    spell_damage_rank(sid, _player.talents));
-                const float t  = _player.spell_book.cooldown_remaining[si];
-                const float p  = cd > 0.001f ? std::clamp(t / cd, 0.0f, 1.0f) : 1.0f;
-                SDL_SetRenderDrawColor(r, 0, 0, 0, 140);
-                SDL_FRect dim{sx, hot_y, slot_w, 40.0f * p};
-                SDL_RenderFillRect(r, &dim);
-            }
-        };
-        draw_slot(0, "Q", SpellId::FrostBolt, "Ice");
-        draw_slot(1, "E", SpellId::Nova, "Nova");
-        {
-            SpellId rid = SpellId::ChainLightning;
-            const char* lab = "Chn";
-            if (!_player.spell_book.is_unlocked(SpellId::ChainLightning)
-                && _player.spell_book.is_unlocked(SpellId::Strafe)) {
-                rid = SpellId::Strafe;
-                lab = "Str";
-            } else if (!_player.spell_book.is_unlocked(SpellId::ChainLightning)) {
-                lab = "--";
-            }
-            draw_slot(2, "R", rid, lab);
-        }
-        draw_slot(3, "F", SpellId::BattleCry, "Cry");
     }
 
 };

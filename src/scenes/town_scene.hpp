@@ -32,20 +32,11 @@
 #include "../core/sprite.hpp"
 #include "../world/tilemap.hpp"
 #include "../systems/tilemap_renderer.hpp"
+#include "../systems/world_renderer.hpp"
+#include "../systems/player_configurator.hpp"
+#include "../core/pause_menu.hpp"
 
 namespace mion {
-
-namespace {
-
-void _town_draw_rect(SDL_Renderer* r, const Camera2D& cam, float cx, float cy, float hw,
-                     float hh, Uint8 R, Uint8 G, Uint8 B) {
-    SDL_SetRenderDrawColor(r, R, G, B, 255);
-    SDL_FRect rect = {cam.world_to_screen_x(cx - hw), cam.world_to_screen_y(cy - hh), hw * 2.0f,
-                      hh * 2.0f};
-    SDL_RenderFillRect(r, &rect);
-}
-
-} // namespace
 
 class TownScene : public IScene {
 public:
@@ -105,14 +96,12 @@ public:
             _apply_save(loaded);
 
         _build_town();
-        _configure_player_base();
+        {
+            TextureCache* tc = _tex_cache.has_value() ? &*_tex_cache : nullptr;
+            configure_player(_player, tc);
+        }
         if (has_save)
             _apply_stats_after_configure(loaded);
-        else
-            _player.health.current_hp = _player.health.max_hp;
-
-        _player.spell_book = SpellBookState{};
-        _player.spell_book.sync_from_talents(_player.talents);
 
         _actors.clear();
         _actors.push_back(&_player);
@@ -124,12 +113,16 @@ public:
             _audio->set_music_state(MusicState::Town);
         }
 
-        _paused        = false;
-        _settings_open = false;
-        _pause_list.items = {"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"};
-        _pause_list.disabled.assign(4, false);
-        _pause_list.disabled[1] = true;
-        _pause_list.selected      = 0;
+        _pause_menu.init({"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"},
+                         {false, true, false, false});
+        _pause_menu.on_item_selected(0, [this]{ _pause_menu.paused = false; });
+        _pause_menu.on_item_selected(2, [this]{ _pause_menu.settings_open = true; });
+        _pause_menu.on_item_selected(3, [this]{
+            _pending_next = "title";
+            _pause_menu.paused = false;
+            if (_audio) _audio->fade_music(400);
+        });
+        _pause_menu.on_opened([this]{ _shop_open = false; });
     }
 
     void exit() override {
@@ -146,15 +139,15 @@ public:
 
         if (_dialogue.is_active()) {
             _dialogue.fixed_update(input);
-            _flush_pause_input_prev(input);
+            _pause_menu.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
             return;
         }
 
-        if (_handle_pause_menu(input)) {
-            _flush_pause_input_prev(input);
+        if (_pause_menu.handle_input(input)) {
+            _pause_menu.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
@@ -163,7 +156,7 @@ public:
 
         if (_shop_open) {
             _update_shop(input);
-            _flush_pause_input_prev(input);
+            _pause_menu.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
@@ -225,7 +218,7 @@ public:
         if (_audio)
             _audio->tick_music();
 
-        _flush_pause_input_prev(input);
+        _pause_menu.flush_input(input);
     }
 
     void render(SDL_Renderer* r, float /*blend_factor*/) override {
@@ -263,7 +256,7 @@ public:
                 else if (_has("forge"))    { R=90;  G=88;  B=95;  }
                 else if (_has("elder"))    { R=70;  G=50;  B=90;  }
                 else if (_has("fountain")) { R=50;  G=100; B=160; }
-                _town_draw_rect(r, _camera, ocx, ocy, ohw, ohh, R, G, B);
+                draw_world_rect(r, _camera, ocx, ocy, ohw, ohh, R, G, B);
             }
         }
 
@@ -281,7 +274,7 @@ public:
                                   dhw * 2.0f, dhh * 2.0f };
                 SDL_RenderTexture(r, dtex, nullptr, &dst);
             } else {
-                _town_draw_rect(r, _camera, dcx, dcy, dhw, dhh, 80, 140, 80);
+                draw_world_rect(r, _camera, dcx, dcy, dhw, dhh, 80, 140, 80);
             }
         }
 
@@ -316,7 +309,7 @@ public:
                 };
                 SDL_RenderTexture(r, ntex, &src, &dst);
             } else {
-                _town_draw_rect(r, _camera, npc.x, npc.y, 14.0f, 18.0f,
+                draw_world_rect(r, _camera, npc.x, npc.y, 14.0f, 18.0f,
                                 npc.portrait_color.r, npc.portrait_color.g, npc.portrait_color.b);
             }
             draw_text(r, _camera.world_to_screen_x(npc.x - 40.0f),
@@ -339,7 +332,7 @@ public:
                             _player.facing_x < 0.0f);
             } else {
                 float hw = _player.collision.half_w, hh = _player.collision.half_h;
-                _town_draw_rect(r, _camera, cx, cy, hw, hh, 180, 210, 255);
+                draw_world_rect(r, _camera, cx, cy, hw, hh, 180, 210, 255);
             }
         }
 
@@ -355,10 +348,7 @@ public:
         _dialogue.render(r, viewport_w, viewport_h);
         if (_shop_open)
             ShopSystem::render_shop_ui(r, _shop_forge, _player.gold, viewport_w, viewport_h);
-        if (_paused)
-            _render_pause_overlay(r);
-        if (_settings_open)
-            _render_settings_placeholder(r);
+        _pause_menu.render(r, viewport_w, viewport_h);
     }
 
     const char* next_scene() const override {
@@ -410,108 +400,7 @@ private:
     bool                     _shop_prev_confirm    = false;
     bool                     _shop_prev_cancel     = false;
 
-    bool             _paused = false;
-    bool             _settings_open = false;
-    ui::List         _pause_list;
-    bool             _prev_esc = false;
-    bool             _prev_ui_up = false;
-    bool             _prev_ui_down = false;
-    bool             _prev_ui_cancel = false;
-
-    void _flush_pause_input_prev(const InputState& in) {
-        _prev_esc       = in.pause_pressed;
-        _prev_ui_up     = in.ui_up_pressed;
-        _prev_ui_down   = in.ui_down_pressed;
-        _prev_ui_cancel = in.ui_cancel_pressed;
-    }
-
-    bool _handle_pause_menu(const InputState& input) {
-        const bool esc_edge  = input.pause_pressed && !_prev_esc;
-        const bool up_edge   = input.ui_up_pressed && !_prev_ui_up;
-        const bool down_edge = input.ui_down_pressed && !_prev_ui_down;
-        const bool conf_edge = input.confirm_pressed && !_prev_confirm;
-        const bool back_edge = input.ui_cancel_pressed && !_prev_ui_cancel;
-
-        if (_settings_open) {
-            if (esc_edge || conf_edge || back_edge)
-                _settings_open = false;
-            _flush_pause_input_prev(input);
-            _prev_confirm = input.confirm_pressed;
-            return true;
-        }
-
-        if (_paused) {
-            if (esc_edge)
-                _paused = false;
-            else {
-                if (up_edge)
-                    _pause_list.nav_up();
-                if (down_edge)
-                    _pause_list.nav_down();
-                if (conf_edge) {
-                    switch (_pause_list.selected) {
-                    case 0:
-                        _paused = false;
-                        break;
-                    case 1:
-                        break;
-                    case 2:
-                        _settings_open = true;
-                        break;
-                    case 3:
-                        _pending_next = "title";
-                        _paused       = false;
-                        if (_audio)
-                            _audio->fade_music(400);
-                        break;
-                    }
-                }
-            }
-            return true;
-        }
-
-        if (esc_edge) {
-            _paused              = true;
-            _pause_list.selected = 0;
-            _shop_open           = false;
-            return true;
-        }
-        return false;
-    }
-
-    void _render_pause_overlay(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
-        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &full);
-
-        ui::Panel panel;
-        panel.rect = {viewport_w * 0.35f, viewport_h * 0.25f, viewport_w * 0.30f,
-                      viewport_h * 0.50f};
-        panel.render(r);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "PAUSED", 3, 255, 220, 60,
-                  255);
-        _pause_list.render(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f);
-    }
-
-    void _render_settings_placeholder(SDL_Renderer* r) {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
-        SDL_FRect dim{0, 0, (float)viewport_w, (float)viewport_h};
-        SDL_RenderFillRect(r, &dim);
-
-        ui::Panel panel;
-        panel.rect = {viewport_w * 0.30f, viewport_h * 0.30f, viewport_w * 0.40f, viewport_h * 0.40f};
-        panel.render(r);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f, "SETTINGS", 3, 220, 200, 120, 255);
-        const char* l1 = "Audio e teclas vivem em config.ini";
-        const char* l2 = "por agora. Mais opcoes em breve.";
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f, l1, 2, 190, 190, 175, 255);
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f, l2, 2, 190, 190, 175, 255);
-        const char* hint = "ESC / ENTER / BACKSPACE - voltar";
-        draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f, hint, 1, 160, 200, 220,
-                  255);
-    }
+    PauseMenu        _pause_menu;
 
     static float _dist_sq(float ax, float ay, float bx, float by) {
         float dx = ax - bx, dy = ay - by;
@@ -572,45 +461,6 @@ private:
             _player.mana.current = _player.mana.max;
         if (_player.stamina.current > _player.stamina.max)
             _player.stamina.current = _player.stamina.max;
-    }
-
-    void _configure_player_base() {
-        _player.name          = "player";
-        _player.team          = Team::Player;
-        _player.attack_damage = g_player_config.melee_damage;
-        _player.ranged_damage = g_player_config.ranged_damage;
-        _player.melee_hit_box = {22.0f, 14.0f, 28.0f};
-        _player.is_alive      = true;
-        _player.was_alive     = true;
-        _player.move_speed    = g_player_config.base_move_speed;
-        _player.collision     = {16.0f, 16.0f};
-        _player.dash_speed              = g_player_config.dash_speed;
-        _player.dash_duration_seconds   = g_player_config.dash_duration;
-        _player.dash_cooldown_seconds   = g_player_config.dash_cooldown;
-        _player.dash_iframes_seconds    = g_player_config.dash_iframes;
-        _player.ranged_cooldown_seconds = g_player_config.ranged_cooldown;
-        _player.knockback_vx = _player.knockback_vy = 0.0f;
-        _player.stamina               = StaminaState{};
-        _player.stamina.current       = g_player_config.base_stamina;
-        _player.stamina.max           = g_player_config.base_stamina_max;
-        _player.stamina.regen_rate    = g_player_config.stamina_regen;
-        _player.stamina.regen_delay   = g_player_config.stamina_delay;
-        _player.mana                  = ManaState{};
-        _player.mana.current          = g_player_config.base_mana;
-        _player.mana.max              = g_player_config.base_mana_max;
-        _player.mana.regen_rate       = g_player_config.base_mana_regen;
-        _player.mana.regen_delay      = g_player_config.mana_regen_delay;
-        _player.combat.reset_for_spawn();
-        {
-            static const char* kPlayerSheet = "assets/sprites/player.png";
-            _player.sprite_sheet = (_tex_cache.has_value())
-                                       ? static_cast<void*>(_tex_cache->load(kPlayerSheet))
-                                       : nullptr;
-            if (_player.sprite_sheet)
-                _player.anim.build_puny_clips(0, 8.0f);
-        }
-        const int base_hp    = g_player_config.base_hp;
-        _player.health.max_hp = base_hp + _player.progression.bonus_max_hp;
     }
 
     void _build_town() {
