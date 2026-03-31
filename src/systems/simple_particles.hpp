@@ -1,6 +1,6 @@
 #pragma once
+#include <random>
 #include <SDL3/SDL.h>
-#include <cstdlib>
 #include <cmath>
 
 #include "../core/camera.hpp"
@@ -23,13 +23,14 @@ public:
     int live_particle_count() const { return _count; }
 
     void spawn_burst(float wx, float wy, int n, Uint8 cr, Uint8 cg, Uint8 cb,
-                     float speed_min = 48.f, float speed_max = 160.f) {
+                     float speed_min, float speed_max, std::mt19937& rng) {
+        std::uniform_int_distribution<int> angle_dist(0, 627);
         for (int i = 0; i < n && _count < kMaxParticles; ++i) {
-            float a = (float)(std::rand() % 628) * 0.01f;
+            float a = (float)angle_dist(rng) * 0.01f;
             int   span = (int)(speed_max - speed_min) + 1;
             if (span < 1) span = 1;
-            float sp = speed_min + (float)(std::rand() % span);
-            float life = 0.22f + (float)(std::rand() % 80) * 0.002f;
+            float sp = speed_min + (float)(std::uniform_int_distribution<int>(0, span - 1)(rng));
+            float life = 0.22f + (float)(std::uniform_int_distribution<int>(0, 79)(rng)) * 0.002f;
             SimpleParticle& p = _particles[_count++];
             p.x = wx;
             p.y = wy;

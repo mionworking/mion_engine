@@ -1,8 +1,8 @@
 #include "audio.hpp"
 #include <SDL3/SDL.h>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
+#include <random>
 #include <vector>
 
 namespace mion {
@@ -15,9 +15,9 @@ float clamp01(float v) {
     return v;
 }
 
-float rand_pitch_factor() {
+float rand_pitch_factor(std::mt19937& rng) {
     // ±5% em torno de 1.0
-    float u = (float)(std::rand() % 10001) / 10000.0f;
+    float u = (float)(std::uniform_int_distribution<int>(0, 10000)(rng)) / 10000.0f;
     return 0.95f + u * 0.1f;
 }
 
@@ -168,7 +168,7 @@ void AudioSystem::play_sfx_pitched(SoundId id, float volume) {
         return;
     }
 
-    const float pitch = rand_pitch_factor();
+    const float pitch = _rng ? rand_pitch_factor(*_rng) : 1.0f;
     const Sint16*     in  = reinterpret_cast<const Sint16*>(_sfx_wavs[idx].data);
     const int         n_in = (int)_sfx_wavs[idx].len / 2;
     if (n_in < 2) {

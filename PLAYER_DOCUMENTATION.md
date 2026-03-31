@@ -373,9 +373,9 @@ Evoluir atributos, progressao e inventario/equip sem quebrar o que ja existe (co
 
 Base existente de testes:
 
-- `tests/test_plan.cpp`
-- `tests/test_legacy.cpp`
-- `tests/test_main.cpp`
+- `tests_legacy/test_plan.cpp`
+- `tests_legacy/test_legacy.cpp`
+- `tests_legacy/test_main.cpp`
 
 Adicionar/expandir testes para:
 

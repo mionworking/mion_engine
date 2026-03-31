@@ -5,6 +5,7 @@
 #include <vector>
 #include <cassert>
 #include <memory>
+#include <random>
 #include <string>
 
 // Sistemas a testar (headers only — sem SDL no core)
@@ -687,7 +688,7 @@ struct SceneTestMockScene : mion::IScene {
         ++update_count;
         if (request_next) pending_next = "next";
     }
-    void render(SDL_Renderer*) override {}
+    void render(SDL_Renderer*, float) override {}
     const char* next_scene() const override {
         return pending_next.empty() ? "" : pending_next.c_str();
     }
@@ -1372,7 +1373,8 @@ static void test_drop_system_full_chance_always_drops() {
     cfg.drop_chance_pct = 100;
     std::vector<mion::GroundItem> items;
     const mion::EnemyDef& def = mion::get_enemy_def(mion::EnemyType::Skeleton);
-    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, def, cfg);
+    std::mt19937 rng(12345);
+    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, def, cfg, rng);
     EXPECT_TRUE((int)items.size() >= 2);
     EXPECT_TRUE(items[0].active);
 }
@@ -1382,7 +1384,8 @@ static void test_drop_system_zero_chance_still_drops_gold() {
     cfg.drop_chance_pct = 0;
     std::vector<mion::GroundItem> items;
     const mion::EnemyDef& def = mion::get_enemy_def(mion::EnemyType::Orc);
-    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, def, cfg);
+    std::mt19937 rng(12345);
+    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, def, cfg, rng);
     EXPECT_EQ((int)items.size(), 1);
     if (!items.empty()) {
         EXPECT_EQ(items[0].type, mion::GroundItemType::Gold);
@@ -1398,7 +1401,8 @@ static void test_drop_system_pickup_heals_with_config_bonus() {
 
     std::vector<mion::GroundItem> items;
     const mion::EnemyDef& sk = mion::get_enemy_def(mion::EnemyType::Skeleton);
-    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, sk, cfg);
+    std::mt19937 rng(12345);
+    mion::DropSystem::on_enemy_died(items, 0.0f, 0.0f, sk, cfg, rng);
     items.erase(std::remove_if(items.begin(), items.end(),
                                [](const mion::GroundItem& g) {
                                    return g.type == mion::GroundItemType::Gold;

@@ -5,7 +5,6 @@
 #include "../entities/actor.hpp"
 #include "../entities/shop.hpp"
 #include "../core/bitmap_font.hpp"
-#include "../core/debug_log.hpp"
 
 namespace mion {
 
@@ -16,9 +15,6 @@ struct ShopSystem {
         const ShopItem& it = shop.items[static_cast<size_t>(item_index)];
         if (player.gold < it.gold_cost)
             return false;
-        const int  derived_before = player.derived.melee_damage_final;
-        const int  bonus_before   = player.progression.bonus_attack_damage;
-        const float mana_max_before = player.mana.max;
         player.gold -= it.gold_cost;
         switch (it.type) {
         case ShopItemType::HpPotion:
@@ -41,30 +37,14 @@ struct ShopSystem {
                 player.mana.current = player.mana.max;
             break;
         }
-        // #region agent log
-        append_debug_log_line(
-            "pre-fix",
-            "H3_shop_upgrade_not_applied_to_derived",
-            "src/systems/shop_system.hpp:40",
-            "Shop purchase effect snapshot",
-            std::string("{\"itemType\":") + std::to_string(static_cast<int>(it.type))
-            + ",\"value\":"
-            + std::to_string(it.value)
-            + ",\"bonusBefore\":"
-            + std::to_string(bonus_before)
-            + ",\"bonusAfter\":"
-            + std::to_string(player.progression.bonus_attack_damage)
-            + ",\"derivedBefore\":"
-            + std::to_string(derived_before)
-            + ",\"derivedAfter\":"
-            + std::to_string(player.derived.melee_damage_final)
-            + ",\"manaMaxBefore\":"
-            + std::to_string(mana_max_before)
-            + ",\"manaMaxAfter\":"
-            + std::to_string(player.mana.max)
-            + "}"
-        );
-        // #endregion
+        recompute_player_derived_stats(
+            player.derived,
+            player.attributes,
+            player.progression,
+            player.talents,
+            player.equipment,
+            player.attack_damage,
+            player.ranged_damage);
         return true;
     }
 

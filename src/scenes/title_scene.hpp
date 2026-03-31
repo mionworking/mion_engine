@@ -234,7 +234,7 @@ public:
         }
     }
 
-    void render(SDL_Renderer* r) override {
+    void render(SDL_Renderer* r, float /*blend_factor*/) override {
         SDL_SetRenderDrawColor(r, 12, 10, 22, 255);
         SDL_RenderClear(r);
 
@@ -277,7 +277,8 @@ public:
 private:
     void _reload_locale() {
         const std::string lang = _lang_is_ptbr ? "ptbr" : "en";
-        g_locale.load(resolve_data_path("locale_" + lang + ".ini"));
+        if (detail::active_locale)
+            detail::active_locale->load(resolve_data_path("locale_" + lang + ".ini"));
     }
 
     void _apply_audio_settings() {

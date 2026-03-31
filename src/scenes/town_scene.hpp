@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdio>
+#include <cmath>
 #include <optional>
+#include <random>
 #include <string>
 #include <vector>
 #include <SDL3/SDL.h>
@@ -167,7 +169,7 @@ public:
             _prev_move_nav = input.move_y != 0.0f;
             _resource_sys.fixed_update(_actors, dt);
             _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
-            _camera.step_shake();
+            _camera.step_shake(_shake_rng);
             if (_audio)
                 _audio->tick_music();
             return;
@@ -182,11 +184,16 @@ public:
         _player_action.fixed_update(_player, input, dt, _audio, nullptr, nullptr);
         _resource_sys.fixed_update(_actors, dt);
         _col_sys.resolve_all(_actors, _room);
+        _update_npcs(dt);
 
-        // Animação do player
+        // Animação do player — atualiza dir_row igual ao dungeon
         if (_player.sprite_sheet) {
+            _player.anim.update_puny_dir_row(
+                _facing_to_puny_row(_player.facing_x, _player.facing_y));
             if (_player.is_dashing())
                 _player.anim.play(ActorAnim::Dash);
+            else if (_player.combat.attack_phase != AttackPhase::Idle)
+                _player.anim.play(ActorAnim::Attack);
             else if (_player.is_moving)
                 _player.anim.play(ActorAnim::Walk);
             else
@@ -214,14 +221,14 @@ public:
             _start_npc_interaction(near);
 
         _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
-        _camera.step_shake();
+        _camera.step_shake(_shake_rng);
         if (_audio)
             _audio->tick_music();
 
         _flush_pause_input_prev(input);
     }
 
-    void render(SDL_Renderer* r) override {
+    void render(SDL_Renderer* r, float /*blend_factor*/) override {
         SDL_SetRenderDrawColor(r, 24, 40, 22, 255);
         SDL_RenderClear(r);
 
@@ -279,6 +286,9 @@ public:
         }
 
         // NPCs — sprite animado ou retângulo fallback
+        // sprite_scale=2.0 → frame 32x32 lógico fica 64x64 no mundo,
+        // consistente com inimigos do dungeon que usam sprite_scale=2.0.
+        static constexpr float kNpcSpriteScale = 2.0f;
         static const struct { const char* name; const char* path; } kNpcSprites[] = {
             { "Mira",     "assets/npcs/npc_mira.png"     },
             { "Forge",    "assets/npcs/npc_forge.png"    },
@@ -293,11 +303,17 @@ public:
                 }
             }
             if (ntex) {
-                // NPC sprite: frame 32x32 col 12 (idle frame 0), sheet 768x256
-                SDL_FRect src = { 12 * 32.0f, 0.0f, 32.0f, 32.0f };
-                float sx = _camera.world_to_screen_x(npc.x) - 32.0f;
-                float sy = _camera.world_to_screen_y(npc.y) - 32.0f;
-                SDL_FRect dst = { sx, sy, 64.0f, 64.0f };
+                // Idle frame 0 da linha Sul (row 0, col 12): frame 32×32 px
+                constexpr float kFW = 32.0f, kFH = 32.0f;
+                SDL_FRect src = { 12 * kFW, 0.0f, kFW, kFH };
+                // Centralizado em npc.{x,y} com tamanho escalado
+                float draw_w = kFW * kNpcSpriteScale;
+                float draw_h = kFH * kNpcSpriteScale;
+                SDL_FRect dst = {
+                    _camera.world_to_screen_x(npc.x) - draw_w * 0.5f,
+                    _camera.world_to_screen_y(npc.y) - draw_h * 0.5f,
+                    draw_w, draw_h
+                };
                 SDL_RenderTexture(r, ntex, &src, &dst);
             } else {
                 _town_draw_rect(r, _camera, npc.x, npc.y, 14.0f, 18.0f,
@@ -352,6 +368,19 @@ public:
 private:
     static constexpr int kQuestRewardGold = 120;
 
+    // Espelho do campo SaveData::scene_flags mantido na Town.
+    unsigned int             _scene_flags  = 0;
+
+    // Mapeia facing para linha do Puny Characters (igual ao DungeonScene).
+    // Row 0 = Sul | Row 4 = Norte | Row 6 = Leste (Oeste = Row 6 + flip).
+    static int _facing_to_puny_row(float fx, float fy) {
+        const float ax = fx < 0.0f ? -fx : fx;
+        const float ay = fy < 0.0f ? -fy : fy;
+        if (ay > ax)
+            return fy > 0.0f ? 0 : 4;  // Sul ou Norte
+        return 6;                        // horizontal; Oeste via flip em facing_x
+    }
+
     RoomDefinition           _room;
     Tilemap                  _tilemap;
     TilemapRenderer          _tile_renderer;
@@ -367,6 +396,7 @@ private:
     ResourceSystem           _resource_sys;
     PlayerActionSystem       _player_action;
     Camera2D                 _camera;
+    std::mt19937             _shake_rng{std::random_device{}()};
     SDL_Renderer*            _renderer = nullptr;
     AudioSystem*             _audio    = nullptr;
     std::optional<TextureCache> _tex_cache;
@@ -490,15 +520,26 @@ private:
 
     SaveData _capture_save() const {
         SaveData d;
-        d.version     = kSaveFormatVersion;
-        d.room_index  = 0;
-        d.player_hp   = _player.health.current_hp;
-        d.gold        = _player.gold;
-        d.quest_state = _quest_state;
-        d.progression = _player.progression;
-        d.talents     = _player.talents;
-        d.mana        = _player.mana;
-        d.stamina     = _player.stamina;
+        d.version              = kSaveFormatVersion;
+        d.room_index           = 0;
+        d.player_hp            = _player.health.current_hp;
+        d.gold                 = _player.gold;
+        d.quest_state          = _quest_state;
+        d.progression          = _player.progression;
+        d.talents              = _player.talents;
+        d.mana                 = _player.mana;
+        d.stamina              = _player.stamina;
+        d.attributes           = _player.attributes;        // v4
+        d.attr_points_available = _player.attributes.vigor  // v5: pontos não distribuídos
+                                    + _player.attributes.forca
+                                    + _player.attributes.destreza
+                                    + _player.attributes.inteligencia
+                                    + _player.attributes.endurance
+                                    // pending_level_ups ainda não gastos
+                                    + _player.progression.pending_level_ups;
+        // Recalcula corretamente: pontos_disp = pending_level_ups (ainda não alocados)
+        d.attr_points_available = _player.progression.pending_level_ups;
+        d.scene_flags           = _scene_flags;
         return d;
     }
 
@@ -514,6 +555,8 @@ private:
         _player.talents     = sd.talents;
         _player.gold        = sd.gold;
         _quest_state        = sd.quest_state;
+        _player.attributes  = sd.attributes;   // v4
+        _scene_flags        = sd.scene_flags;  // v5
     }
 
     void _apply_stats_after_configure(const SaveData& sd) {
@@ -599,8 +642,8 @@ private:
         _npcs.clear();
         {
             NpcEntity mira;
-            mira.x               = 440.0f;
-            mira.y               = 840.0f;
+            mira.x = mira.spawn_x = 440.0f;
+            mira.y = mira.spawn_y = 840.0f;
             mira.name            = "Mira";
             mira.type            = NpcType::QuestGiver;
             mira.interact_radius = 52.0f;
@@ -608,37 +651,49 @@ private:
             mira.dialogue_default       = "mira_default";
             mira.dialogue_quest_active  = "mira_quest_active";
             mira.dialogue_quest_done    = "mira_quest_done";
+            mira.wander_radius = 60.0f;
+            mira.wander_speed  = 28.0f;
+            mira.wander_timer  = 1.2f;
             _npcs.push_back(mira);
         }
         {
             NpcEntity forge;
-            forge.x               = 1450.0f;
-            forge.y               = 540.0f;
+            forge.x = forge.spawn_x = 1450.0f;
+            forge.y = forge.spawn_y = 540.0f;
             forge.name            = "Forge";
             forge.type            = NpcType::Merchant;
             forge.interact_radius = 52.0f;
             forge.portrait_color  = {220, 120, 60, 255};
             forge.dialogue_default = "forge_greeting";
+            forge.wander_radius = 50.0f;
+            forge.wander_speed  = 22.0f;
+            forge.wander_timer  = 0.8f;
             _npcs.push_back(forge);
         }
         {
             NpcEntity v;
-            v.x = 900.0f;
-            v.y = 750.0f;
+            v.x = v.spawn_x = 900.0f;
+            v.y = v.spawn_y = 750.0f;
             v.name            = "Villager";
             v.type            = NpcType::Generic;
             v.portrait_color  = {100, 160, 90, 255};
             v.dialogue_default = "villager_a";
+            v.wander_radius = 90.0f;
+            v.wander_speed  = 38.0f;
+            v.wander_timer  = 0.5f;
             _npcs.push_back(v);
         }
         {
             NpcEntity v;
-            v.x = 1600.0f;
-            v.y = 900.0f;
+            v.x = v.spawn_x = 1600.0f;
+            v.y = v.spawn_y = 900.0f;
             v.name            = "Elder";
             v.type            = NpcType::Generic;
             v.portrait_color  = {120, 140, 100, 255};
             v.dialogue_default = "villager_b";
+            v.wander_radius = 70.0f;
+            v.wander_speed  = 25.0f;
+            v.wander_timer  = 1.8f;
             _npcs.push_back(v);
         }
 
@@ -650,6 +705,114 @@ private:
         _shop_forge.selected_index = 0;
 
         _player.transform.set_position(400.0f, 800.0f);
+    }
+
+    // -----------------------------------------------------------------------
+    // Wander + colisão de NPCs
+    // -----------------------------------------------------------------------
+    void _update_npcs(float dt) {
+        // Números pseudo-aleatórios leves (sem std::mt19937 para não criar dependência)
+        static unsigned _rng_state = 0x12345678u;
+        auto _rng_next = [&]() -> unsigned {
+            _rng_state ^= _rng_state << 13;
+            _rng_state ^= _rng_state >> 17;
+            _rng_state ^= _rng_state << 5;
+            return _rng_state;
+        };
+        auto _rng_f01 = [&]() -> float {
+            return (float)(_rng_next() & 0xFFFFu) / 65535.0f;
+        };
+
+        const float phw = _player.collision.half_w;
+        const float phh = _player.collision.half_h;
+
+        for (auto& npc : _npcs) {
+            // --- Wander timer ---
+            npc.wander_timer -= dt;
+            if (npc.wander_timer <= 0.0f) {
+                // Escolhe nova direção aleatória dentro do raio de spawn
+                float angle = _rng_f01() * 6.2831853f; // 2π
+                float tx    = npc.spawn_x + std::cos(angle) * (_rng_f01() * npc.wander_radius);
+                float ty    = npc.spawn_y + std::sin(angle) * (_rng_f01() * npc.wander_radius);
+                float dx    = tx - npc.x;
+                float dy    = ty - npc.y;
+                float len   = std::sqrt(dx * dx + dy * dy);
+                if (len > 0.5f) {
+                    npc.wander_dir_x = dx / len;
+                    npc.wander_dir_y = dy / len;
+                } else {
+                    npc.wander_dir_x = 0.0f;
+                    npc.wander_dir_y = 0.0f;
+                }
+                npc.wander_timer = 1.4f + _rng_f01() * 1.2f; // 1.4–2.6 s
+            }
+
+            // --- Mover NPC ---
+            npc.x += npc.wander_dir_x * npc.wander_speed * dt;
+            npc.y += npc.wander_dir_y * npc.wander_speed * dt;
+
+            // --- Conter dentro do raio de spawn ---
+            float sdx = npc.x - npc.spawn_x;
+            float sdy = npc.y - npc.spawn_y;
+            float sdist2 = sdx * sdx + sdy * sdy;
+            if (sdist2 > npc.wander_radius * npc.wander_radius) {
+                float sdist = std::sqrt(sdist2);
+                npc.x = npc.spawn_x + sdx / sdist * npc.wander_radius;
+                npc.y = npc.spawn_y + sdy / sdist * npc.wander_radius;
+                npc.wander_dir_x = 0.0f;
+                npc.wander_dir_y = 0.0f;
+            }
+
+            // --- Push-out NPC vs world bounds ---
+            float nh = npc.collision_half;
+            if (npc.x - nh < _room.bounds.min_x) npc.x = _room.bounds.min_x + nh;
+            if (npc.x + nh > _room.bounds.max_x) npc.x = _room.bounds.max_x - nh;
+            if (npc.y - nh < _room.bounds.min_y) npc.y = _room.bounds.min_y + nh;
+            if (npc.y + nh > _room.bounds.max_y) npc.y = _room.bounds.max_y - nh;
+
+            // --- Push-out NPC vs obstáculos ---
+            for (const auto& obs : _room.obstacles) {
+                float nmin_x = npc.x - nh, nmax_x = npc.x + nh;
+                float nmin_y = npc.y - nh, nmax_y = npc.y + nh;
+                if (nmax_x <= obs.bounds.min_x || nmin_x >= obs.bounds.max_x) continue;
+                if (nmax_y <= obs.bounds.min_y || nmin_y >= obs.bounds.max_y) continue;
+                float ol = nmax_x - obs.bounds.min_x;
+                float or_ = obs.bounds.max_x - nmin_x;
+                float ou = nmax_y - obs.bounds.min_y;
+                float od = obs.bounds.max_y - nmin_y;
+                float mx = (ol < or_) ? -ol : or_;
+                float my = (ou < od) ? -ou : od;
+                if (std::abs(mx) < std::abs(my))
+                    npc.x += mx;
+                else
+                    npc.y += my;
+                npc.wander_dir_x = 0.0f;
+                npc.wander_dir_y = 0.0f;
+            }
+
+            // --- Colisão Player ↔ NPC (push-out mútuo) ---
+            float pcx = _player.transform.x, pcy = _player.transform.y;
+            float pmin_x = pcx - phw, pmax_x = pcx + phw;
+            float pmin_y = pcy - phh, pmax_y = pcy + phh;
+            float nmin_x2 = npc.x - nh, nmax_x2 = npc.x + nh;
+            float nmin_y2 = npc.y - nh, nmax_y2 = npc.y + nh;
+            if (pmax_x > nmin_x2 && pmin_x < nmax_x2 &&
+                pmax_y > nmin_y2 && pmin_y < nmax_y2) {
+                float pen_x = std::min(pmax_x - nmin_x2, nmax_x2 - pmin_x);
+                float pen_y = std::min(pmax_y - nmin_y2, nmax_y2 - pmin_y);
+                if (pen_x < pen_y) {
+                    float sign = (pcx < npc.x) ? -1.0f : 1.0f;
+                    _player.transform.x -= sign * pen_x * 0.5f;
+                    npc.x              += sign * pen_x * 0.5f;
+                } else {
+                    float sign = (pcy < npc.y) ? -1.0f : 1.0f;
+                    _player.transform.y -= sign * pen_y * 0.5f;
+                    npc.y              += sign * pen_y * 0.5f;
+                }
+                // Re-conter player nos bounds
+                _col_sys.resolve(_player, _room);
+            }
+        }
     }
 
     int _nearest_npc_index() const {

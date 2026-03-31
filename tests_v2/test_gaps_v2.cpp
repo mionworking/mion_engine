@@ -1,6 +1,7 @@
 #include "test_common.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include "core/asset_manifest.hpp"
@@ -9,8 +10,11 @@
 #include "core/sprite.hpp"
 #include "components/attributes.hpp"
 #include "components/equipment.hpp"
+#include "entities/actor.hpp"
 #include "entities/ground_item.hpp"
 #include "entities/npc.hpp"
+#include "systems/melee_combat.hpp"
+#include "systems/shop_system.hpp"
 #include "systems/lighting.hpp"
 #include "systems/tilemap_renderer.hpp"
 
@@ -48,6 +52,42 @@ static void test_save_system_v4_attributes_roundtrip() {
     EXPECT_EQ(out.attributes.destreza, 1);
     EXPECT_EQ(out.attributes.inteligencia, 4);
     EXPECT_EQ(out.attributes.endurance, 5);
+
+    std::remove(path);
+}
+
+static void test_save_system_v2_chain_migration_keeps_load_valid() {
+    const char* path = "mion_save_v2_chain_migration_test.txt";
+    std::remove(path);
+
+    {
+        std::FILE* f = std::fopen(path, "wb");
+        EXPECT_TRUE(f != nullptr);
+        if (f) {
+            const char* payload =
+                "version=2\n"
+                "room_index=4\n"
+                "hp=88\n"
+                "gold=33\n"
+                "xp=15\n"
+                "level=2\n"
+                "xp_to_next=100\n"
+                "mana_current=70\n"
+                "mana_max=80\n"
+                "stamina_current=50\n"
+                "stamina_max=60\n";
+            std::fwrite(payload, 1, std::strlen(payload), f);
+            std::fclose(f);
+        }
+    }
+
+    mion::SaveData out{};
+    EXPECT_TRUE(mion::SaveSystem::load(path, out));
+    EXPECT_EQ(out.version, mion::kSaveFormatVersion);
+    EXPECT_EQ(out.room_index, 4);
+    EXPECT_EQ(out.player_hp, 88);
+    EXPECT_EQ(out.gold, 33);
+    EXPECT_NEAR(out.attributes.vigor, 0, 0.001f);
 
     std::remove(path);
 }
@@ -116,6 +156,47 @@ static void test_attributes_recompute_player_derived_stats() {
     EXPECT_NEAR(d.mana_max_bonus, 15.0f, 0.001f);
 }
 
+static void test_shop_attack_upgrade_emits_runtime_signal() {
+    mion::Actor player;
+    player.gold = 200;
+    player.attack_damage = 10;
+    player.ranged_damage = 8;
+    player.derived.melee_damage_final = 10;
+
+    mion::ShopInventory shop;
+    shop.items.push_back({"Sharpening Stone", mion::ShopItemType::AttackUpgrade, 30, 3});
+    shop.selected_index = 0;
+
+    EXPECT_TRUE(mion::ShopSystem::try_buy(player, shop, 0));
+    EXPECT_EQ(player.progression.bonus_attack_damage, 3);
+    EXPECT_EQ(player.derived.melee_damage_final, 13);
+}
+
+static void test_enemy_melee_uses_enemy_damage_path_runtime_signal() {
+    mion::Actor enemy;
+    enemy.team = mion::Team::Enemy;
+    enemy.is_alive = true;
+    enemy.attack_damage = 37;
+    enemy.derived.melee_damage_final = 11;
+    enemy.transform.set_position(0.0f, 0.0f);
+    enemy.facing_x = 1.0f;
+    enemy.facing_y = 0.0f;
+    enemy.combat.begin_attack();
+    enemy.combat.advance_time(enemy.combat.attack_startup_duration_seconds + 0.001f);
+
+    mion::Actor player;
+    player.team = mion::Team::Player;
+    player.is_alive = true;
+    player.health.current_hp = 100;
+    player.health.max_hp = 100;
+    player.transform.set_position(10.0f, 0.0f);
+
+    std::vector<mion::Actor*> actors{&enemy, &player};
+    mion::MeleeCombatSystem combat;
+    combat.fixed_update(actors, 1.0f / 60.0f);
+    EXPECT_EQ(player.health.current_hp, 89);
+}
+
 static void test_entities_defaults_for_npc_and_ground_item() {
     mion::NpcEntity npc;
     EXPECT_TRUE(npc.type == mion::NpcType::Generic);
@@ -142,10 +223,13 @@ static void test_render_system_default_configs_are_stable() {
 void run_gaps_v2_tests() {
     run("V2.AssetManifest.NoCrash", test_asset_manifest_probe_does_not_crash);
     run("V2.Save.V4AttributesRoundtrip", test_save_system_v4_attributes_roundtrip);
+    run("V2.Save.V2ChainMigration", test_save_system_v2_chain_migration_keeps_load_valid);
     run("V2.BitmapFont.TextWidth", test_bitmap_font_text_width_is_consistent);
     run("V2.Sprite.NullTextureSafe", test_draw_sprite_null_texture_is_safe);
     run("V2.Equipment.TotalModifiers", test_equipment_total_modifiers_accumulate_slots);
     run("V2.Attributes.RecomputeDerived", test_attributes_recompute_player_derived_stats);
+    run("V2.Shop.AttackUpgradeRuntimeSignal", test_shop_attack_upgrade_emits_runtime_signal);
+    run("V2.Melee.EnemyDamageRuntimeSignal", test_enemy_melee_uses_enemy_damage_path_runtime_signal);
     run("V2.Entities.Defaults", test_entities_defaults_for_npc_and_ground_item);
     run("V2.Render.DefaultConfig", test_render_system_default_configs_are_stable);
 }

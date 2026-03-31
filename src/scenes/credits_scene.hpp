@@ -39,7 +39,7 @@ public:
             _next = "title";
     }
 
-    void render(SDL_Renderer* r) override {
+    void render(SDL_Renderer* r, float /*blend_factor*/) override {
         SDL_SetRenderDrawColor(r, 6, 6, 14, 255);
         SDL_RenderClear(r);
 

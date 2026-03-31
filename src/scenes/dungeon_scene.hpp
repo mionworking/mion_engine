@@ -2,9 +2,9 @@
 #include <array>
 #include <vector>
 #include <optional>
+#include <random>
 #include <string>
 #include <cstdio>
-#include <cstdlib>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -253,6 +253,7 @@ public:
     void set_run_stats(RunStats* p) { _run_stats = p; }
     void set_difficulty(DifficultyLevel* p) { _difficulty = p; }
     void set_enemy_spawn_count(int count) { _requested_enemy_count = std::max(0, count); }
+    void set_rng(std::mt19937* r) { _rng = r; }
 
     void enable_stress_mode(int enemy_count) {
         _stress_mode = true;
@@ -271,7 +272,6 @@ public:
         if (_renderer && !_tex_cache.has_value())
             _tex_cache.emplace(_renderer);
 
-        std::srand((unsigned)SDL_GetTicks());
         _load_data_files();
         _register_dungeon_dialogue();
         _dialogue.set_audio(_audio);
@@ -434,30 +434,15 @@ public:
             return;
         }
 
-        // Level-up: bloqueia mundo até escolher upgrade
+        // Level-up: abre tela de atributos automaticamente
         if (_player.progression.level_choice_pending()) {
-            const bool edge1 = input.upgrade_1 && !_prev_upgrade_1;
-            const bool edge2 = input.upgrade_2 && !_prev_upgrade_2;
-            const bool edge3 = input.upgrade_3 && !_prev_upgrade_3;
-            _prev_upgrade_1 = input.upgrade_1;
-            _prev_upgrade_2 = input.upgrade_2;
-            _prev_upgrade_3 = input.upgrade_3;
-
-            if (edge1) {
-                _player.progression.pick_upgrade_damage();
-                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+3 ATK");
-            } else if (edge2) {
-                _player.progression.pick_upgrade_hp();
-                const int base_max = _stress_mode ? 10000 : 100;
-                _player.health.max_hp = base_max + _player.progression.bonus_max_hp;
-                _player.health.current_hp += 15;
-                if (_player.health.current_hp > _player.health.max_hp)
-                    _player.health.current_hp = _player.health.max_hp;
-                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+15 HP");
-            } else if (edge3) {
-                _player.progression.pick_upgrade_speed();
-                _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y, "+SPD");
+            if (!_attr_screen_open) {
+                _attr_screen_open = true;
+                _attr_selected = 0;
+                _floating_texts.spawn_level_up(_player.transform.x, _player.transform.y);
+                if (_audio) _audio->play_sfx(SoundId::UiConfirm, 0.8f);
             }
+            // Enquanto a tela estiver aberta, bloqueia mundo
             _flush_menu_input_prev(input);
             return;
         }
@@ -468,21 +453,6 @@ public:
 
         // Skill tree: pausa mundo enquanto houver pontos pendentes
         if (_talent_selection_pending()) {
-            const bool t1 = input.talent_1_pressed && !_prev_talent_1;
-            const bool t2 = input.talent_2_pressed && !_prev_talent_2;
-            const bool t3 = input.talent_3_pressed && !_prev_talent_3;
-            _prev_talent_1 = input.talent_1_pressed;
-            _prev_talent_2 = input.talent_2_pressed;
-            _prev_talent_3 = input.talent_3_pressed;
-
-            TalentId opts[3];
-            const int n = _collect_spendable_talent_ids(opts);
-            if (t1 && n > 0)
-                _try_spend_talent(opts[0]);
-            else if (t2 && n > 1)
-                _try_spend_talent(opts[1]);
-            else if (t3 && n > 2)
-                _try_spend_talent(opts[2]);
             _flush_menu_input_prev(input);
             return;
         }
@@ -559,9 +529,9 @@ public:
         // 6b. Projéteis
         _projectile_sys.fixed_update(_projectiles, _actors, _room, dt);
         if (_projectile_sys.projectile_hit_actor) {
-            _particles.spawn_burst(_projectile_sys.last_hit_world_x,
+            if (_rng) _particles.spawn_burst(_projectile_sys.last_hit_world_x,
                                    _projectile_sys.last_hit_world_y,
-                                   12, 255, 210, 120, 80.f, 200.f);
+                                   12, 255, 210, 120, 80.f, 200.f, *_rng);
         }
         for (const auto& ev : _projectile_sys.last_hit_events) {
             for (auto* ac : _actors) {
@@ -606,8 +576,8 @@ public:
                         if (_audio)
                             _audio->play_sfx_at(SoundId::Hit, ac->transform.x, ac->transform.y,
                                                 _cam_aud_x, _cam_aud_y, 620.f, 1.0f);
-                        _particles.spawn_burst(ac->transform.x, ac->transform.y,
-                                                 14, 255, 200, 160, 60.f, 180.f);
+                        if (_rng) _particles.spawn_burst(ac->transform.x, ac->transform.y,
+                                                 14, 255, 200, 160, 60.f, 180.f, *_rng);
                         break;
                     }
                 }
@@ -618,11 +588,11 @@ public:
         for (auto* a : _actors) {
             if (a->was_alive && !a->is_alive) {
                 if (a->team == Team::Enemy) {
-                    _particles.spawn_burst(a->transform.x, a->transform.y,
-                                           22, 200, 60, 80, 40.f, 140.f);
+                    if (_rng) _particles.spawn_burst(a->transform.x, a->transform.y,
+                                           22, 200, 60, 80, 40.f, 140.f, *_rng);
                     const EnemyDef& def = _enemy_defs[static_cast<int>(a->enemy_type)];
-                    DropSystem::on_enemy_died(_ground_items, a->transform.x, a->transform.y, def,
-                                              _drop_config, -1, -1);
+                    if (_rng) DropSystem::on_enemy_died(_ground_items, a->transform.x, a->transform.y, def,
+                                              _drop_config, *_rng, -1, -1);
                     int gained = _player.progression.add_xp(
                         dungeon_rules::xp_per_enemy_kill(_room_index));
                     _player.talents.pending_points += gained;
@@ -654,8 +624,7 @@ public:
         {
             const bool lcp = _player.progression.level_choice_pending();
             if (lcp && !_prev_level_choice_pending) {
-                _floating_texts.spawn_level_up(_player.transform.x, _player.transform.y);
-                if (_audio) _audio->play_sfx(SoundId::UiConfirm, 0.8f);
+                // abertura da attr screen já tratada acima
             }
             _prev_level_choice_pending = lcp;
         }
@@ -779,7 +748,7 @@ public:
 
         // 12. Câmera
         _camera.follow(_player.transform.x, _player.transform.y, _room.bounds);
-        _camera.step_shake();
+        if (_rng) _camera.step_shake(*_rng);
 
         if (_audio) _audio->tick_music();
 
@@ -860,7 +829,7 @@ public:
         _flush_menu_input_prev(input);
     }
 
-    void render(SDL_Renderer* r) override {
+    void render(SDL_Renderer* r, float /*blend_factor*/) override {
         SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
         SDL_RenderClear(r);
 
@@ -955,18 +924,8 @@ public:
             draw_text(r, tx, ty, tag, 1, 140, 200, 160, al);
         }
 
-        if (_player.is_alive && _player.progression.level_choice_pending()) {
-            const char* msg = "LEVEL UP  1=DMG  2=HP  3=SPD";
-            float cx = viewport_w * 0.5f;
-            float cy = viewport_h * 0.22f;
-            draw_text(r, cx - text_width(msg, 2) * 0.5f, cy, msg, 2, 255, 230, 120);
-        }
-        if (_player.is_alive && _talent_selection_pending()) {
-            const char* msg = "TALENT  4/5/6 = next 3 options (by id)";
-            float cx = viewport_w * 0.5f;
-            float cy = viewport_h * 0.27f;
-            draw_text(r, cx - text_width(msg, 2) * 0.5f, cy, msg, 2, 140, 220, 255);
-        }
+        if (_player.is_alive && _attr_screen_open)
+            _render_attr_screen_overlay(r);
 
         if (!_stress_mode && _room_index == 3 && _boss_intro_pending) {
             float t       = _boss_intro_timer / kBossIntroDuration;
@@ -1017,6 +976,8 @@ public:
         if (_dialogue.is_active())
             _dialogue.render(r, viewport_w, viewport_h);
 
+        if (_attr_screen_open)
+            _render_attr_screen_overlay(r);
         if (_skill_tree_open)
             _render_skill_tree_overlay(r);
         if (_paused)
@@ -1070,6 +1031,7 @@ private:
     LightingSystem      _lighting;
     SDL_Renderer*       _renderer   = nullptr;
     AudioSystem*        _audio      = nullptr;  // Feature 4 (não-proprietário)
+    std::mt19937*       _rng        = nullptr;  // owned pela stack de main()
     std::optional<TextureCache> _tex_cache;     // Feature 1
     std::vector<SDL_Texture*>   _tiled_textures; // criadas por tile_sprite_sheets, destruídas no exit()
 
@@ -1114,6 +1076,10 @@ private:
     int              _st_selected_col = 0;
     int              _st_selected_row = 0;
     std::vector<int> _st_col_indices[3];
+
+    // Tela de distribuição de atributos (level-up)
+    bool             _attr_screen_open = false;
+    int              _attr_selected    = 0;  // 0-4: Vigor/Força/Destreza/Intel/Endurance
 
     bool        _boss_phase2_triggered = false;
     bool        _boss_intro_pending    = false;
@@ -1179,6 +1145,45 @@ private:
         if (_settings_open) {
             if (esc_edge || conf_edge || back_edge)
                 _settings_open = false;
+            _flush_menu_input_prev(input);
+            return true;
+        }
+
+        // --- Attribute Screen (level-up) ---
+        if (_attr_screen_open) {
+            if (up_edge)   _attr_selected = (_attr_selected + 4) % 5;
+            if (down_edge) _attr_selected = (_attr_selected + 1) % 5;
+            if (conf_edge) {
+                if (_player.progression.level_choice_pending()) {
+                    const char* names[5] = {"+VIG","+FOR","+DES","+INT","+END"};
+                    switch (_attr_selected) {
+                    case 0: _player.attributes.vigor++;        break;
+                    case 1: _player.attributes.forca++;        break;
+                    case 2: _player.attributes.destreza++;     break;
+                    case 3: _player.attributes.inteligencia++; break;
+                    case 4: _player.attributes.endurance++;    break;
+                    default: break;
+                    }
+                    _player.progression.pending_level_ups--;
+                    recompute_player_derived_stats(
+                        _player.derived, _player.attributes, _player.progression,
+                        _player.talents, _player.equipment,
+                        g_player_config.melee_damage, g_player_config.ranged_damage);
+                    const int base_hp = _stress_mode ? 10000 : g_player_config.base_hp;
+                    _player.health.max_hp = base_hp + _player.derived.hp_max_bonus;
+                    if (_player.health.current_hp > _player.health.max_hp)
+                        _player.health.current_hp = _player.health.max_hp;
+                    _player.mana.max    = g_player_config.base_mana_max    + _player.derived.mana_max_bonus;
+                    _player.stamina.max = g_player_config.base_stamina_max + _player.derived.stamina_max_bonus;
+                    _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y,
+                                                  names[_attr_selected]);
+                    _persist_save();
+                }
+                if (!_player.progression.level_choice_pending())
+                    _attr_screen_open = false;
+            }
+            if (esc_edge || back_edge)
+                _attr_screen_open = false;
             _flush_menu_input_prev(input);
             return true;
         }
@@ -1297,6 +1302,86 @@ private:
         const char* hint = "ESC / ENTER / BACKSPACE - voltar";
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f, hint, 1, 160, 200, 220,
                   255);
+    }
+
+    void _render_attr_screen_overlay(SDL_Renderer* r) {
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(r, 0, 0, 0, 210);
+        SDL_FRect full{0, 0, (float)viewport_w, (float)viewport_h};
+        SDL_RenderFillRect(r, &full);
+
+        // Título
+        const char* title = "LEVEL UP - Distribute Attribute Point";
+        draw_text(r, viewport_w * 0.5f - text_width(title, 2) * 0.5f, 18.0f,
+                  title, 2, 255, 220, 80, 255);
+
+        char pts_buf[48];
+        SDL_snprintf(pts_buf, sizeof(pts_buf), "Points remaining: %d",
+                     _player.progression.pending_level_ups);
+        draw_text(r, viewport_w * 0.5f - text_width(pts_buf, 2) * 0.5f, 42.0f,
+                  pts_buf, 2, 200, 200, 180, 255);
+
+        // Definições de cada atributo
+        struct AttrRow {
+            const char* name;
+            const char* desc;
+            int         current;
+        };
+        const AttrRow rows[5] = {
+            { "Vigor",        "+HP max por ponto",                _player.attributes.vigor        },
+            { "Forca",        "+Dano melee por ponto",            _player.attributes.forca        },
+            { "Destreza",     "+Dano ranged por ponto",           _player.attributes.destreza     },
+            { "Inteligencia", "+Dano magic / +Mana max",          _player.attributes.inteligencia },
+            { "Endurance",    "+Stamina max por ponto",           _player.attributes.endurance    },
+        };
+
+        const float panel_w = viewport_w * 0.55f;
+        const float panel_h = viewport_h * 0.65f;
+        const float panel_x = (viewport_w - panel_w) * 0.5f;
+        const float panel_y = 72.0f;
+
+        ui::Panel panel;
+        panel.rect   = {panel_x, panel_y, panel_w, panel_h};
+        panel.border = {180, 140, 60, 255};
+        panel.render(r);
+
+        const float row_h  = panel_h / 5.0f;
+        for (int i = 0; i < 5; ++i) {
+            const float ry  = panel_y + (float)i * row_h;
+            const bool  sel = (i == _attr_selected);
+
+            if (sel) {
+                SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+                SDL_SetRenderDrawColor(r, 80, 65, 30, 200);
+                SDL_FRect hi{panel_x + 4.0f, ry + 4.0f, panel_w - 8.0f, row_h - 8.0f};
+                SDL_RenderFillRect(r, &hi);
+                SDL_SetRenderDrawColor(r, 255, 210, 80, 255);
+                SDL_RenderRect(r, &hi);
+            }
+
+            // Nome do atributo
+            Uint8 nr = sel ? 255 : 200, ng = sel ? 220 : 200, nb = sel ? 80 : 180;
+            draw_text(r, panel_x + 18.0f, ry + 10.0f,
+                      rows[i].name, 2, nr, ng, nb, 255);
+
+            // Nível atual
+            char lvbuf[16];
+            SDL_snprintf(lvbuf, sizeof(lvbuf), "%d", rows[i].current);
+            draw_text(r, panel_x + panel_w - text_width(lvbuf, 3) - 20.0f, ry + 8.0f,
+                      lvbuf, 3, nr, ng, nb, 255);
+
+            // Descrição
+            draw_text(r, panel_x + 18.0f, ry + 32.0f,
+                      rows[i].desc, 1, 160, 165, 145, 200);
+        }
+
+        // Hint
+        const char* hint = sel_hint_text();
+        draw_text(r, 16.0f, (float)viewport_h - 28.0f, hint, 2, 200, 200, 180, 255);
+    }
+
+    static const char* sel_hint_text() {
+        return "UP/DOWN selecionar   ENTER confirmar   ESC fechar";
     }
 
     void _render_skill_tree_overlay(SDL_Renderer* r) {
@@ -1825,6 +1910,7 @@ private:
             a.health        = { hp, hp };
             a.attack_damage = ad;
         }
+        a.derived.melee_damage_final = a.attack_damage;
         a.combat.attack_startup_duration_seconds  = def.startup_sec;
         a.combat.attack_active_duration_seconds   = def.active_sec;
         a.combat.attack_recovery_duration_seconds = def.recovery_sec;
@@ -2029,9 +2115,15 @@ private:
 
         const WorldBounds& b = _room.bounds;
         float              midy = (b.min_y + b.max_y) * 0.5f;
-        _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true);
-        _room.add_door(b.min_x + 20.0f, midy - 56.0f, b.min_x + 72.0f, midy + 56.0f, false,
-                       "town");
+
+        if (_room_index < 3) {
+            // Salas normais: porta leste avança (sem target), porta oeste volta à town
+            _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true);
+            _room.add_door(b.min_x + 20.0f, midy - 56.0f, b.min_x + 72.0f, midy + 56.0f, false, "town");
+        } else {
+            // Sala Boss (index >= 3): apenas porta leste → town (precisa matar boss)
+            _room.add_door(b.max_x - 72.0f, midy - 56.0f, b.max_x - 20.0f, midy + 56.0f, true, "town");
+        }
 
         const int          tmpl = dungeon_rules::room_template(_room_index);
         const char*        tkey = dungeon_rules::room_template_id_name(tmpl);

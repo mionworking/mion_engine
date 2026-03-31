@@ -921,8 +921,9 @@ static void test_camera_shake_steps_down() {
     mion::Camera2D cam;
     cam.trigger_shake(10.0f, 4);
     int start = cam.shake_remaining;
+    std::mt19937 rng(12345);
     for (int i = 0; i < 4; ++i)
-        cam.step_shake();
+        cam.step_shake(rng);
     EXPECT_EQ(start, 4);
     EXPECT_EQ(cam.shake_remaining, 0);
 }
@@ -1193,9 +1194,9 @@ static void test_roomdefinition_compound_obstacle_helpers() {
 // Fase 8 — partículas (spawn + update; render coberto por render_stress)
 // ---------------------------------------------------------------------------
 static void test_particles_spawn_and_update_reduces_count() {
-    std::srand(42);
+    std::mt19937 rng(42);
     mion::SimpleParticleSystem ps;
-    ps.spawn_burst(0.0f, 0.0f, 20, 255, 0, 0, 10.0f, 12.0f);
+    ps.spawn_burst(0.0f, 0.0f, 20, 255, 0, 0, 10.0f, 12.0f, rng);
     EXPECT_TRUE(ps.live_particle_count() > 0);
     int n0 = ps.live_particle_count();
     for (int i = 0; i < 120; ++i)

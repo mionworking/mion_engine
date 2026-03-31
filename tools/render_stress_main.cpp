@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
             auto t0 = std::chrono::steady_clock::now();
 
             scene.fixed_update(1.0f / 60.0f, idle_input);
-            scene.render(renderer);
+            scene.render(renderer, 0.0f);
             SDL_RenderPresent(renderer);
 
             auto t1  = std::chrono::steady_clock::now();

@@ -1,8 +1,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <algorithm>
-#include <cstdlib>
 #include <memory>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -20,7 +20,6 @@
 #include "core/save_system.hpp"
 #include "core/audio.hpp"
 #include "core/asset_manifest.hpp"
-#include "core/debug_log.hpp"
 #include "core/run_stats.hpp"
 #include "core/scene_fader.hpp"
 
@@ -41,16 +40,6 @@ int read_env_int(const char* name, int fallback) {
 } // namespace
 
 int main(int /*argc*/, char* /*argv*/[]) {
-    // #region agent log
-    mion::append_debug_log_line(
-        "pre-fix",
-        "H5_logging_pipeline_not_writing",
-        "src/main.cpp:43",
-        "Main entered",
-        "{\"stage\":\"startup\"}"
-    );
-    // #endregion
-    srand(static_cast<unsigned>(SDL_GetTicks()));
     mion::EngineConfig config;
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO)) {
@@ -81,6 +70,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
         audio.set_master_volume(cfg.volume_master);
     }
 
+    // RNG determinístico na stack — seed via random_device
+    std::mt19937 rng{std::random_device{}()};
+    audio.set_rng(&rng);
+
     mion::RunStats          run_stats{};
     mion::DifficultyLevel   difficulty = mion::DifficultyLevel::Normal;
     {
@@ -88,6 +81,15 @@ int main(int /*argc*/, char* /*argv*/[]) {
         if (mion::SaveSystem::load_default(boot))
             difficulty = static_cast<mion::DifficultyLevel>(std::clamp(boot.difficulty, 0, 2));
     }
+
+    mion::IniData             ini_full = mion::ini_load(mion::config_file_path());
+    mion::KeybindConfig       keybinds = mion::load_keybinds(ini_full);
+    const std::string         lang = ini_full.get_string("ui", "language", "en");
+
+    // LocaleSystem na stack; locale_bind() aponta o módulo para esta instância
+    mion::LocaleSystem locale_sys;
+    locale_sys.load(mion::resolve_data_path("locale_" + lang + ".ini"));
+    mion::locale_bind(&locale_sys);
 
     mion::SceneCreateContext ctx;
     ctx.renderer    = renderer;
@@ -98,6 +100,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
     ctx.show_autosave_indicator = cfg.show_autosave_indicator;
     ctx.run_stats   = &run_stats;
     ctx.difficulty  = &difficulty;
+    ctx.locale      = &locale_sys;
+    ctx.rng         = &rng;
     if (ctx.stress_enemy_count > 3)
         SDL_Log("Stress mode ativo: %d inimigos", ctx.stress_enemy_count);
     else if (ctx.stress_enemy_count > 0)
@@ -117,10 +121,6 @@ int main(int /*argc*/, char* /*argv*/[]) {
         return 1;
     }
 
-    mion::IniData             ini_full = mion::ini_load(mion::config_file_path());
-    mion::KeybindConfig       keybinds = mion::load_keybinds(ini_full);
-    const std::string         lang = ini_full.get_string("ui", "language", "en");
-    mion::g_locale.load(mion::resolve_data_path("locale_" + lang + ".ini"));
     mion::KeyboardInputSource keyboard(keybinds);
     mion::GamepadInputSource  gamepad;
     gamepad.try_connect();
@@ -133,6 +133,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     bool        running     = true;
 
     while (running) {
+        // --- Eventos ---
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
@@ -143,19 +144,23 @@ int main(int /*argc*/, char* /*argv*/[]) {
                 gamepad.try_connect();
         }
 
+        // --- Input lido uma vez por frame, fora do loop de física ---
+        mion::InputState input = gamepad.is_connected()
+            ? gamepad.read_state()
+            : keyboard.read_state();
+
+        // --- Frame timing ---
         Uint64 now     = SDL_GetTicks();
         float  dt_secs = std::min((now - last_tick) / 1000.0f,
                                   config.max_frame_time_seconds);
         last_tick = now;
         accumulator += dt_secs;
 
+        // --- Ticks físicos (input estático por frame) ---
         while (accumulator >= fixed_dt) {
             accumulator -= fixed_dt;
             scene_fader.tick(fixed_dt);
 
-            mion::InputState input = gamepad.is_connected()
-                ? gamepad.read_state()
-                : keyboard.read_state();
             const char* requested_next = scene_mgr.fixed_update(fixed_dt, input);
             std::string next_id = (requested_next && requested_next[0])
                 ? requested_next
@@ -183,14 +188,12 @@ int main(int /*argc*/, char* /*argv*/[]) {
             }
         }
 
-        scene_mgr.render(renderer);
+        // --- Render com blend_factor para interpolação suave ---
+        const float blend_factor = accumulator / fixed_dt;
+        scene_mgr.render(renderer, blend_factor);
         scene_fader.render(renderer, config.window_width, config.window_height);
+        // VSync do renderer controla o pacing — sem SDL_Delay manual
         SDL_RenderPresent(renderer);
-
-        float frame_ms  = (float)(SDL_GetTicks() - now);
-        float target_ms = 1000.0f / config.target_fps;
-        if (frame_ms < target_ms)
-            SDL_Delay((Uint32)(target_ms - frame_ms));
     }
 
     scene_mgr.set(nullptr);

@@ -1,6 +1,6 @@
 #pragma once
+#include <random>
 #include <vector>
-#include <cstdlib>
 #include <algorithm>
 #include "../entities/actor.hpp"
 #include "../entities/enemy_type.hpp"
@@ -23,17 +23,19 @@ struct DropSystem {
     /// `gold_min_override` / `gold_max_override` ≥ 0 substituem o intervalo em `def`.
     static void on_enemy_died(std::vector<GroundItem>& items, float x, float y,
                               const EnemyDef& def, const DropConfig& cfg,
+                              std::mt19937& rng,
                               int gold_min_override = -1, int gold_max_override = -1) {
-        if ((std::rand() % 100) < cfg.drop_chance_pct) {
+        std::uniform_int_distribution<int> pct(0, 99);
+        if (pct(rng) < cfg.drop_chance_pct) {
             GroundItem g;
             g.x = x;
             g.y = y;
-            int r = std::rand() % 3;
+            int r = std::uniform_int_distribution<int>(0, 2)(rng);
             g.type = (r == 0) ? GroundItemType::Health
                    : (r == 1) ? GroundItemType::Damage : GroundItemType::Speed;
             g.active = true;
             if (g.type == GroundItemType::Health && cfg.lore_drop_chance_pct > 0
-                && (std::rand() % 100) < cfg.lore_drop_chance_pct)
+                && pct(rng) < cfg.lore_drop_chance_pct)
                 g.lore_pickup = true;
             items.push_back(g);
         }
@@ -43,7 +45,7 @@ struct DropSystem {
         if (gmax < gmin)
             gmax = gmin;
         const int span   = gmax - gmin + 1;
-        const int rolled = gmin + (span > 0 ? (std::rand() % span) : 0);
+        const int rolled = gmin + (span > 0 ? std::uniform_int_distribution<int>(0, span - 1)(rng) : 0);
         if (rolled <= 0)
             return;
         GroundItem gold;

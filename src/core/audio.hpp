@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <random>
 #include <SDL3/SDL.h>
 
 namespace mion {
@@ -101,6 +102,8 @@ public:
     bool is_initialized() const { return _device != 0; }
     float effective_gain(float requested_volume, float fade_scale = 1.0f) const;
 
+    void set_rng(std::mt19937* r) { _rng = r; }
+
 private:
     struct WavBuffer {
         Uint8*        data = nullptr;
@@ -115,6 +118,7 @@ private:
         float            volume = 0.3f;
     };
 
+    std::mt19937* _rng = nullptr;
     SDL_AudioDeviceID _device = 0;
 
     // SFX

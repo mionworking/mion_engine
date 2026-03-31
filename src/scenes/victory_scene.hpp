@@ -87,7 +87,7 @@ public:
         if (_audio) _audio->tick_music();
     }
 
-    void render(SDL_Renderer* r) override {
+    void render(SDL_Renderer* r, float /*blend_factor*/) override {
         SDL_SetRenderDrawColor(r, 5, 22, 12, 255);
         SDL_RenderClear(r);
 

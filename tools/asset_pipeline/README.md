@@ -18,7 +18,7 @@ A pipeline ainda é **offline/manual**: ela gera relatórios e conversões auxil
 
 - `asset_pipeline/`: código da pipeline
 - `configs/engine_asset_contract.json`: contrato atual do engine
-- `tests/`: suíte `unittest`
+- `tests_legacy/` + `tests_v2/`: suítes de teste (oficial V2 + legado opcional)
 - `output/`: relatórios gerados
 
 ## Uso

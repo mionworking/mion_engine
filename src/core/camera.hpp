@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdlib>
+#include <random>
 #include <cmath>
 #include "../world/room.hpp"
 
@@ -32,7 +32,7 @@ struct Camera2D {
     }
 
     // Chamado uma vez por fixed update — gera offset aleatório com decay linear
-    void step_shake() {
+    void step_shake(std::mt19937& rng) {
         if (shake_remaining <= 0) {
             shake_offset_x = 0.0f;
             shake_offset_y = 0.0f;
@@ -44,7 +44,8 @@ struct Camera2D {
         float radius = shake_intensity * decay;
 
         // Direção aleatória a cada frame — dá o movimento errático característico
-        float angle = (float)(rand() % 628) * 0.01f;  // 0..2π aprox
+        std::uniform_int_distribution<int> dist(0, 627);
+        float angle = (float)dist(rng) * 0.01f;  // 0..2π aprox
         shake_offset_x = radius * cosf(angle);
         shake_offset_y = radius * sinf(angle);
 

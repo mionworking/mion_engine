@@ -13,7 +13,7 @@ public:
     virtual void enter()                                   = 0;
     virtual void exit()                                   = 0;
     virtual void fixed_update(float dt, const InputState& input) = 0;
-    virtual void render(SDL_Renderer* renderer)            = 0;
+    virtual void render(SDL_Renderer* renderer, float blend_factor) = 0;
 
     // Retorna o nome da próxima cena, ou "" se não há transição
     virtual const char* next_scene() const { return ""; }
@@ -42,8 +42,8 @@ public:
         if (current) current->clear_next_scene_request();
     }
 
-    void render(SDL_Renderer* renderer) {
-        if (current) current->render(renderer);
+    void render(SDL_Renderer* renderer, float blend_factor) {
+        if (current) current->render(renderer, blend_factor);
     }
 };
 

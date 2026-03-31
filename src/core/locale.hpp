@@ -27,8 +27,13 @@ struct LocaleSystem {
     }
 };
 
-inline LocaleSystem g_locale;
+// Instância owned pela stack de main(); aponta para ela após locale_bind().
+namespace detail { inline LocaleSystem* active_locale = nullptr; }
 
-inline const char* L(const std::string& key) { return g_locale.get(key); }
+inline void locale_bind(LocaleSystem* ls) { detail::active_locale = ls; }
+
+inline const char* L(const std::string& key) {
+    return detail::active_locale ? detail::active_locale->get(key) : key.c_str();
+}
 
 } // namespace mion

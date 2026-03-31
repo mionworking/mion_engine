@@ -1,4 +1,5 @@
 #pragma once
+#include <random>
 #include <SDL3/SDL.h>
 
 #include "run_stats.hpp"
@@ -6,6 +7,7 @@
 namespace mion {
 
 class AudioSystem;
+struct LocaleSystem;
 
 // Dados mínimos para instanciar cenas via SceneRegistry (SDL pointers não-owned).
 struct SceneCreateContext {
@@ -23,6 +25,11 @@ struct SceneCreateContext {
     RunStats*          run_stats  = nullptr;
     /// Dificuldade da sessão (main); TitleScene actualiza ao confirmar; DungeonScene lê no spawn.
     DifficultyLevel*   difficulty = nullptr;
+
+    /// Sistema de localização — owned pela stack de main(), não-owned aqui.
+    LocaleSystem*      locale     = nullptr;
+    /// RNG determinístico — owned pela stack de main(), não-owned aqui.
+    std::mt19937*      rng        = nullptr;
 };
 
 } // namespace mion

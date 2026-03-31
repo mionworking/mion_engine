@@ -164,7 +164,10 @@ language=en   # en | ptbr
 | `assets/` | Áudio (WAVs); sprites e tiles reservados para fase de arte |
 | `data/` | Definições externas de inimigos, magias e drops (INI) |
 | `tools/asset_pipeline/` | Pipeline auxiliar para inventário/conversão de assets |
-| `tests/` | `test_main.cpp` |
+| `tests_legacy/` | suíte compartilhada + runner monolítico `test_main.cpp` (ctest `legacy`) |
+| `tests_v2/` | suíte oficial modular (`mion_tests_v2`, etiqueta ctest `official`) |
+
+**Testes:** após `cmake -S . -B build && cmake --build build`, executar `ctest --test-dir build` (todos) ou `ctest --test-dir build -L official` (apenas a suíte V2). O alvo `mion_tests_legacy` permanece disponível com a etiqueta `legacy`; desative com `-DMION_ENABLE_LEGACY_TESTS=OFF` se quiser só V2 no build.
 
 ## Licença / créditos
 

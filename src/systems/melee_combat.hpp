@@ -4,7 +4,6 @@
 #include <cmath>
 #include "../entities/actor.hpp"
 #include "../entities/enemy_type.hpp"
-#include "../core/debug_log.hpp"
 
 namespace mion {
 
@@ -79,27 +78,8 @@ struct MeleeCombatSystem {
 
                 if (!hit_bounds.intersects(hurt_bounds)) continue;
 
-                // Dano base — player usa derived.melee_damage_final (centralizado)
-                int dmg = (attacker->team == Team::Player)
-                    ? attacker->derived.melee_damage_final
-                    : attacker->attack_damage;
-                // #region agent log
-                append_debug_log_line(
-                    "pre-fix",
-                    "H4_melee_damage_asymmetry",
-                    "src/systems/melee_combat.hpp:84",
-                    "Melee base damage source",
-                    std::string("{\"attackerTeam\":")
-                    + std::to_string(static_cast<int>(attacker->team))
-                    + ",\"derivedMelee\":"
-                    + std::to_string(attacker->derived.melee_damage_final)
-                    + ",\"attackDamage\":"
-                    + std::to_string(attacker->attack_damage)
-                    + ",\"chosenBase\":"
-                    + std::to_string(dmg)
-                    + "}"
-                );
-                // #endregion
+                // Dano base sempre vem do pipeline de stats derivados.
+                int dmg = attacker->derived.melee_damage_final;
                 {
                     const float om = attacker->outgoing_damage_multiplier();
                     if (om != 1.0f)

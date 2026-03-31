@@ -38,6 +38,7 @@ void register_default_scenes(SceneRegistry& registry) {
         s->set_show_autosave_indicator(ctx.show_autosave_indicator);
         s->set_run_stats(ctx.run_stats);
         s->set_difficulty(ctx.difficulty);
+        s->set_rng(ctx.rng);
         const int n = ctx.stress_enemy_count;
         if (n > 3) {
             s->enable_stress_mode(n);
