@@ -47,6 +47,7 @@
 #include "../systems/simple_particles.hpp"
 #include "../systems/floating_text.hpp"
 #include "../systems/dialogue_system.hpp"
+#include "../systems/dialogue_render.hpp"
 #include "../core/save_system.hpp"
 #include "../core/quest_state.hpp"
 #include "../core/run_stats.hpp"
@@ -712,7 +713,7 @@ public:
             _screen_flash_timer, _screen_flash_duration, _screen_flash_color);
 
         if (_dialogue.is_active())
-            _dialogue.render(r, viewport_w, viewport_h);
+            render_dialogue_ui(r, viewport_w, viewport_h, _dialogue);
 
         if (_attr_screen_open)
             render_attribute_screen(r, viewport_w, viewport_h,

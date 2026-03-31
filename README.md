@@ -298,6 +298,17 @@ Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades
 | 4 arquivos de rendering/cena | Removidos todos os `static_cast<SDL_Texture*>` (acesso direto ao campo tipado) |
 | 2 arquivos de spawn/config | Removidos `static_cast<void*>` na atribuição de texturas |
 
+### Sprint 5 — Limpeza de diálogo e dados de talentos
+
+| Módulo | O que contém |
+|--------|--------------|
+| `src/systems/dialogue_system.hpp` | Runtime de diálogo (estado, avanço por input, callbacks) sem acoplamento a renderização ou parsing de INI. |
+| `src/systems/dialogue_render.hpp` | Renderização da UI de diálogo (barra, texto, hint) a partir do estado exposto por `DialogueSystem`. |
+| `src/core/dialogue_loader.hpp` | Loader de diálogos a partir de `IniData` (`data/town_dialogues.ini`), registrando sequências no `DialogueSystem`. |
+| `src/components/talent_data.hpp` | Dados e defaults da árvore de talentos (`TalentId`, `TalentNode`, tabelas globais, helpers como `talent_def`). |
+| `src/components/talent_loader.hpp` | Aplicação de overrides de `data/talents.ini` sobre `g_talent_nodes`/`g_talent_display_names` (`apply_talents_ini`). |
+| `src/components/talent_tree.hpp` | Fachada fina que reexporta `talent_data` + `talent_loader` para os consumidores existentes. |
+
 ### Como ler a arquitetura
 
 - `src/scenes/dungeon_scene.hpp`: coordena fluxo de dungeon, chama módulos de sala, spawn, render, HUD, save e efeitos.

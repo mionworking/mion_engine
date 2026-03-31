@@ -14,6 +14,7 @@
 #include "../core/save_system.hpp"
 #include "../core/engine_paths.hpp"
 #include "../core/ini_loader.hpp"
+#include "../core/dialogue_loader.hpp"
 #include "../components/player_config.hpp"
 #include "../components/talent_tree.hpp"
 #include "../components/spell_book.hpp"
@@ -25,6 +26,7 @@
 #include "../systems/room_collision.hpp"
 #include "../systems/room_flow_system.hpp"
 #include "../systems/dialogue_system.hpp"
+#include "../systems/dialogue_render.hpp"
 #include "../systems/player_action.hpp"
 #include "../systems/resource_system.hpp"
 #include "../systems/shop_system.hpp"
@@ -345,7 +347,7 @@ public:
         snprintf(gold_buf, sizeof(gold_buf), "Gold: %d", _player.gold);
         draw_text(r, 16.0f, 16.0f, gold_buf, 2, 255, 210, 100, 255);
 
-        _dialogue.render(r, viewport_w, viewport_h);
+        render_dialogue_ui(r, viewport_w, viewport_h, _dialogue);
         if (_shop_open)
             ShopSystem::render_shop_ui(r, _shop_forge, _player.gold, viewport_w, viewport_h);
         _pause_menu.render(r, viewport_w, viewport_h);

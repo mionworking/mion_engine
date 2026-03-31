@@ -4,3 +4,10 @@ build_release/
 compile_commands.json
 *.o
 *.a
+lagacy/
+.cursor/   
+.claude/
+.github/
+.vscode/
+ROADMAP.md/
+readme_ia.md
