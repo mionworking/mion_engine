@@ -6,8 +6,8 @@
 
 namespace mion {
 
-// Carrega e cacheia texturas usando stb_image (PNG, JPG, BMP, TGA).
-// Uma instância por renderer.
+// Loads and caches textures using stb_image (PNG, JPG, BMP, TGA).
+// One instance per renderer.
 class TextureCache {
 public:
     explicit TextureCache(SDL_Renderer* r) : _renderer(r) {}
@@ -17,8 +17,8 @@ public:
             SDL_DestroyTexture(tex);
     }
 
-    // Retorna textura cacheada ou carrega do disco.
-    // Retorna nullptr se arquivo não existir — actor usa retângulo como fallback.
+    // Returns a cached texture or loads from disk.
+    // Returns nullptr if the file does not exist — actor renders a rectangle as fallback.
     SDL_Texture* load(const std::string& path) {
         auto it = _cache.find(path);
         if (it != _cache.end()) return it->second;
@@ -26,7 +26,7 @@ public:
         int w, h, channels;
         unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 4);
         if (!data) {
-            SDL_Log("TextureCache: nao carregou '%s': %s", path.c_str(), stbi_failure_reason());
+            SDL_Log("TextureCache: failed to load '%s': %s", path.c_str(), stbi_failure_reason());
             _cache[path] = nullptr;
             return nullptr;
         }
@@ -37,7 +37,7 @@ public:
         SDL_DestroySurface(surf);
         stbi_image_free(data);
 
-        if (!tex) SDL_Log("TextureCache: falha ao criar textura '%s'", path.c_str());
+        if (!tex) SDL_Log("TextureCache: failed to create texture '%s'", path.c_str());
         _cache[path] = tex;
         return tex;
     }
@@ -47,15 +47,15 @@ private:
     std::unordered_map<std::string, SDL_Texture*> _cache;
 };
 
-// Representa um frame de sprite (recorte de spritesheet ou textura inteira)
+// A sprite frame: a crop of a spritesheet or a full texture.
 struct SpriteFrame {
     SDL_Texture* texture = nullptr;
-    SDL_Rect     src     = {0, 0, 0, 0};  // {0,0,0,0} = textura inteira
+    SDL_Rect     src     = {0, 0, 0, 0};  // {0,0,0,0} = full texture
     float        pivot_x = 0.5f;
     float        pivot_y = 0.5f;
 };
 
-// Renderiza um SpriteFrame centrado em (screen_x, screen_y)
+// Renders a SpriteFrame centered at (screen_x, screen_y).
 inline void draw_sprite(SDL_Renderer* r,
                         const SpriteFrame& frame,
                         float screen_x, float screen_y,

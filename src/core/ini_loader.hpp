@@ -8,7 +8,7 @@
 
 namespace mion {
 
-// Resultado de um arquivo INI: mapa de seção → (chave → valor string)
+// Result of parsing an INI file: section → (key → value string) map.
 struct IniData {
     std::unordered_map<std::string,
         std::unordered_map<std::string, std::string>> sections;
@@ -18,7 +18,7 @@ struct IniData {
     std::string  get_string(const std::string& sec, const std::string& key,
                              const std::string& def) const;
 
-    /// Secções cujo nome começa por `prefix` + `.` (ex.: prefix `arena.obstacle` → `arena.obstacle.0`, …).
+    // Sections whose name starts with `prefix` + `.` (e.g. prefix `arena.obstacle` → `arena.obstacle.0`, …).
     std::vector<std::string> sections_with_prefix(const std::string& prefix) const;
 };
 
@@ -32,7 +32,7 @@ inline void trim(std::string& s) {
 }
 } // namespace _ini_detail
 
-// Carrega um arquivo INI. Retorna IniData vazio se o arquivo não existir.
+// Loads an INI file. Returns an empty IniData if the file does not exist.
 inline IniData ini_load(const std::string& path) {
     IniData     data;
     std::ifstream f(path);

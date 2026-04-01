@@ -6,11 +6,11 @@ enum class StatusEffectType { None, Poison, Slow, Stun };
 
 struct ActiveEffect {
     StatusEffectType type      = StatusEffectType::None;
-    float            remaining = 0.0f;  // segundos restantes
+    float            remaining = 0.0f;  // seconds remaining
     float            tick_timer = 0.0f;
     float            poison_interval_seconds = 0.55f;
     int              poison_damage_per_tick  = 3;
-    float            slow_move_multiplier    = 0.52f;  // mult de move_speed
+    float            slow_move_multiplier    = 0.52f;  // move_speed multiplier
 };
 
 struct StatusEffectState {
@@ -23,8 +23,8 @@ struct StatusEffectState {
         return false;
     }
 
-    // Aplica efeito — substitui slot existente do mesmo tipo ou slot vazio.
-    // Se todos cheios, sobrescreve o slot 0.
+    // Apply effect — replaces an existing slot of the same type or an empty slot.
+    // If all slots are full, overwrites slot 0.
     void apply(StatusEffectType t, float duration) {
         apply_full(t, duration, 0.55f, 3, 0.52f);
     }

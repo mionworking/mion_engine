@@ -11,19 +11,19 @@ struct Camera2D {
     float viewport_w = 1280.0f;
     float viewport_h = 720.0f;
 
-    // Shake — offset aplicado apenas no render, não afeta a posição real
+    // Shake — offset applied only during render, does not affect the real position.
     float shake_offset_x      = 0.0f;
     float shake_offset_y      = 0.0f;
     int   shake_remaining     = 0;
     int   shake_total         = 0;
     float shake_intensity     = 0.0f;
 
-    // Converte mundo → tela incluindo o offset de shake
+    // Converts world → screen including the shake offset.
     float world_to_screen_x(float wx) const { return wx - x + shake_offset_x; }
     float world_to_screen_y(float wy) const { return wy - y + shake_offset_y; }
 
     void trigger_shake(float intensity, int frames) {
-        // Novo shake só sobrescreve se for mais forte que o atual
+        // New shake only overrides if stronger than the current one.
         if (intensity >= shake_intensity || shake_remaining == 0) {
             shake_intensity = intensity;
             shake_total     = frames;
@@ -31,7 +31,7 @@ struct Camera2D {
         }
     }
 
-    // Chamado uma vez por fixed update — gera offset aleatório com decay linear
+    // Called once per fixed update — generates a random offset with linear decay.
     void step_shake(std::mt19937& rng) {
         if (shake_remaining <= 0) {
             shake_offset_x = 0.0f;
@@ -43,9 +43,9 @@ struct Camera2D {
         float decay  = (float)shake_remaining / (float)shake_total;
         float radius = shake_intensity * decay;
 
-        // Direção aleatória a cada frame — dá o movimento errático característico
+        // Random direction each frame — produces the characteristic erratic motion.
         std::uniform_int_distribution<int> dist(0, 627);
-        float angle = (float)dist(rng) * 0.01f;  // 0..2π aprox
+        float angle = (float)dist(rng) * 0.01f;  // 0..2π approx
         shake_offset_x = radius * cosf(angle);
         shake_offset_y = radius * sinf(angle);
 

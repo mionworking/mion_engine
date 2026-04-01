@@ -3,10 +3,13 @@
 
 namespace mion {
 
+// Unique identifier for each quest.
 enum class QuestId { DefeatGrimjaw, Count };
 
+// Lifecycle states of a quest.
 enum class QuestStatus { NotStarted = 0, InProgress, Completed, Rewarded };
 
+// Tracks status of all quests; serialized in SaveData.
 struct QuestState {
     QuestStatus status[static_cast<int>(QuestId::Count)]{};
 

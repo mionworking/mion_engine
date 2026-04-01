@@ -4,15 +4,15 @@
 
 namespace mion {
 
-// Implementação de IInputSource para testes de integração.
-// Reproduce uma sequência fixa de InputState, frame a frame.
-// Quando a sequência acaba, repete o último frame indefinidamente.
+// IInputSource implementation for integration tests.
+// Replays a fixed sequence of InputState values, one per frame.
+// When the sequence is exhausted, the last frame is repeated indefinitely.
 class ScriptedInputSource : public IInputSource {
 public:
-    // Adiciona um frame à sequência de replay
+    // Adds a frame to the replay sequence.
     void push(InputState s) { _frames.push_back(s); }
 
-    // Atalho: adiciona N frames idênticos
+    // Shortcut: adds N identical frames.
     void push_n(InputState s, int count) {
         for (int i = 0; i < count; ++i) _frames.push_back(s);
     }
@@ -20,7 +20,7 @@ public:
     InputState read_state() const override {
         if (_frames.empty()) return InputState{};
         if (_cursor < _frames.size()) return _frames[_cursor++];
-        return _frames.back(); // repete último quando exausto
+        return _frames.back(); // repeat last frame when exhausted
     }
 
     bool done() const { return !_frames.empty() && _cursor >= _frames.size(); }

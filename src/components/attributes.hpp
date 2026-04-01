@@ -8,19 +8,19 @@
 namespace mion {
 
 // ---------------------------------------------------------------------------
-// Atributos base do player (distribuídos via level-up / equipamento futuro).
-// Cada ponto de atributo contribui com um bonus constante nos stats derivados.
+// Player base attributes (distributed via level-up / future equipment).
+// Each attribute point contributes a constant bonus to the derived stats.
 // ---------------------------------------------------------------------------
 struct AttributesState {
-    int vigor        = 0;  // +HP max por ponto
-    int forca        = 0;  // +dano melee por ponto
-    int destreza     = 0;  // +dano ranged por ponto
-    int inteligencia = 0;  // +dano spell (%) e +mana max por ponto
-    int endurance    = 0;  // +stamina max por ponto
+    int vigor        = 0;  // +max HP per point
+    int forca        = 0;  // +melee damage per point
+    int destreza     = 0;  // +ranged damage per point
+    int inteligencia = 0;  // +spell damage (%) and +max mana per point
+    int endurance    = 0;  // +max stamina per point
 };
 
 // ---------------------------------------------------------------------------
-// Escala de cada atributo (data-driven futuramente via attributes.ini).
+// Per-attribute scaling constants (data-driven via attributes.ini in the future).
 // ---------------------------------------------------------------------------
 struct AttributeScales {
     int   vigor_hp_per_point          = 8;
@@ -34,9 +34,9 @@ struct AttributeScales {
 inline AttributeScales g_attribute_scales{};
 
 // ---------------------------------------------------------------------------
-// Stats derivados finais do player.
-// Pipeline: base (PlayerConfig) + progressão + talentos + atributos + equip.
-// Calculados por recompute_player_derived_stats(); lidos pelos sistemas.
+// Final derived stats for the player.
+// Pipeline: base (PlayerConfig) + progression + talents + attributes + equip.
+// Computed by recompute_player_derived_stats(); read by all systems.
 // ---------------------------------------------------------------------------
 struct DerivedStats {
     int   melee_damage_final  = 10;
@@ -48,8 +48,8 @@ struct DerivedStats {
 };
 
 // ---------------------------------------------------------------------------
-// Recalcula DerivedStats a partir do estado atual do player.
-// Chamar após: level-up, gasto de talento, equip/unequip, inicialização.
+// Recomputes DerivedStats from the current player state.
+// Call after: level-up, talent spend, equip/unequip, initialization.
 // ---------------------------------------------------------------------------
 inline void recompute_player_derived_stats(
     DerivedStats&           derived,

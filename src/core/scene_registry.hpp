@@ -10,6 +10,8 @@
 
 namespace mion {
 
+// Factory registry that maps scene IDs to constructor functions.
+// Used by main.cpp to create scenes by name via SceneRegistry::create().
 class SceneRegistry {
 public:
     using Factory = std::function<std::unique_ptr<IScene>(const SceneCreateContext&)>;

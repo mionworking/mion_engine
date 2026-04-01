@@ -3,6 +3,7 @@
 
 namespace mion {
 
+// HP tracking component; death occurs when current_hp reaches 0.
 struct HealthState {
     int max_hp     = 100;
     int current_hp = 100;

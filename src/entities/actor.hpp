@@ -24,8 +24,8 @@ enum class Team { Player, Enemy };
 
 enum class PatrolState { Patrol, Alert, Chase };
 
-// Waypoint path — definido aqui para evitar dependência circular com pathfinder.hpp
-// O Pathfinder preenche esta struct; o EnemyAISystem a consome.
+// Waypoint path — defined here to avoid a circular dependency with pathfinder.hpp.
+// Pathfinder fills this struct; EnemyAISystem consumes it.
 struct Path {
     struct Point { float x, y; };
     std::vector<Point> waypoints;
@@ -51,20 +51,20 @@ struct Actor {
     float        facing_x        = 1.0f;
     float        facing_y        = 0.0f;
     bool         is_alive        = true;
-    bool         was_alive       = true;   // detectar transição de morte (Feature 4)
-    bool         is_moving       = false;  // sinaliza para animação (Feature 1)
+    bool         was_alive       = true;   // detect death transition
+    bool         is_moving       = false;  // signals the animation system
 
     // Knockback
     float        knockback_vx       = 0.0f;
     float        knockback_vy       = 0.0f;
     float        knockback_friction = 0.72f;
 
-    // Feature 1 — Animação por spritesheet
+    // Animation via spritesheet
     AnimPlayer   anim;
     SDL_Texture* sprite_sheet = nullptr;
     float        sprite_scale = 1.0f;
 
-    // Feature 2 — Tipo de inimigo + stats por-actor
+    // Enemy type + per-actor stats
     EnemyType    enemy_type      = EnemyType::Skeleton;
     int          attack_damage   = 10;
     int          ranged_damage   = 8;
@@ -72,11 +72,11 @@ struct Actor {
     float        attack_range_ai = 45.0f;
     float        stop_range_ai   = 30.0f;
 
-    // Feature 3 — Pathfinding
+    // Pathfinding
     Path         nav_path;
     float        path_replan_timer = 0.0f;
 
-    // IA por comportamento (copiado do EnemyDef no spawn)
+    // Behavior-based AI (copied from EnemyDef at spawn)
     AiBehavior   ai_behavior = AiBehavior::Melee;
     float        ranged_fire_cd        = 0.0f;
     float        ranged_fire_rate      = 1.5f;
@@ -96,27 +96,27 @@ struct Actor {
     float        boss_charge_dir_y     = 0.0f;
     float        base_move_speed_at_spawn = 0.0f;
 
-    // Componentes de gameplay
-    StaminaState      stamina;           // usado pelo player; default vazio em inimigos
-    ManaState         mana;              // recurso mágico do player
-    StatusEffectState status_effects;    // Poison/Slow/Stun — ativo na Fase 3
-    ProgressionState  progression;       // XP/level — usado só pelo player
+    // Gameplay components
+    StaminaState      stamina;           // used by player; default empty for enemies
+    ManaState         mana;              // player mana pool
+    StatusEffectState status_effects;    // Poison/Slow/Stun
+    ProgressionState  progression;       // XP/level — player only
     SpellBookState    spell_book;        // spells + cooldowns
-    TalentState       talents;           // pontos e unlock de skill tree
-    AttributesState   attributes;        // Vigor/Forca/Destreza/Inteligencia/Endurance
-    EquipmentState    equipment;         // slots de equip v1
-    DerivedStats      derived;           // stats finais calculados por recompute_player_derived_stats
+    TalentState       talents;           // skill tree points and unlocks
+    AttributesState   attributes;        // base attributes
+    EquipmentState    equipment;         // equipment slots v1
+    DerivedStats      derived;           // final stats computed by recompute_player_derived_stats
     int               gold              = 0;
 
-    /// Flash branco curto ao receber dano (segundos).
+    // Brief white flash on hit (seconds).
     float hit_flash_timer = 0.0f;
 
-    /// Ancla para passos (distância acumulada desde último som).
+    // Footstep anchor (accumulated distance since last sound).
     float footstep_prev_x       = 0.0f;
     float footstep_prev_y       = 0.0f;
     float footstep_accum_dist   = 0.0f;
 
-    // Dash / roll (principalmente player)
+    // Dash / roll (primarily player)
     float dash_active_remaining_seconds  = 0.0f;
     float dash_cooldown_remaining_seconds = 0.0f;
     float dash_dir_x                     = 1.0f;
@@ -126,11 +126,11 @@ struct Actor {
     float dash_iframes_seconds           = 0.20f;
     float dash_cooldown_seconds          = 0.55f;
 
-    // Battle Cry (+ outros buffs de dano temporários)
+    // Battle Cry (and other temporary damage buffs)
     float empowered_damage_multiplier   = 1.0f;
     float empowered_remaining_seconds   = 0.0f;
 
-    /// Mult. de dano saliente (melee, magias, flechas) enquanto buff activo.
+    // Outgoing damage multiplier (melee, spells, arrows) while buff is active.
     float outgoing_damage_multiplier() const {
         return empowered_remaining_seconds > 0.0f ? empowered_damage_multiplier : 1.0f;
     }
@@ -139,7 +139,7 @@ struct Actor {
     float ranged_cooldown_remaining_seconds = 0.0f;
     float ranged_cooldown_seconds           = 0.35f;
 
-    // --- Métodos existentes ---
+    // --- Methods ---
 
     void apply_knockback_impulse(float ix, float iy) {
         knockback_vx = ix;

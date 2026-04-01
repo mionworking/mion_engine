@@ -36,7 +36,7 @@
 #include "../systems/tilemap_renderer.hpp"
 #include "../systems/world_renderer.hpp"
 #include "../systems/player_configurator.hpp"
-#include "../core/pause_menu.hpp"
+#include "../systems/pause_menu_controller.hpp"
 #include "../core/sprite_layout.hpp"
 
 namespace mion {
@@ -117,16 +117,11 @@ public:
             _audio->set_music_state(MusicState::Town);
         }
 
-        _pause_menu.init({"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"},
-                         {false, true, false, false});
-        _pause_menu.on_item_selected(0, [this]{ _pause_menu.paused = false; });
-        _pause_menu.on_item_selected(2, [this]{ _pause_menu.settings_open = true; });
-        _pause_menu.on_item_selected(3, [this]{
-            _pending_next = "title";
-            _pause_menu.paused = false;
-            if (_audio) _audio->fade_music(400);
-        });
-        _pause_menu.on_opened([this]{ _shop_open = false; });
+        _pause_controller = {};
+        PauseMenuController::InitOptions pause_options;
+        pause_options.disabled_items = {false, true, false, false};
+        pause_options.on_opened      = [this]{ _shop_open = false; };
+        _pause_controller.init(pause_options);
     }
 
     void exit() override {
@@ -143,15 +138,20 @@ public:
 
         if (_dialogue.is_active()) {
             _dialogue.fixed_update(input);
-            _pause_menu.flush_input(input);
+            _pause_controller.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
             return;
         }
 
-        if (_pause_menu.handle_input(input)) {
-            _pause_menu.flush_input(input);
+        PauseMenuResult pause_result = _pause_controller.update(input);
+        if (pause_result.should_quit_to_title) {
+            _pending_next = "title";
+            if (_audio) _audio->fade_music(400);
+        }
+        if (pause_result.world_paused) {
+            _pause_controller.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
@@ -160,7 +160,7 @@ public:
 
         if (_shop_open) {
             _update_shop(input);
-            _pause_menu.flush_input(input);
+            _pause_controller.flush_input(input);
             _prev_confirm  = input.confirm_pressed;
             _prev_cancel   = input.ui_cancel_pressed;
             _prev_move_nav = input.move_y != 0.0f;
@@ -223,7 +223,7 @@ public:
         if (_audio)
             _audio->tick_music();
 
-        _pause_menu.flush_input(input);
+        _pause_controller.flush_input(input);
     }
 
     void render(SDL_Renderer* r, float /*blend_factor*/) override {
@@ -363,7 +363,7 @@ public:
         render_dialogue_ui(r, viewport_w, viewport_h, _dialogue);
         if (_shop_open)
             ShopSystem::render_shop_ui(r, _shop_forge, _player.gold, viewport_w, viewport_h);
-        _pause_menu.render(r, viewport_w, viewport_h);
+        _pause_controller.render(r, viewport_w, viewport_h);
     }
 
     const char* next_scene() const override {
@@ -408,7 +408,7 @@ private:
     bool                     _shop_prev_confirm    = false;
     bool                     _shop_prev_cancel     = false;
 
-    PauseMenu        _pause_menu;
+    PauseMenuController _pause_controller;
 
     static float _dist_sq(float ax, float ay, float bx, float by) {
         float dx = ax - bx, dy = ay - by;

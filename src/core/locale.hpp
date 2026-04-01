@@ -27,7 +27,7 @@ struct LocaleSystem {
     }
 };
 
-// Instância owned pela stack de main(); aponta para ela após locale_bind().
+// Instance owned by main()'s stack; pointed to after locale_bind().
 namespace detail { inline LocaleSystem* active_locale = nullptr; }
 
 inline void locale_bind(LocaleSystem* ls) { detail::active_locale = ls; }

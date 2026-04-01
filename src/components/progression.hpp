@@ -5,7 +5,7 @@
 
 namespace mion {
 
-// Curva de XP e bónus de level-up (data/progression.ini).
+// XP curve and level-up bonuses (data/progression.ini).
 struct ProgressionConfig {
     int   xp_base            = 100;
     int   xp_level_scale     = 100;
@@ -43,12 +43,12 @@ struct ProgressionState {
     int   xp                 = 0;
     int   level              = 1;
     int   xp_to_next         = progression_xp_threshold_for_level(1);
-    int   pending_level_ups  = 0;  // uma escolha de upgrade por nível ganho no mesmo frame
+    int   pending_level_ups  = 0;  // one upgrade choice per level gained in the same frame
 
-    // Upgrades escolhidos no level-up
+    // Upgrades chosen at level-up
     int   bonus_attack_damage = 0;
     int   bonus_max_hp        = 0;
-    float bonus_move_speed     = 0.0f;  // somado ao move_speed base
+    float bonus_move_speed     = 0.0f;  // added to the base move_speed
     float spell_damage_multiplier = 1.0f;
 
     bool level_choice_pending() const { return pending_level_ups > 0; }

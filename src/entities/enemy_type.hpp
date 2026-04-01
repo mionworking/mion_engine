@@ -7,6 +7,7 @@
 
 namespace mion {
 
+// AI decision style assigned to each enemy type.
 enum class AiBehavior {
     Melee,
     Ranged,
@@ -15,6 +16,7 @@ enum class AiBehavior {
     BossPhased,
 };
 
+// Unique identifier for each enemy variant.
 enum class EnemyType {
     Skeleton,
     Orc,
@@ -28,6 +30,8 @@ enum class EnemyType {
 
 inline constexpr int kEnemyTypeCount = static_cast<int>(EnemyType::Count);
 
+// Static definition of an enemy: stats, hitboxes, sprite, and AI config.
+// Loaded from compiled-in defaults and overridable via data/enemies.ini.
 struct EnemyDef {
     EnemyType    type;
     int          max_hp;
@@ -116,6 +120,8 @@ inline const EnemyDef& get_enemy_def(EnemyType type) {
     return DEFS[i];
 }
 
+// Patches a single EnemyDef from the named INI section.
+// sprite_path_storage must outlive def if a new path is loaded.
 inline void apply_enemy_ini_section(const IniData& d, const std::string& sec, EnemyDef& def,
                                     std::string* sprite_path_storage) {
     def.max_hp = d.get_int(sec, "max_hp", def.max_hp);

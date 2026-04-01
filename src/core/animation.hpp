@@ -4,8 +4,8 @@
 
 namespace mion {
 
-// Layout padrão da spritesheet: tira horizontal, uma animação por linha
-// Linha 0: Idle | 1: Walk | 2: Attack | 3: Hurt | 4: Death
+// Default spritesheet layout: horizontal strip, one animation per row.
+// Row 0: Idle | 1: Walk | 2: Attack | 3: Hurt | 4: Death
 enum class ActorAnim : int {
     Idle   = 0,
     Walk   = 1,
@@ -17,7 +17,7 @@ enum class ActorAnim : int {
     COUNT  = 7
 };
 
-// Recorte na spritesheet (sem dependência de SDL — conversão feita na cena)
+// Spritesheet crop rect (no SDL dependency — converted to SDL_Rect in the scene).
 struct FrameRect { int x, y, w, h; };
 
 struct AnimFrame {
@@ -27,7 +27,7 @@ struct AnimFrame {
 
 struct AnimClip {
     std::vector<AnimFrame> frames;
-    bool loop = true;   // Death deve ser false
+    bool loop = true;   // Death should be false
 };
 
 struct AnimPlayer {
@@ -35,13 +35,13 @@ struct AnimPlayer {
     ActorAnim current_anim   = ActorAnim::Idle;
     int       frame_index    = 0;
     float     time_remaining = 0.0f;
-    bool      finished       = false;  // true quando clip não-loop termina
+    bool      finished       = false;  // true when a non-looping clip finishes
 
-    // Suporte a direções para o layout Puny Characters
-    int puny_frame_h = 0;   // altura do frame (32); 0 = não usa Puny
-    int puny_dir_row = 0;   // linha atual na spritesheet
+    // Direction row support for the Puny Characters layout.
+    int puny_frame_h = 0;   // frame height (32); 0 = not using Puny layout
+    int puny_dir_row = 0;   // current row in the spritesheet
 
-    // Muda animação; reinicia se for diferente ou se a atual terminou
+    // Change animation; restarts if different or if the current one finished.
     void play(ActorAnim anim) {
         if (anim == current_anim && !finished) return;
         current_anim = anim;
@@ -51,7 +51,7 @@ struct AnimPlayer {
         time_remaining = !cl.frames.empty() ? cl.frames[0].duration_seconds : 0.0f;
     }
 
-    // Avança um tick de dt segundos
+    // Advance by dt seconds.
     void advance(float dt) {
         if (finished) return;
         const auto& clip = clips[(int)current_anim];
@@ -72,7 +72,7 @@ struct AnimPlayer {
         }
     }
 
-    // Frame atual (nullptr se não houver clip configurado)
+    // Current frame (nullptr if no clip is configured).
     const AnimFrame* current_frame() const {
         const auto& clip = clips[(int)current_anim];
         if (clip.frames.empty()) return nullptr;
@@ -80,8 +80,8 @@ struct AnimPlayer {
         return &clip.frames[idx];
     }
 
-    // Popula clipes para spritesheet com layout padrão (uma animação por linha)
-    // frame_w/h: dimensão de um frame em pixels; fps: frames por segundo
+    // Populates clips for a spritesheet with the default layout (one animation per row).
+    // frame_w/h: frame size in pixels; fps: frames per second.
     void build_default_clips(int frame_w, int frame_h,
                              int idle_n, int walk_n, int attack_n,
                              int hurt_n, int death_n, float fps)
@@ -98,18 +98,18 @@ struct AnimPlayer {
         make(ActorAnim::Attack, 2, attack_n, true);
         make(ActorAnim::Hurt,   3, hurt_n,   false);
         make(ActorAnim::Death,  4, death_n,  false);
-        // Cast/Dash: fallback para Idle se não há sheet dedicada
+        // Cast/Dash: fall back to Idle if no dedicated sheet.
         make(ActorAnim::Cast,   0, idle_n,   false);
         make(ActorAnim::Dash,   1, walk_n,   true);
     }
 
-    // Popula clipes a partir do layout Puny Characters (32×32, 24 cols × 8 linhas).
-    // Mapa de direções:  Row 0 = Sul  |  Row 2 = Norte  |  Row 3 = Leste
-    // (Oeste é Row 3 espelhado horizontalmente pelo renderer.)
-    // Layout dentro de cada linha (spritesheet 768×256, 24 cols × 8 linhas):
+    // Populates clips from the Puny Characters layout (32×32, 24 cols × 8 rows).
+    // Direction map:  Row 0 = South  |  Row 2 = North  |  Row 3 = East
+    // (West is Row 3 flipped horizontally by the renderer.)
+    // Column layout within each row (spritesheet 768×256, 24 cols × 8 rows):
     //   [0-5]  Walk  | [6-11] Attack | [12-15] Idle | [16-18] Cast
     //   [19]   Hurt  | [20-23] Death
-    // Dash reutiliza Walk com duração 50% menor (sensação de velocidade)
+    // Dash reuses Walk at 50% duration for a sense of speed.
     void build_puny_clips(int dir_row, float fps)
     {
         const int fw = 32, fh = 32;
@@ -131,8 +131,8 @@ struct AnimPlayer {
         puny_dir_row = dir_row;
     }
 
-    // Atualiza a linha de direção de todos os frames em O(frames) operações.
-    // Só tem efeito se build_puny_clips foi chamado (puny_frame_h > 0).
+    // Updates the direction row of all frames in O(frames) operations.
+    // Only has effect if build_puny_clips was called (puny_frame_h > 0).
     void update_puny_dir_row(int new_row) {
         if (puny_frame_h == 0 || new_row == puny_dir_row) return;
         const int dy = (new_row - puny_dir_row) * puny_frame_h;

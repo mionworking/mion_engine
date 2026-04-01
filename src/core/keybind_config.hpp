@@ -7,7 +7,7 @@
 
 namespace mion {
 
-/// Mapeamento de ações → scancodes (carregado de config.ini [keybinds])
+// Action → scancode mapping (loaded from config.ini [keybinds]).
 struct KeybindConfig {
     SDL_Scancode attack     = SDL_SCANCODE_Z;
     SDL_Scancode attack_alt = SDL_SCANCODE_SPACE;
@@ -30,14 +30,14 @@ struct KeybindConfig {
     SDL_Scancode talent_3   = SDL_SCANCODE_6;
 };
 
-/// Converte nome de tecla (SDL_GetScancodeFromName, inglês, case-insensitive) em scancode.
+// Converts a key name (SDL_GetScancodeFromName, English, case-insensitive) to a scancode.
 inline SDL_Scancode scancode_from_name(const std::string& name) {
     if (name.empty()) return SDL_SCANCODE_UNKNOWN;
     SDL_Scancode sc = SDL_GetScancodeFromName(name.c_str());
     return (sc != SDL_SCANCODE_UNKNOWN) ? sc : SDL_SCANCODE_UNKNOWN;
 }
 
-/// Carrega [keybinds] de IniData; chaves ausentes ou inválidas ficam com o default.
+// Loads [keybinds] from IniData; missing or invalid keys keep their defaults.
 inline KeybindConfig load_keybinds(const IniData& d) {
     KeybindConfig kb{};
     auto          get = [&](const std::string& key, SDL_Scancode def) -> SDL_Scancode {

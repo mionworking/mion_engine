@@ -19,7 +19,7 @@ struct RunStats {
     void reset() { *this = RunStats{}; }
 };
 
-/// Multiplicadores de HP / dano de inimigos por dificuldade (espelha DungeonScene).
+// Enemy HP / damage multipliers by difficulty level (mirrors DungeonScene logic).
 inline void difficulty_enemy_multipliers(DifficultyLevel d, float& hp_mult, float& dmg_mult) {
     hp_mult  = 1.0f;
     dmg_mult = 1.0f;
@@ -32,7 +32,7 @@ inline void difficulty_enemy_multipliers(DifficultyLevel d, float& hp_mult, floa
     }
 }
 
-/// Ajusta orçamento de spawn (Easy −1 mín. 1; Hard +1).
+// Adjusts spawn budget by difficulty (Easy −1 min. 1; Hard +1).
 inline int difficulty_adjust_spawn_budget(int base, DifficultyLevel d) {
     if (d == DifficultyLevel::Easy)
         return std::max(1, base - 1);

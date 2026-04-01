@@ -16,7 +16,7 @@ float clamp01(float v) {
 }
 
 float rand_pitch_factor(std::mt19937& rng) {
-    // ±5% em torno de 1.0
+    // ±5% around 1.0
     float u = (float)(std::uniform_int_distribution<int>(0, 10000)(rng)) / 10000.0f;
     return 0.95f + u * 0.1f;
 }
@@ -76,7 +76,7 @@ void AudioSystem::_apply_music_state_after_fade(MusicState state) {
 bool AudioSystem::init() {
     _device = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
     if (!_device) {
-        SDL_Log("AudioSystem: nao abriu dispositivo de audio: %s", SDL_GetError());
+        SDL_Log("AudioSystem: could not open audio device: %s", SDL_GetError());
         return false;
     }
 
@@ -85,11 +85,11 @@ bool AudioSystem::init() {
 
         _sfx_streams[i] = SDL_CreateAudioStream(&_sfx_wavs[i].spec, nullptr);
         if (!_sfx_streams[i]) {
-            SDL_Log("AudioSystem: falha ao criar stream SFX %d: %s", i, SDL_GetError());
+            SDL_Log("AudioSystem: failed to create SFX stream %d: %s", i, SDL_GetError());
             continue;
         }
         if (!SDL_BindAudioStream(_device, _sfx_streams[i])) {
-            SDL_Log("AudioSystem: falha ao bind stream SFX %d: %s", i, SDL_GetError());
+            SDL_Log("AudioSystem: failed to bind SFX stream %d: %s", i, SDL_GetError());
         }
     }
 
@@ -98,11 +98,11 @@ bool AudioSystem::init() {
         AmbientTrack& t = _ambient[a];
         t.stream = SDL_CreateAudioStream(&t.wav.spec, nullptr);
         if (!t.stream) {
-            SDL_Log("AudioSystem: stream ambiente %d falhou: %s", a, SDL_GetError());
+            SDL_Log("AudioSystem: ambient stream %d failed: %s", a, SDL_GetError());
             continue;
         }
         if (!SDL_BindAudioStream(_device, t.stream)) {
-            SDL_Log("AudioSystem: bind ambiente %d falhou: %s", a, SDL_GetError());
+            SDL_Log("AudioSystem: ambient bind %d failed: %s", a, SDL_GetError());
         }
     }
 
@@ -218,14 +218,14 @@ bool AudioSystem::play_music(const char* path, float volume) {
 
     if (!path || !path[0]) return false;
     if (!SDL_LoadWAV(path, &_music_wav.spec, &_music_wav.data, &_music_wav.len)) {
-        SDL_Log("AudioSystem: musica nao carregou '%s': %s", path, SDL_GetError());
+        SDL_Log("AudioSystem: music failed to load '%s': %s", path, SDL_GetError());
         return false;
     }
 
     _music_volume = clamp01(volume);
     _music_stream = SDL_CreateAudioStream(&_music_wav.spec, nullptr);
     if (!_music_stream) {
-        SDL_Log("AudioSystem: falha ao criar stream de musica: %s", SDL_GetError());
+        SDL_Log("AudioSystem: failed to create music stream: %s", SDL_GetError());
         SDL_free(_music_wav.data);
         _music_wav.data = nullptr;
         return false;
@@ -309,7 +309,7 @@ void AudioSystem::stop_all_ambient() {
 }
 
 void AudioSystem::tick_music() {
-    // Fade da música
+    // Music fade
     if (_music_stream && _music_wav.data && _fading) {
         Uint32 elapsed = SDL_GetTicks() - _fade_start_ticks;
         if (elapsed >= _fade_duration_ms) {
@@ -333,7 +333,7 @@ void AudioSystem::tick_music() {
             SDL_PutAudioStreamData(_music_stream, _music_wav.data, (int)_music_wav.len);
     }
 
-    // Loops de ambiente
+    // Ambient loops
     for (int a = 0; a < (int)AmbientId::AMBIENT_COUNT; ++a) {
         AmbientTrack& tr = _ambient[a];
         if (!tr.active || !tr.stream || !tr.wav.data) continue;
@@ -350,7 +350,7 @@ bool AudioSystem::_load_ambient(AmbientId id, const char* path) {
     int idx = (int)id;
     if (!SDL_LoadWAV(path, &_ambient[idx].wav.spec,
                      &_ambient[idx].wav.data, &_ambient[idx].wav.len)) {
-        SDL_Log("AudioSystem: ambiente nao carregou '%s': %s (ignorado)", path, SDL_GetError());
+        SDL_Log("AudioSystem: ambient failed to load '%s': %s (skipped)", path, SDL_GetError());
         return false;
     }
     return true;
@@ -360,7 +360,7 @@ bool AudioSystem::_load_sfx(SoundId id, const char* path) {
     int idx = (int)id;
     if (!SDL_LoadWAV(path, &_sfx_wavs[idx].spec,
                      &_sfx_wavs[idx].data, &_sfx_wavs[idx].len)) {
-        SDL_Log("AudioSystem: SFX nao carregou '%s': %s (ignorado)", path, SDL_GetError());
+        SDL_Log("AudioSystem: SFX failed to load '%s': %s (skipped)", path, SDL_GetError());
         return false;
     }
     return true;

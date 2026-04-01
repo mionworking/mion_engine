@@ -4,29 +4,29 @@ namespace mion {
 
 enum class AttackPhase {
     Idle,
-    Startup,   // animação de antecipação — sem hitbox
-    Active,    // janela de dano — hitbox ativa
-    Recovery,  // vulnerável, sem controle total
+    Startup,   // anticipation animation — no hitbox
+    Active,    // damage window — hitbox active
+    Recovery,  // vulnerable, no full control
 };
 
-// Espelho direto do CombatState Python — mesma lógica, mesma arquitetura
+// Direct mirror of the Python CombatState — same logic, same architecture.
 struct CombatState {
-    // Hurt / invulnerabilidade
+    // Hurt / invulnerability
     float hurt_stun_duration_seconds         = 0.20f;
     float hurt_stun_remaining_seconds        = 0.0f;
     float impact_invulnerability_seconds     = 0.50f;
     float impact_invulnerability_remaining   = 0.0f;
 
-    // Parry (player) — janela curta (~0.12s), lê startup do inimigo
+    // Parry (player) — short window (~0.12s), reads enemy startup
     float parry_window_duration_seconds      = 0.12f;
     float parry_window_remaining_seconds     = 0.0f;
 
-    // Combo melee (player) — 3º hit com knockback pesado
+    // Melee combo (player) — 3rd hit triggers heavy knockback
     int   combo_chain_hits                   = 0;
     float combo_chain_timeout_seconds        = 1.15f;
     float combo_chain_time_remaining_seconds = 0.0f;
 
-    // Fases do ataque
+    // Attack phase timing
     float attack_startup_duration_seconds    = 0.10f;
     float attack_active_duration_seconds     = 0.15f;
     float attack_recovery_duration_seconds   = 0.25f;
@@ -94,12 +94,12 @@ struct CombatState {
         impact_invulnerability_remaining = impact_invulnerability_seconds;
         combo_chain_hits                 = 0;
         combo_chain_time_remaining_seconds = 0.0f;
-        // interrompe ataque em curso
+        // interrupt ongoing attack
         attack_phase           = AttackPhase::Idle;
         attack_phase_remaining = 0.0f;
     }
 
-    // Parry bem-sucedido no atacante: cancela swing + stun longo
+    // Successful parry on attacker: cancels swing + long stun.
     void apply_parry_break_stun(float stun_seconds = 0.65f) {
         hurt_stun_remaining_seconds      = stun_seconds;
         attack_phase                     = AttackPhase::Idle;

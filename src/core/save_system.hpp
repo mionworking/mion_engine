@@ -11,6 +11,7 @@
 
 #include "save_data.hpp"
 #include "save_migration.hpp"
+#include "debug_log.hpp"
 
 namespace mion {
 
@@ -115,17 +116,17 @@ inline bool load(const std::string& path, SaveData& d) {
 
     int ver = get_int(kv, "version", 0);
     if (ver == 0) ver = 1;
-    // Rejeitar saves de versões futuras desconhecidas para evitar corrupção silenciosa.
+    // Reject saves from unknown future versions to avoid silent corruption.
     if (ver < 1 || ver > kSaveFormatVersion) return false;
 
     d.version    = kSaveFormatVersion;
 
-    // --- bloco: estado base ---
+    // --- block: base state ---
     d.room_index = get_int(kv, "room_index", 0);
     d.player_hp  = get_int(kv, "hp", 100);
     d.gold       = get_int(kv, "gold", 0);
 
-    // --- bloco: quests ---
+    // --- block: quests ---
     for (int qi = 0; qi < static_cast<int>(QuestId::Count); ++qi) {
         char qk[24];
         std::snprintf(qk, sizeof(qk), "quest_%d", qi);
@@ -133,7 +134,7 @@ inline bool load(const std::string& path, SaveData& d) {
             QuestState::int_to_status(get_int(kv, qk, 0));
     }
 
-    // --- bloco: progressão ---
+    // --- block: progression ---
     d.progression.xp                      = get_int(kv, "xp", 0);
     d.progression.level                   = get_int(kv, "level", 1);
     d.progression.xp_to_next              = get_int(kv, "xp_to_next", 100);
@@ -142,10 +143,10 @@ inline bool load(const std::string& path, SaveData& d) {
     d.progression.bonus_max_hp            = get_int(kv, "bonus_max_hp", 0);
     d.progression.bonus_move_speed        = get_float(kv, "bonus_move_speed", 0.0f);
     d.progression.spell_damage_multiplier = get_float(kv, "spell_damage_multiplier", 1.0f);
-    // Saúde do nível: level deve ser >= 1
+    // Sanity: level must be >= 1.
     if (d.progression.level < 1) d.progression.level = 1;
 
-    // --- bloco: talentos ---
+    // --- block: talents ---
     d.talents.pending_points = get_int(kv, "talent_pending_points", 0);
     for (int i = 0; i < kTalentCount; ++i) {
         char key[32];
@@ -158,7 +159,7 @@ inline bool load(const std::string& path, SaveData& d) {
     }
     if (d.talents.pending_points < 0) d.talents.pending_points = 0;
 
-    // --- bloco: mana ---
+    // --- block: mana ---
     d.mana.current               = get_float(kv, "mana_current", 100.0f);
     d.mana.max                   = get_float(kv, "mana_max", 100.0f);
     d.mana.regen_rate            = get_float(kv, "mana_regen_rate", 20.0f);
@@ -168,7 +169,7 @@ inline bool load(const std::string& path, SaveData& d) {
     if (d.mana.current < 0.0f) d.mana.current = 0.0f;
     if (d.mana.current > d.mana.max) d.mana.current = d.mana.max;
 
-    // --- bloco: stamina ---
+    // --- block: stamina ---
     d.stamina.current               = get_float(kv, "stamina_current", 100.0f);
     d.stamina.max                   = get_float(kv, "stamina_max", 100.0f);
     d.stamina.regen_rate            = get_float(kv, "stamina_regen_rate", 30.0f);
@@ -178,13 +179,13 @@ inline bool load(const std::string& path, SaveData& d) {
     if (d.stamina.current < 0.0f) d.stamina.current = 0.0f;
     if (d.stamina.current > d.stamina.max) d.stamina.current = d.stamina.max;
 
-    // --- bloco: flags globais ---
+    // --- block: global flags ---
     d.victory_reached = get_bool01(kv, "victory_reached", false);
     d.difficulty      = get_int(kv, "difficulty", 1);
     if (d.difficulty < 0) d.difficulty = 0;
     if (d.difficulty > 2) d.difficulty = 2;
 
-    // --- bloco: estatísticas da última run ---
+    // --- block: last run stats ---
     d.last_run_stats.rooms_cleared     = get_int(kv, "last_rooms_cleared", 0);
     d.last_run_stats.enemies_killed    = get_int(kv, "last_enemies_killed", 0);
     d.last_run_stats.gold_collected    = get_int(kv, "last_gold_collected", 0);
@@ -195,28 +196,28 @@ inline bool load(const std::string& path, SaveData& d) {
     d.last_run_stats.max_level_reached = get_int(kv, "last_max_level", 1);
     d.last_run_stats.boss_defeated     = get_bool01(kv, "last_boss_defeated", false);
 
-    // --- bloco: atributos base (v4+) ---
-    // Atenção: estes campos só existem em saves v4+; para versões anteriores,
-    // migrate_v3_to_v4() zerará os valores após este ponto.
+    // --- block: base attributes (v4+) ---
+    // Note: these fields only exist in v4+ saves; for older versions,
+    // migrate_v3_to_v4() will zero them out after this point.
     d.attributes.vigor        = get_int(kv, "attr_vigor",        0);
     d.attributes.forca        = get_int(kv, "attr_forca",        0);
     d.attributes.destreza     = get_int(kv, "attr_destreza",     0);
     d.attributes.inteligencia = get_int(kv, "attr_inteligencia", 0);
     d.attributes.endurance    = get_int(kv, "attr_endurance",    0);
-    // Sanidade: atributos não podem ser negativos
+    // Sanity: attributes cannot be negative.
     if (d.attributes.vigor        < 0) d.attributes.vigor        = 0;
     if (d.attributes.forca        < 0) d.attributes.forca        = 0;
     if (d.attributes.destreza     < 0) d.attributes.destreza     = 0;
     if (d.attributes.inteligencia < 0) d.attributes.inteligencia = 0;
     if (d.attributes.endurance    < 0) d.attributes.endurance    = 0;
 
-    // --- bloco: atributos pendentes e flags de cena (v5+) ---
+    // --- block: pending attributes and scene flags (v5+) ---
     d.attr_points_available = get_int(kv, "attr_points_available", 0);
     if (d.attr_points_available < 0) d.attr_points_available = 0;
     if (d.attr_points_available > kSaveMaxAttrPoints) d.attr_points_available = kSaveMaxAttrPoints;
     d.scene_flags = static_cast<unsigned int>(get_int(kv, "scene_flags", 0));
 
-    // --- cadeia de migração ---
+    // --- migration chain ---
     SaveMigration::clamp_room_index(d);
     if (ver <= 1) d = SaveMigration::migrate_v1_to_v2(d);
     if (ver <= 2) d = SaveMigration::migrate_v2_to_v3(d);
@@ -238,10 +239,10 @@ inline bool save(const std::string& path, const SaveData& d) {
     std::ofstream f(path, std::ios::trunc);
     if (!f) return false;
 
-    // == cabeçalho ==
+    // == header ==
     f << "version=" << kSaveFormatVersion << "\n";
 
-    // == estado base ==
+    // == base state ==
     f << "room_index=" << d.room_index << "\n";
     f << "hp=" << d.player_hp << "\n";
     f << "gold=" << d.gold << "\n";
@@ -251,7 +252,7 @@ inline bool save(const std::string& path, const SaveData& d) {
         f << "quest_" << qi << "=" << QuestState::status_to_int(d.quest_state.status[qi])
           << "\n";
 
-    // == progressão ==
+    // == progression ==
     f << "xp=" << d.progression.xp << "\n";
     f << "level=" << d.progression.level << "\n";
     f << "xp_to_next=" << d.progression.xp_to_next << "\n";
@@ -261,7 +262,7 @@ inline bool save(const std::string& path, const SaveData& d) {
     f << "bonus_move_speed=" << d.progression.bonus_move_speed << "\n";
     f << "spell_damage_multiplier=" << d.progression.spell_damage_multiplier << "\n";
 
-    // == talentos ==
+    // == talents ==
     f << "talent_pending_points=" << d.talents.pending_points << "\n";
     for (int i = 0; i < kTalentCount; ++i)
         f << "talent_" << i << "=" << d.talents.levels[i] << "\n";
@@ -280,11 +281,11 @@ inline bool save(const std::string& path, const SaveData& d) {
     f << "stamina_regen_delay=" << d.stamina.regen_delay << "\n";
     f << "stamina_regen_delay_rem=" << d.stamina.regen_delay_remaining << "\n";
 
-    // == flags globais ==
+    // == global flags ==
     f << "victory_reached=" << (d.victory_reached ? 1 : 0) << "\n";
     f << "difficulty=" << d.difficulty << "\n";
 
-    // == estatísticas da última run ==
+    // == last run stats ==
     f << "last_rooms_cleared=" << d.last_run_stats.rooms_cleared << "\n";
     f << "last_enemies_killed=" << d.last_run_stats.enemies_killed << "\n";
     f << "last_gold_collected=" << d.last_run_stats.gold_collected << "\n";
@@ -295,18 +296,50 @@ inline bool save(const std::string& path, const SaveData& d) {
     f << "last_max_level=" << d.last_run_stats.max_level_reached << "\n";
     f << "last_boss_defeated=" << (d.last_run_stats.boss_defeated ? 1 : 0) << "\n";
 
-    // == atributos base (v4+) ==
+    // == base attributes (v4+) ==
     f << "attr_vigor="        << d.attributes.vigor        << "\n";
     f << "attr_forca="        << d.attributes.forca        << "\n";
     f << "attr_destreza="     << d.attributes.destreza     << "\n";
     f << "attr_inteligencia=" << d.attributes.inteligencia << "\n";
     f << "attr_endurance="    << d.attributes.endurance    << "\n";
 
-    // == atributos pendentes e flags de cena (v5+) ==
+    // == pending attributes and scene flags (v5+) ==
     f << "attr_points_available=" << d.attr_points_available << "\n";
     f << "scene_flags=" << d.scene_flags << "\n";
 
     return f.good();
+}
+
+inline std::string debug_path(const char* tag) {
+    std::string base = default_path();
+    // default_path typically ends with "save.txt" — replace it with "debug_<tag>.txt".
+    const char* suffix = "save.txt";
+    const size_t suf_len = std::char_traits<char>::length(suffix);
+    if (base.size() >= suf_len) {
+        size_t pos = base.rfind(suffix);
+        if (pos != std::string::npos)
+            base.replace(pos, suf_len, std::string("debug_") + tag + ".txt");
+        else
+            base += std::string(".debug_") + tag;
+    } else {
+        base += std::string(".debug_") + tag;
+    }
+    return base;
+}
+
+// Saves a debug snapshot alongside the main save (does not affect normal flow).
+inline bool save_debug(const SaveData& d, const char* tag) {
+    std::string safe_tag = tag ? tag : "snapshot";
+    for (char& c : safe_tag) {
+        if (c == '/' || c == '\\' || c == ' ') c = '_';
+    }
+    const std::string path = debug_path(safe_tag.c_str());
+    const bool ok = save(path, d);
+    if (ok)
+        debug_log("SaveSystem::save_debug %s ok", path.c_str());
+    else
+        debug_log("SaveSystem::save_debug %s FAILED", path.c_str());
+    return ok;
 }
 
 inline bool exists_default() {

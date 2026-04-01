@@ -4,7 +4,7 @@
 
 namespace mion {
 
-/// Fade fullscreen (preto) entre cenas. Ciclo: Clear → FadingOut → Black → FadingIn → Clear.
+// Fullscreen black fade between scenes. Cycle: Clear → FadingOut → Black → FadingIn → Clear.
 struct SceneFader {
     enum class Phase { Clear, FadingOut, Black, FadingIn };
 

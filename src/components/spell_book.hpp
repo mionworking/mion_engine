@@ -7,6 +7,8 @@
 
 namespace mion {
 
+// Resolves the effective talent rank used for a spell's damage and cooldown scaling.
+// Takes the highest relevant talent level so synergy nodes are always considered.
 inline int spell_damage_rank(SpellId sid, const TalentState& t) {
     switch (sid) {
     case SpellId::FrostBolt:
@@ -30,6 +32,8 @@ inline int spell_damage_rank(SpellId sid, const TalentState& t) {
     }
 }
 
+// Tracks per-spell cooldowns and unlock state.
+// Call sync_from_talents() whenever the talent tree changes.
 struct SpellBookState {
     float cooldown_remaining[kSpellCount] = {};
     bool  unlocked[kSpellCount]           = {};
@@ -63,6 +67,7 @@ struct SpellBookState {
         unlocked[static_cast<int>(id)] = true;
     }
 
+    // Derives the unlocked set directly from the talent tree state.
     void sync_from_talents(const TalentState& t) {
         auto ge = [&](TalentId id, int min_lv) { return t.level_of(id) >= min_lv; };
         unlocked[static_cast<int>(SpellId::FrostBolt)]       = ge(TalentId::SpellPower, 1);

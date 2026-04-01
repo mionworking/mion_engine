@@ -9,7 +9,7 @@
 
 namespace mion {
 
-/// Registra uma sequência por secção do INI com `line_N_speaker` / `line_N_text`.
+// Registers one dialogue sequence per INI section using `line_N_speaker` / `line_N_text` keys.
 inline void register_dialogue_sequences_from_ini(DialogueSystem& dlg,
                                                  const IniData&  ini)
 {

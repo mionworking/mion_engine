@@ -2,6 +2,7 @@
 
 namespace mion {
 
+// Axis-aligned bounding box used for overlap/intersection tests.
 struct AABB {
     float min_x = 0.0f;
     float max_x = 0.0f;
@@ -14,6 +15,7 @@ struct AABB {
     }
 };
 
+// Physics body half-extents; generates an AABB centered at a world position.
 struct CollisionBox {
     float half_w = 0.5f;
     float half_h = 0.5f;
@@ -23,6 +25,7 @@ struct CollisionBox {
     }
 };
 
+// Damageable region with an optional offset from the actor center.
 struct HurtBox {
     float half_w    = 0.4f;
     float half_h    = 0.4f;
@@ -40,10 +43,11 @@ struct HurtBox {
     }
 };
 
+// Attack hitbox projected forward from the actor's facing direction.
 struct MeleeHitBox {
     float half_w           = 0.5f;
     float half_h           = 0.3f;
-    float forward_offset   = 0.6f;  // para frente do facing
+    float forward_offset   = 0.6f;  // distance in front of the facing direction
     float lateral_offset   = 0.0f;
     bool  enabled          = true;
 

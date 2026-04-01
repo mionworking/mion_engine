@@ -7,6 +7,7 @@
 
 namespace mion {
 
+// Unique identifier for each castable spell.
 enum class SpellId {
     FrostBolt = 0,
     Nova,
@@ -19,15 +20,16 @@ enum class SpellId {
     Count
 };
 
+// Static data for a spell: resource cost, base timing, damage, and per-talent scaling.
 struct SpellDef {
     SpellId id               = SpellId::FrostBolt;
     float   mana_cost        = 0.0f;
     float   cooldown_seconds = 0.0f;
     int     damage           = 0;
-    float   speed            = 0.0f;
-    float   radius           = 0.0f;
-    int     damage_per_level = 0;
-    float   cooldown_per_level = 0.0f;
+    float   speed            = 0.0f;   // projectile speed (0 = no projectile)
+    float   radius           = 0.0f;   // AoE radius (0 = single target)
+    int     damage_per_level = 0;      // bonus damage per talent rank
+    float   cooldown_per_level = 0.0f; // cooldown reduction per talent rank
 
     int effective_damage(int talent_rank) const {
         int r = std::max(0, talent_rank);
@@ -43,6 +45,7 @@ struct SpellDef {
 
 inline constexpr int kSpellCount = static_cast<int>(SpellId::Count);
 
+// Default spell stat table — individual entries overridable via data/spells.ini.
 inline std::array<SpellDef, kSpellCount> g_spell_defs = {{
     { SpellId::FrostBolt, 18.0f, 0.45f, 16, 460.0f, 0.0f, 0, 0.0f },
     { SpellId::Nova, 30.0f, 1.20f, 20, 0.0f, 96.0f, 0, 0.0f },
@@ -58,6 +61,7 @@ inline const SpellDef& spell_def(SpellId id) {
     return g_spell_defs[static_cast<int>(id)];
 }
 
+// Patches a single spell's definition from the named INI section.
 inline void apply_spell_ini_section(const IniData& d, const std::string& sec, SpellDef& def) {
     def.mana_cost = d.get_float(sec, "mana_cost", def.mana_cost);
     def.cooldown_seconds =

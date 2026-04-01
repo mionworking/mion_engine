@@ -29,6 +29,7 @@ static void test_asset_manifest_probe_does_not_crash() {
     mion::log_missing_assets_optional();
     EXPECT_TRUE(true);
 }
+REGISTER_TEST(test_asset_manifest_probe_does_not_crash);
 
 static void test_save_system_v4_attributes_roundtrip() {
     const char* path = "mion_save_v4_attr_roundtrip_test.txt";
@@ -55,6 +56,7 @@ static void test_save_system_v4_attributes_roundtrip() {
 
     std::remove(path);
 }
+REGISTER_TEST(test_save_system_v4_attributes_roundtrip);
 
 static void test_save_system_v2_chain_migration_keeps_load_valid() {
     const char* path = "mion_save_v2_chain_migration_test.txt";
@@ -91,12 +93,14 @@ static void test_save_system_v2_chain_migration_keeps_load_valid() {
 
     std::remove(path);
 }
+REGISTER_TEST(test_save_system_v2_chain_migration_keeps_load_valid);
 
 static void test_bitmap_font_text_width_is_consistent() {
     EXPECT_NEAR(mion::text_width("", 2), 0.0f, 0.001f);
     EXPECT_NEAR(mion::text_width("ABC", 1), 27.0f, 0.001f);
     EXPECT_NEAR(mion::text_width("ABC", 2), 54.0f, 0.001f);
 }
+REGISTER_TEST(test_bitmap_font_text_width_is_consistent);
 
 static void test_draw_sprite_null_texture_is_safe() {
     mion::SpriteFrame f{};
@@ -104,6 +108,7 @@ static void test_draw_sprite_null_texture_is_safe() {
     mion::draw_sprite(nullptr, f, 0.0f, 0.0f, 1.0f, 1.0f, false);
     EXPECT_TRUE(true);
 }
+REGISTER_TEST(test_draw_sprite_null_texture_is_safe);
 
 static void test_equipment_total_modifiers_accumulate_slots() {
     mion::EquipmentState eq;
@@ -125,6 +130,7 @@ static void test_equipment_total_modifiers_accumulate_slots() {
     EXPECT_EQ(m.hp_bonus, 20);
     EXPECT_NEAR(m.stamina_bonus, 8.0f, 0.001f);
 }
+REGISTER_TEST(test_equipment_total_modifiers_accumulate_slots);
 
 static void test_attributes_recompute_player_derived_stats() {
     mion::DerivedStats d{};
@@ -155,6 +161,7 @@ static void test_attributes_recompute_player_derived_stats() {
     EXPECT_NEAR(d.stamina_max_bonus, 10.0f, 0.001f);
     EXPECT_NEAR(d.mana_max_bonus, 15.0f, 0.001f);
 }
+REGISTER_TEST(test_attributes_recompute_player_derived_stats);
 
 static void test_shop_attack_upgrade_emits_runtime_signal() {
     mion::Actor player;
@@ -171,6 +178,7 @@ static void test_shop_attack_upgrade_emits_runtime_signal() {
     EXPECT_EQ(player.progression.bonus_attack_damage, 3);
     EXPECT_EQ(player.derived.melee_damage_final, 13);
 }
+REGISTER_TEST(test_shop_attack_upgrade_emits_runtime_signal);
 
 static void test_enemy_melee_uses_enemy_damage_path_runtime_signal() {
     mion::Actor enemy;
@@ -196,6 +204,7 @@ static void test_enemy_melee_uses_enemy_damage_path_runtime_signal() {
     combat.fixed_update(actors, 1.0f / 60.0f);
     EXPECT_EQ(player.health.current_hp, 89);
 }
+REGISTER_TEST(test_enemy_melee_uses_enemy_damage_path_runtime_signal);
 
 static void test_entities_defaults_for_npc_and_ground_item() {
     mion::NpcEntity npc;
@@ -207,6 +216,7 @@ static void test_entities_defaults_for_npc_and_ground_item() {
     EXPECT_TRUE(gi.active);
     EXPECT_FALSE(gi.lore_pickup);
 }
+REGISTER_TEST(test_entities_defaults_for_npc_and_ground_item);
 
 static void test_render_system_default_configs_are_stable() {
     mion::LightingSystem light;
@@ -219,17 +229,4 @@ static void test_render_system_default_configs_are_stable() {
     EXPECT_EQ(tr.wall_tile_col, 1);
     EXPECT_EQ((int)mion::TILE_COLOR[(int)mion::TileType::Floor].r, 38);
 }
-
-void run_gaps_v2_tests() {
-    run("V2.AssetManifest.NoCrash", test_asset_manifest_probe_does_not_crash);
-    run("V2.Save.V4AttributesRoundtrip", test_save_system_v4_attributes_roundtrip);
-    run("V2.Save.V2ChainMigration", test_save_system_v2_chain_migration_keeps_load_valid);
-    run("V2.BitmapFont.TextWidth", test_bitmap_font_text_width_is_consistent);
-    run("V2.Sprite.NullTextureSafe", test_draw_sprite_null_texture_is_safe);
-    run("V2.Equipment.TotalModifiers", test_equipment_total_modifiers_accumulate_slots);
-    run("V2.Attributes.RecomputeDerived", test_attributes_recompute_player_derived_stats);
-    run("V2.Shop.AttackUpgradeRuntimeSignal", test_shop_attack_upgrade_emits_runtime_signal);
-    run("V2.Melee.EnemyDamageRuntimeSignal", test_enemy_melee_uses_enemy_damage_path_runtime_signal);
-    run("V2.Entities.Defaults", test_entities_defaults_for_npc_and_ground_item);
-    run("V2.Render.DefaultConfig", test_render_system_default_configs_are_stable);
-}
+REGISTER_TEST(test_render_system_default_configs_are_stable);

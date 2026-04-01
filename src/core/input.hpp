@@ -6,27 +6,27 @@
 namespace mion {
 
 struct InputState {
-    float move_x         = 0.0f;  // -1.0 a +1.0
-    float move_y         = 0.0f;  // -1.0 a +1.0
+    float move_x         = 0.0f;  // -1.0 to +1.0
+    float move_y         = 0.0f;  // -1.0 to +1.0
     bool  attack_pressed  = false;
-    bool  confirm_pressed = false; // Enter — diálogo / UI (não ataque)
-    bool  ui_cancel_pressed = false; // Backspace — fechar loja / UI
-    bool  pause_pressed       = false; // Escape — pausa (cena interpreta edge)
-    bool  cancel_pressed      = false; // mesmo teclado que pause; overlay fecha
-    bool  ui_up_pressed       = false; // setas ↑ (menu)
-    bool  ui_down_pressed     = false; // setas ↓
-    bool  ui_left_pressed     = false; // setas ←
-    bool  ui_right_pressed    = false; // setas →
-    bool  skill_tree_pressed  = false; // Tab — árvore de talentos
-    bool  erase_save_pressed = false; // N — apagar save no title
-    bool  dash_pressed   = false;  // LShift — Fase 1.1
-    bool  ranged_pressed = false;  // X      — Fase 1.3
+    bool  confirm_pressed = false; // Enter — dialogue / UI (not attack)
+    bool  ui_cancel_pressed = false; // Backspace — close shop / UI
+    bool  pause_pressed       = false; // Escape — pause (scene interprets edge)
+    bool  cancel_pressed      = false; // same key as pause; closes overlays
+    bool  ui_up_pressed       = false; // arrow ↑ (menu)
+    bool  ui_down_pressed     = false; // arrow ↓
+    bool  ui_left_pressed     = false; // arrow ←
+    bool  ui_right_pressed    = false; // arrow →
+    bool  skill_tree_pressed  = false; // Tab — talent tree
+    bool  erase_save_pressed = false; // N — erase save on title screen
+    bool  dash_pressed   = false;  // LShift
+    bool  ranged_pressed = false;  // X
     bool  parry_pressed  = false;  // C
     bool  spell_1_pressed = false; // Q
     bool  spell_2_pressed = false; // E
     bool  spell_3_pressed = false; // R
     bool  spell_4_pressed = false; // F
-    bool  upgrade_1      = false;  // teclas de level-up (1/2/3)
+    bool  upgrade_1      = false;  // level-up keys (1/2/3)
     bool  upgrade_2      = false;
     bool  upgrade_3      = false;
     bool  talent_1_pressed = false; // 4
@@ -37,7 +37,7 @@ struct InputState {
         return move_x != 0.0f || move_y != 0.0f;
     }
 
-    // Vetor normalizado — garante velocidade igual em diagonais
+    // Normalized vector — ensures equal speed on diagonals.
     void normalized_movement(float& out_x, float& out_y) const {
         float len = std::sqrt(move_x * move_x + move_y * move_y);
         if (len > 0.0f) {
@@ -50,15 +50,15 @@ struct InputState {
     }
 };
 
-// Interface — PlayerController lê daqui, não do SDL diretamente
-// Permite trocar por ScriptedInputSource nos testes sem mudar nada
+// Interface — PlayerController reads from here, not directly from SDL.
+// Allows swapping in ScriptedInputSource for tests without changing anything.
 class IInputSource {
 public:
     virtual ~IInputSource() = default;
     virtual InputState read_state() const = 0;
 };
 
-// Leitura real do teclado via SDL3
+// Real keyboard input via SDL3.
 class KeyboardInputSource : public IInputSource {
 public:
     explicit KeyboardInputSource(const KeybindConfig& kb = {}) : _kb(kb) {}
@@ -68,7 +68,7 @@ private:
     KeybindConfig _kb;
 };
 
-// Leitura de gamepad via SDL3 (API SDL_Gamepad)
+// Gamepad input via SDL3 (SDL_Gamepad API).
 class GamepadInputSource : public IInputSource {
 public:
     GamepadInputSource() = default;

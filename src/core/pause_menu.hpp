@@ -147,13 +147,13 @@ private:
         panel.render(r);
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f,
                   "SETTINGS", 3, 220, 200, 120, 255);
-        const char* l1 = "Audio e teclas vivem em config.ini";
-        const char* l2 = "por agora. Mais opcoes em breve.";
+        const char* l1 = "Audio and keybinds live in config.ini";
+        const char* l2 = "for now. More options coming soon.";
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f,
                   l1, 2, 190, 190, 175, 255);
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f,
                   l2, 2, 190, 190, 175, 255);
-        const char* hint = "ESC / ENTER / BACKSPACE - voltar";
+        const char* hint = "ESC / ENTER / BACKSPACE - back";
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f,
                   hint, 1, 160, 200, 220, 255);
     }

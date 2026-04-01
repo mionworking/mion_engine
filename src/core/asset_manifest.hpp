@@ -5,7 +5,7 @@
 
 namespace mion {
 
-// Lista mínima de assets críticos para boot (SFX + música + props referenciados).
+// Minimal list of critical assets to check at boot (SFX + music + referenced props).
 inline void log_missing_assets_optional() {
     static const char* kPaths[] = {
         "assets/audio/hit.wav",
@@ -52,7 +52,7 @@ inline void log_missing_assets_optional() {
             std::fclose(f);
             continue;
         }
-        SDL_Log("AssetManifest: em falta ou ilegivel (tentado base+cwd): %s", rel);
+        SDL_Log("AssetManifest: missing or unreadable (tried base+cwd): %s", rel);
     }
 }
 

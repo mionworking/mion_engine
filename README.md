@@ -13,6 +13,7 @@ Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New 
 - `config.ini` para resolução, áudio, idioma de UI e rebinding de teclado
 - `data/*.ini` para stats de inimigos, magias, talentos, progressão, drops, salas e diálogos
 - Cenas e sistemas modularizados por responsabilidade (4 sprints SRP completos)
+- `DungeonScene` e `TownScene` usam controllers stateful para pause, level-up de atributos e árvore de talentos
 - Type safety: `Actor::sprite_sheet` usa `SDL_Texture*` com forward declaration (Sprint 4 — F-001)
 - Suporte a gamepad SDL3 com detecção automática de conexão/desconexão
 - Testes locais cobrindo core, save/load, config/runtime, diálogo, input, cenas e integrações (~660 asserts em 5 targets)
@@ -237,7 +238,7 @@ autosave_indicator=0
 |-------|-----------|
 | `src/core/` | Engine: config, input, áudio, camera, sprites, animação, bitmap font, UI widgets, scene manager/registry, save system (`save_data`, `save_migration`, `save_system`), pause menu, locale, diálogo, scripted input, `title_menu`, `scene_fader`, `engine_paths`, `asset_manifest` |
 | `src/components/` | Dados puros de gameplay: health, combat, collision, transform, mana, stamina, spell book/defs, talent tree/state, attributes, progression, equipment, status effects, player config |
-| `src/systems/` | Lógica por frame e UI: combate melee, IA inimiga (`ai_patrol`, `ai_combat`, `ai_boss`, `enemy_ai`), projéteis, drops, magias (`spell_system`, `spell_effects`), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, floating text, diálogo, shop; **rendering**: world renderer, dungeon world renderer, screen FX, dungeon HUD, skill tree UI, attribute screen UI; **gameplay modularizado**: enemy spawner, room manager, dash system; **config**: player configurator |
+| `src/systems/` | Lógica por frame, overlays e UI: combate melee, IA inimiga (`ai_patrol`, `ai_combat`, `ai_boss`, `enemy_ai`), projéteis, drops, magias (`spell_system`, `spell_effects`), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, floating text, diálogo, shop; **controllers stateful**: `pause_menu_controller`, `attribute_levelup_controller`, `skill_tree_controller`, `overlay_input`; **rendering**: world renderer, dungeon world renderer, screen FX, dungeon HUD, skill tree UI, attribute screen UI; **gameplay modularizado**: enemy spawner, room manager, dash system; **config**: player configurator |
 | `src/world/` | Salas (`Room`), tilemap, dungeon rules, room loader |
 | `src/entities/` | `Actor`, `Projectile`, `GroundItem`, `NPC`, `Shop`, `EnemyType` |
 | `src/scenes/` | Cenas: title, town, dungeon, game over, victory, credits |
@@ -309,9 +310,18 @@ Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades
 | `src/components/talent_loader.hpp` | Aplicação de overrides de `data/talents.ini` sobre `g_talent_nodes`/`g_talent_display_names` (`apply_talents_ini`). |
 | `src/components/talent_tree.hpp` | Fachada fina que reexporta `talent_data` + `talent_loader` para os consumidores existentes. |
 
+### Sprint 6 — Controllers stateful dos overlays da dungeon
+
+| Módulo | O que contém |
+|--------|--------------|
+| `src/systems/pause_menu_controller.hpp` | Controller stateful que encapsula `PauseMenu`, callbacks de menu, update/flush/render e requests de abrir skill tree ou sair para o title. |
+| `src/systems/attribute_levelup_controller.hpp` | Controller stateful da tela de atributos: decide abertura automática por `pending_level_ups`, navegação, aplicação de ponto e render. |
+| `src/systems/skill_tree_controller.hpp` | Controller stateful da árvore de talentos: colunas persistentes, cursor, auto-open por pontos pendentes, gasto de talento e render. |
+| `src/systems/overlay_input.hpp` | Tracker de edges compartilhado pelos overlays, para remover estado transitório de input da `DungeonScene`. |
+
 ### Como ler a arquitetura
 
-- `src/scenes/dungeon_scene.hpp`: coordena fluxo de dungeon, chama módulos de sala, spawn, render, HUD, save e efeitos.
+- `src/scenes/dungeon_scene.hpp`: coordena fluxo de dungeon e delega overlays para `PauseMenuController`, `AttributeLevelUpController` e `SkillTreeController`.
 - `src/scenes/title_scene.hpp`: coordena áudio/locale e delega menu/render/ações para `title_menu`.
 - `src/systems/enemy_ai.hpp` e `src/systems/player_action.hpp`: permanecem como fachadas pequenas para integrar submódulos durante o `fixed_update`.
 

@@ -14,7 +14,7 @@ inline SaveData migrate_v1_to_v2(SaveData data) {
     return data;
 }
 
-// v2 -> v3: etapa explicita para manter cadeia de migracao continua.
+// v2 → v3: explicit step to keep the migration chain unbroken.
 inline SaveData migrate_v2_to_v3(SaveData data) {
     data.version = kSaveFormatVersion;
     if (data.room_index > kSaveMaxRoomIndex)
@@ -24,15 +24,15 @@ inline SaveData migrate_v2_to_v3(SaveData data) {
     return data;
 }
 
-// v3 -> v4: atributos zerados (novo jogador comeca sem pontos distribuidos)
+// v3 → v4: attributes zeroed out (new player starts with no points spent).
 inline SaveData migrate_v3_to_v4(SaveData data) {
     data.version    = kSaveFormatVersion;
     data.attributes = AttributesState{};
     return data;
 }
 
-// v4 -> v5: attr_points_available derivado de pending_level_ups;
-// scene_flags calculado a partir do que ja esta no save.
+// v4 → v5: attr_points_available derived from pending_level_ups;
+// scene_flags computed from existing save state.
 inline SaveData migrate_v4_to_v5(SaveData data) {
     data.version               = kSaveFormatVersion;
     data.attr_points_available = data.progression.pending_level_ups;

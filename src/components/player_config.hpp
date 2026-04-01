@@ -3,7 +3,7 @@
 
 namespace mion {
 
-// Valores aplicados ao jogador em DungeonScene::_configure_player_state (data/player.ini).
+// Values applied to the player in DungeonScene::_configure_player_state (data/player.ini).
 struct PlayerConfig {
     int   base_hp             = 100;
     float base_move_speed     = 200.0f;

@@ -8,13 +8,13 @@
 
 namespace mion {
 
-/// Se `[template_key].ini_obstacles=1` e existem secções `template_key.obstacle.N`, preenche
-/// `room.obstacles` com AABB em coordenadas de mundo. Posições normalizadas `nx1..ny2` em [0,1]
-/// relativamente a `bounds` (min_x/min_y → max_x/max_y). Arte opcional: `sprite`, `sw`, `sh`,
-/// `anchor_x`, `anchor_y`.
-///
-/// Retorna true se pelo menos um obstáculo válido foi carregado. Se retornar false, o chamador
-/// deve usar o layout hardcoded (`_layout_*`).
+// If `[template_key].ini_obstacles=1` and sections `template_key.obstacle.N` exist, populates
+// `room.obstacles` with world-space AABBs. Positions are normalized `nx1..ny2` in [0,1]
+// relative to `bounds` (min_x/min_y → max_x/max_y). Optional art keys: `sprite`, `sw`, `sh`,
+// `anchor_x`, `anchor_y`.
+//
+// Returns true if at least one valid obstacle was loaded. If false, the caller should
+// fall back to the hardcoded layout (`_layout_*` functions).
 inline bool load_room_obstacles_from_ini(RoomDefinition&     room,
                                          const IniData&      data,
                                          const WorldBounds&  bounds,

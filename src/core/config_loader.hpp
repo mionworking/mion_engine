@@ -12,7 +12,7 @@ struct ConfigData {
     int   window_height = 720;
     float volume_master = 1.0f;
     bool  mute          = false;
-    /// Indicador discreto no canto quando o jogo grava (mudança de sala / saída).
+    // Subtle indicator in the corner when the game saves (room change / exit).
     bool  show_autosave_indicator = false;
 };
 
@@ -38,10 +38,10 @@ inline std::string join_base_and_name(const char* base, const char* file_name) {
 
 } // namespace _config_detail
 
-// Resolve config.ini tentando:
-// 1) ao lado do executável, se o arquivo existir
-// 2) caminho de fallback (cwd por padrão), se existir
-// 3) um caminho tentável não-vazio
+// Resolves config.ini by trying:
+// 1) next to the executable, if the file exists
+// 2) fallback path (cwd by default), if it exists
+// 3) a non-empty candidate path
 inline std::string resolve_config_path(const char* base_path,
                                        const std::string& fallback_path = "config.ini",
                                        const char* file_name = "config.ini") {
@@ -51,13 +51,13 @@ inline std::string resolve_config_path(const char* base_path,
     return !preferred.empty() ? preferred : fallback_path;
 }
 
-// Localiza config.ini: tenta ao lado do executável, depois cwd.
+// Locates config.ini: tries next to the executable, then cwd.
 inline std::string config_file_path() {
     return resolve_config_path(SDL_GetBasePath());
 }
 
-// Carrega config.ini. Se ausente, retorna defaults sem erro.
-// path=nullptr → usa config_file_path() (SDL necessário); path explícito para testes.
+// Loads config.ini. If absent, returns defaults without error.
+// path=nullptr → uses config_file_path() (SDL required); explicit path for tests.
 inline ConfigData load_config(const char* path = nullptr) {
     ConfigData cfg{};
     std::string resolved = path ? path : config_file_path();
@@ -77,7 +77,7 @@ inline std::string load_ui_language(const char* path = nullptr) {
     return d.get_string("ui", "language", "en");
 }
 
-// Persiste secções de runtime no config.ini e preserva [keybinds], se existir.
+// Persists runtime sections to config.ini and preserves [keybinds] if present.
 inline bool save_runtime_config(const ConfigData& cfg,
                                 const std::string& language,
                                 const char* path = nullptr) {

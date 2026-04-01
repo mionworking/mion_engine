@@ -9,26 +9,26 @@ namespace mion {
 class AudioSystem;
 struct LocaleSystem;
 
-// Dados mínimos para instanciar cenas via SceneRegistry (SDL pointers não-owned).
+// Minimal data needed to instantiate scenes via SceneRegistry (SDL pointers are non-owning).
 struct SceneCreateContext {
     SDL_Renderer* renderer = nullptr;
     AudioSystem*         audio    = nullptr;
     int                  viewport_w = 1280;
     int                  viewport_h = 720;
 
-    // Eco de MION_STRESS_ENEMIES: 0 = normal; 1–3 = spawn count; >3 = stress mode
+    // Mirror of MION_STRESS_ENEMIES: 0 = normal; 1–3 = spawn count; >3 = stress mode.
     int stress_enemy_count = 0;
 
     bool show_autosave_indicator = false;
 
-    /// Instância em main.cpp; DungeonScene e outras cenas escrevem aqui.
+    // Instance in main.cpp; written by DungeonScene and other scenes.
     RunStats*          run_stats  = nullptr;
-    /// Dificuldade da sessão (main); TitleScene actualiza ao confirmar; DungeonScene lê no spawn.
+    // Session difficulty (main); TitleScene updates on confirm; DungeonScene reads at spawn.
     DifficultyLevel*   difficulty = nullptr;
 
-    /// Sistema de localização — owned pela stack de main(), não-owned aqui.
+    // Localization system — owned by main()'s stack, non-owning here.
     LocaleSystem*      locale     = nullptr;
-    /// RNG determinístico — owned pela stack de main(), não-owned aqui.
+    // Deterministic RNG — owned by main()'s stack, non-owning here.
     std::mt19937*      rng        = nullptr;
 };
 

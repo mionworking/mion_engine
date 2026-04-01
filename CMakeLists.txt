@@ -105,7 +105,7 @@ option(MION_ENABLE_COVERAGE "Compilar alvos de teste com --coverage (gcov/llvm-c
 option(MION_ENABLE_TEST_SANITIZERS "ASan+UBSan nos alvos de teste (recomendado com Debug)" OFF)
 
 enable_testing()
-file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "tests/*.cpp")
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "tests/*.cpp")
 
 if(TEST_SOURCES)
     set(V2_COMMON_SOURCES ${TEST_SOURCES})

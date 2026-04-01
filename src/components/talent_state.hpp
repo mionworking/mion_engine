@@ -36,7 +36,7 @@ struct TalentState {
         return true;
     }
 
-    /// Compatibilidade com código / testes antigos
+    // Compatibility aliases — kept for legacy test code.
     bool can_unlock(TalentId id) const { return can_spend(id); }
 
     bool try_unlock(TalentId id) { return try_spend(id); }

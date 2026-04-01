@@ -28,10 +28,12 @@
 #include "../systems/lighting.hpp"
 #include "../systems/world_renderer.hpp"
 #include "../systems/player_configurator.hpp"
-#include "../core/pause_menu.hpp"
 #include "../systems/dungeon_hud.hpp"
 #include "../systems/skill_tree_ui.hpp"
 #include "../systems/attribute_screen_ui.hpp"
+#include "../systems/attribute_levelup_controller.hpp"
+#include "../systems/pause_menu_controller.hpp"
+#include "../systems/skill_tree_controller.hpp"
 #include "../systems/pathfinder.hpp"
 #include "../systems/player_action.hpp"
 #include "../systems/movement_system.hpp"
@@ -59,6 +61,7 @@
 #include "../components/talent_tree.hpp"
 #include "../components/spell_defs.hpp"
 #include "../core/ui.hpp"
+#include "../core/debug_log.hpp"
 
 namespace mion {
 
@@ -119,23 +122,11 @@ public:
         _scene_exit_pending = false;
         _scene_exit_timer   = 0.f;
         _scene_exit_target.clear();
-        _skill_tree_open = false;
-        _build_skill_tree_columns();
-        _pause_menu.init({"RESUME", "SKILL TREE", "SETTINGS", "QUIT TO MENU"});
-        _pause_menu.on_item_selected(0, [this]{ _pause_menu.paused = false; });
-        _pause_menu.on_item_selected(1, [this]{
-            _skill_tree_open = true;
-            _pause_menu.paused = false;
-            _st_selected_col = 0;
-            _st_selected_row = 0;
-            _st_clamp_cursor();
-        });
-        _pause_menu.on_item_selected(2, [this]{ _pause_menu.settings_open = true; });
-        _pause_menu.on_item_selected(3, [this]{
-            _pending_next_scene = "title";
-            _pause_menu.paused  = false;
-            if (_audio) _audio->fade_music(400);
-        });
+        _attr_controller       = {};
+        _skill_tree_controller = {};
+        _pause_controller      = {};
+        _skill_tree_controller.rebuild_columns();
+        _pause_controller.init();
         _camera.viewport_w = (float)viewport_w;
         _camera.viewport_h = (float)viewport_h;
 
@@ -235,6 +226,7 @@ public:
 
     void fixed_update(float dt, const InputState& input) override {
         _pending_next_scene.clear();
+        const OverlayInputEdges overlay_input = _capture_overlay_input(input);
 
         if (_autosave_flash > 0.f) {
             _autosave_flash -= dt;
@@ -254,43 +246,70 @@ public:
 
         if (_hitstop > 0) {
             --_hitstop;
-            _flush_menu_input_prev(input);
+            _flush_overlay_input(input);
             return;
         }
 
         if (_dialogue.is_active()) {
             _dialogue.fixed_update(input);
-            _flush_menu_input_prev(input);
+            _flush_overlay_input(input);
             return;
         }
 
-        if (_handle_pause_and_skill_ui(input)) {
-            _flush_menu_input_prev(input);
+        if (_handle_pause_ui(input)) {
+            _flush_overlay_input(input);
             return;
         }
 
-        // Level-up: abre tela de atributos automaticamente
-        if (_player.progression.level_choice_pending()) {
-            if (!_attr_screen_open) {
-                _attr_screen_open = true;
-                _attr_selected = 0;
+        // Controller de level-up de atributos (bloqueia mundo enquanto houver escolha pendente).
+        {
+            _attr_controller.sync_open_from_progression(_player);
+            AttributeLevelUpResult r = _attr_controller.update(_player, overlay_input, _stress_mode);
+            if (r.just_opened) {
                 _floating_texts.spawn_level_up(_player.transform.x, _player.transform.y);
                 if (_audio) _audio->play_sfx(SoundId::UiConfirm, 0.8f);
+                debug_log("Attribute screen opened: level=%d pending_level_ups=%d",
+                          _player.progression.level,
+                          _player.progression.pending_level_ups);
             }
-            // Enquanto a tela estiver aberta, bloqueia mundo
-            _flush_menu_input_prev(input);
-            return;
+            if (r.should_save) {
+                static const char* kAttrNames[5] = {"+VIG", "+FOR", "+DES", "+INT", "+END"};
+                if (r.applied_index >= 0 && r.applied_index < 5)
+                    _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y,
+                                                  kAttrNames[r.applied_index]);
+                debug_log_player_state(_player, "attr_levelup_apply");
+                _persist_save();
+            }
+            if (r.just_closed && !_player.progression.level_choice_pending()) {
+                debug_log("Attribute screen closed: level=%d pending_level_ups=%d",
+                          _player.progression.level,
+                          _player.progression.pending_level_ups);
+            }
+            if (r.world_paused) {
+                _flush_overlay_input(input);
+                return;
+            }
+        }
+
+        {
+            const bool was_open = _skill_tree_controller.is_open();
+            SkillTreeResult r = _skill_tree_controller.update(_player, overlay_input, _stress_mode);
+            if (!was_open && _skill_tree_controller.is_open()) {
+                debug_log("Skill tree opened: pending_talent_points=%d",
+                          _player.talents.pending_points);
+            }
+            if (r.should_save)
+                _persist_save();
+            if (r.world_paused) {
+                _flush_overlay_input(input);
+                return;
+            }
         }
 
         _prev_upgrade_1 = input.upgrade_1;
         _prev_upgrade_2 = input.upgrade_2;
         _prev_upgrade_3 = input.upgrade_3;
 
-        // Skill tree: pausa mundo enquanto houver pontos pendentes
-        if (_talent_selection_pending()) {
-            _flush_menu_input_prev(input);
-            return;
-        }
         _prev_talent_1 = input.talent_1_pressed;
         _prev_talent_2 = input.talent_2_pressed;
         _prev_talent_3 = input.talent_3_pressed;
@@ -430,6 +449,12 @@ public:
                                               _drop_config, *_rng, -1, -1);
                     int gained = _player.progression.add_xp(
                         dungeon_rules::xp_per_enemy_kill(_room_index));
+                    if (gained > 0) {
+                        debug_log("XP gained=%d new_level=%d pending_level_ups=%d",
+                                  gained,
+                                  _player.progression.level,
+                                  _player.progression.pending_level_ups);
+                    }
                     _player.talents.pending_points += gained;
                     if (_run_stats)
                         _run_stats->max_level_reached =
@@ -459,7 +484,9 @@ public:
         {
             const bool lcp = _player.progression.level_choice_pending();
             if (lcp && !_prev_level_choice_pending) {
-                // abertura da attr screen já tratada acima
+                debug_log("Level choice became pending: level=%d pending_level_ups=%d",
+                          _player.progression.level,
+                          _player.progression.pending_level_ups);
             }
             _prev_level_choice_pending = lcp;
         }
@@ -661,7 +688,7 @@ public:
 
         _floating_texts.tick(dt);
 
-        _flush_menu_input_prev(input);
+        _flush_overlay_input(input);
     }
 
     void render(SDL_Renderer* r, float /*blend_factor*/) override {
@@ -695,11 +722,8 @@ public:
             draw_text(r, tx, ty, tag, 1, 140, 200, 160, al);
         }
 
-        if (_player.is_alive && _attr_screen_open)
-            render_attribute_screen(r, viewport_w, viewport_h,
-                                    _player.attributes,
-                                    _player.progression.pending_level_ups,
-                                    _attr_selected);
+        if (_player.is_alive)
+            _attr_controller.render(_player, r, viewport_w, viewport_h);
 
         ScreenFx::render_boss_intro(
             r, viewport_w, viewport_h,
@@ -712,20 +736,12 @@ public:
             r, viewport_w, viewport_h,
             _screen_flash_timer, _screen_flash_duration, _screen_flash_color);
 
+        _skill_tree_controller.render(_player, r, viewport_w, viewport_h);
+
         if (_dialogue.is_active())
             render_dialogue_ui(r, viewport_w, viewport_h, _dialogue);
 
-        if (_attr_screen_open)
-            render_attribute_screen(r, viewport_w, viewport_h,
-                                    _player.attributes,
-                                    _player.progression.pending_level_ups,
-                                    _attr_selected);
-        if (_skill_tree_open)
-            render_skill_tree_overlay(r, viewport_w, viewport_h,
-                                      _player.talents,
-                                      _st_selected_col, _st_selected_row,
-                                      _st_col_indices);
-        _pause_menu.render(r, viewport_w, viewport_h);
+        _pause_controller.render(r, viewport_w, viewport_h);
     }
 
     const char* next_scene() const override {
@@ -803,19 +819,10 @@ private:
 
     QuestState _quest_state{};
 
-    PauseMenu        _pause_menu;
-    bool             _prev_ui_left = false;
-    bool             _prev_ui_right = false;
-    bool             _prev_tab = false;
-    bool             _prev_menu_confirm = false;
-    bool             _skill_tree_open = false;
-    int              _st_selected_col = 0;
-    int              _st_selected_row = 0;
-    std::vector<int> _st_col_indices[3];
-
-    // Tela de distribuição de atributos (level-up)
-    bool             _attr_screen_open = false;
-    int              _attr_selected    = 0;  // 0-4: Vigor/Força/Destreza/Intel/Endurance
+    PauseMenuController        _pause_controller;
+    AttributeLevelUpController _attr_controller;
+    SkillTreeController        _skill_tree_controller;
+    OverlayInputTracker        _overlay_input;
 
     bool        _boss_phase2_triggered = false;
     bool        _boss_intro_pending    = false;
@@ -835,128 +842,24 @@ private:
         SaveSystem::save_default(d);
     }
 
-    void _flush_menu_input_prev(const InputState& in) {
-        _pause_menu.flush_input(in);
-        _prev_ui_left        = in.ui_left_pressed;
-        _prev_ui_right       = in.ui_right_pressed;
-        _prev_tab            = in.skill_tree_pressed;
-        _prev_menu_confirm   = in.confirm_pressed;
+    void _flush_overlay_input(const InputState& in) {
+        _overlay_input.flush(in, _pause_controller.menu());
     }
 
-    void _build_skill_tree_columns() {
-        for (int c = 0; c < 3; ++c)
-            _st_col_indices[c].clear();
-        for (int i = 0; i < kTalentCount; ++i) {
-            const int disc = static_cast<int>(g_talent_nodes[static_cast<size_t>(i)].discipline);
-            if (disc >= 0 && disc < 3)
-                _st_col_indices[disc].push_back(i);
-        }
+    OverlayInputEdges _capture_overlay_input(const InputState& input) const {
+        return _overlay_input.capture(input, _pause_controller.menu());
     }
 
-    void _st_clamp_cursor() {
-        const int nc = static_cast<int>(_st_col_indices[_st_selected_col].size());
-        if (nc <= 0) {
-            _st_selected_row = 0;
-            return;
+    bool _handle_pause_ui(const InputState& input) {
+        PauseMenuResult r = _pause_controller.update(input);
+        if (r.should_open_skill_tree) {
+            _skill_tree_controller.open();
         }
-        if (_st_selected_row >= nc)
-            _st_selected_row = nc - 1;
-        if (_st_selected_row < 0)
-            _st_selected_row = 0;
-    }
-
-    bool _handle_pause_and_skill_ui(const InputState& input) {
-        const bool esc_edge   = input.pause_pressed       && !_pause_menu.prev_esc;
-        const bool tab_edge   = input.skill_tree_pressed  && !_prev_tab;
-        const bool up_edge    = input.ui_up_pressed        && !_pause_menu.prev_up;
-        const bool down_edge  = input.ui_down_pressed      && !_pause_menu.prev_down;
-        const bool left_edge  = input.ui_left_pressed      && !_prev_ui_left;
-        const bool right_edge = input.ui_right_pressed     && !_prev_ui_right;
-        const bool conf_edge  = input.confirm_pressed      && !_prev_menu_confirm;
-        const bool back_edge  = input.ui_cancel_pressed    && !_pause_menu.prev_cancel;
-
-        // --- Attribute Screen (level-up) ---
-        if (_attr_screen_open) {
-            if (up_edge)   _attr_selected = (_attr_selected + 4) % 5;
-            if (down_edge) _attr_selected = (_attr_selected + 1) % 5;
-            if (conf_edge) {
-                if (_player.progression.level_choice_pending()) {
-                    const char* names[5] = {"+VIG","+FOR","+DES","+INT","+END"};
-                    switch (_attr_selected) {
-                    case 0: _player.attributes.vigor++;        break;
-                    case 1: _player.attributes.forca++;        break;
-                    case 2: _player.attributes.destreza++;     break;
-                    case 3: _player.attributes.inteligencia++; break;
-                    case 4: _player.attributes.endurance++;    break;
-                    default: break;
-                    }
-                    _player.progression.pending_level_ups--;
-                    recompute_player_derived_stats(
-                        _player.derived, _player.attributes, _player.progression,
-                        _player.talents, _player.equipment,
-                        g_player_config.melee_damage, g_player_config.ranged_damage);
-                    const int base_hp = _stress_mode ? 10000 : g_player_config.base_hp;
-                    _player.health.max_hp = base_hp + _player.derived.hp_max_bonus;
-                    if (_player.health.current_hp > _player.health.max_hp)
-                        _player.health.current_hp = _player.health.max_hp;
-                    _player.mana.max    = g_player_config.base_mana_max    + _player.derived.mana_max_bonus;
-                    _player.stamina.max = g_player_config.base_stamina_max + _player.derived.stamina_max_bonus;
-                    _floating_texts.spawn_upgrade(_player.transform.x, _player.transform.y,
-                                                  names[_attr_selected]);
-                    _persist_save();
-                }
-                if (!_player.progression.level_choice_pending())
-                    _attr_screen_open = false;
-            }
-            if (esc_edge || back_edge)
-                _attr_screen_open = false;
-            _flush_menu_input_prev(input);
-            return true;
+        if (r.should_quit_to_title) {
+            _pending_next_scene = "title";
+            if (_audio) _audio->fade_music(400);
         }
-
-        if (_skill_tree_open) {
-            if (esc_edge || tab_edge)
-                _skill_tree_open = false;
-            else {
-                if (left_edge) {
-                    _st_selected_col = (_st_selected_col + 2) % 3;
-                    _st_clamp_cursor();
-                }
-                if (right_edge) {
-                    _st_selected_col = (_st_selected_col + 1) % 3;
-                    _st_clamp_cursor();
-                }
-                const int nrows = static_cast<int>(_st_col_indices[_st_selected_col].size());
-                if (up_edge && nrows > 0)
-                    _st_selected_row = (_st_selected_row + nrows - 1) % nrows;
-                if (down_edge && nrows > 0)
-                    _st_selected_row = (_st_selected_row + 1) % nrows;
-                if (conf_edge && !_stress_mode && nrows > 0) {
-                    const auto& col = _st_col_indices[_st_selected_col];
-                    const int   ti  = col[static_cast<size_t>(_st_selected_row)];
-                    if (_try_spend_talent(static_cast<TalentId>(ti)))
-                        _persist_save();
-                }
-            }
-            return true;
-        }
-
-        if (tab_edge && !_player.progression.level_choice_pending()
-            && !_talent_selection_pending()) {
-            _skill_tree_open = !_skill_tree_open;
-            if (_skill_tree_open) {
-                _st_selected_col = 0;
-                _st_selected_row = 0;
-                _st_clamp_cursor();
-            }
-        }
-
-        bool blocked_open = _player.progression.level_choice_pending()
-                            || _talent_selection_pending();
-        if (blocked_open)
-            return false;
-
-        return _pause_menu.handle_input(input);
+        return r.world_paused;
     }
 
     // -------------------------------------------------------------------
@@ -966,36 +869,6 @@ private:
     int _enemy_spawn_budget() const {
         return EnemySpawner::spawn_budget(
             _room_index, _stress_mode, _requested_enemy_count, _difficulty);
-    }
-
-    bool _talent_selection_pending() const {
-        return _player.talents.pending_points > 0
-            && _player.talents.has_unlockable_options();
-    }
-
-    int _collect_spendable_talent_ids(TalentId out[3]) const {
-        int n = 0;
-        for (int i = 0; i < kTalentCount && n < 3; ++i) {
-            const auto id = static_cast<TalentId>(i);
-            if (_player.talents.can_spend(id))
-                out[n++] = id;
-        }
-        return n;
-    }
-
-    bool _try_spend_talent(TalentId id) {
-        if (!_player.talents.try_unlock(id))
-            return false;
-        if (id == TalentId::ArcaneReservoir) {
-            _player.mana.max += 30.0f;
-            _player.mana.current += 30.0f;
-            if (_player.mana.current > _player.mana.max)
-                _player.mana.current = _player.mana.max;
-        } else if (id == TalentId::ManaFlow) {
-            _player.mana.regen_rate += 8.0f;
-        }
-        _sync_spell_unlocks_from_talents();
-        return true;
     }
 
     void _sync_spell_unlocks_from_talents() {
@@ -1066,7 +939,9 @@ private:
             d.victory_reached = disk.victory_reached;
         if (_difficulty)
             d.difficulty = static_cast<int>(*_difficulty);
+        debug_log_progression(d, "dungeon_persist_before");
         SaveSystem::save_default(d);
+        SaveSystem::save_debug(d, "dungeon_autosave");
         if (_show_autosave_indicator) _autosave_flash = 1.35f;
     }
 

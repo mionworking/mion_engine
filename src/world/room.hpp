@@ -5,6 +5,7 @@
 
 namespace mion {
 
+// A collidable prop placed in a room (wall segment, barrel, pillar, etc.).
 struct Obstacle {
     std::string name;
     AABB        bounds;
@@ -15,13 +16,14 @@ struct Obstacle {
     float       sprite_anchor_y = 1.0f;
 };
 
+// Axis-aligned playable region of a room.
 struct WorldBounds {
     float min_x = 0.0f;
     float max_x = 800.0f;
     float min_y = 0.0f;
     float max_y = 600.0f;
 
-    // Clamp o centro de uma caixa para ficar dentro dos bounds
+    // Clamp a box center so it stays fully inside the bounds.
     void clamp_box(float& cx, float& cy, float half_w, float half_h) const {
         if (cx - half_w < min_x) cx = min_x + half_w;
         if (cx + half_w > max_x) cx = max_x - half_w;
@@ -30,12 +32,14 @@ struct WorldBounds {
     }
 };
 
+// Trigger zone that moves the player to the next room or a different scene.
 struct DoorZone {
     AABB        bounds;
     bool        requires_room_cleared = true;
-    std::string target_scene_id; // vazio = próxima sala (_advance_room); senão troca de cena
+    std::string target_scene_id; // empty = advance to next room; otherwise switches scene
 };
 
+// Full runtime description of a single dungeon room.
 struct RoomDefinition {
     std::string          name;
     WorldBounds          bounds;
@@ -64,7 +68,7 @@ struct RoomDefinition {
         });
     }
 
-    // Barris 24×24 em disposição irregular (fallback: retângulos até haver sprite).
+    // Four 24×24 barrels in an irregular cluster around (cx, cy).
     void add_barrel_cluster(float cx, float cy) {
         const float s = 24.0f;
         add_obstacle("barrel_a", cx - 38.0f, cy - 8.0f, cx - 14.0f, cy + 16.0f,
@@ -77,7 +81,7 @@ struct RoomDefinition {
                      "assets/props/barrel.png", s, s);
     }
 
-    // Dois segmentos em L; orientation: 0=NW 1=NE 2=SW 3=SE (canto interno da L).
+    // Two L-shaped wall segments; orientation: 0=NW 1=NE 2=SW 3=SE (inner corner of the L).
     void add_wall_L(float corner_x, float corner_y, int orientation) {
         const float t = 40.0f;
         const float L = 150.0f;
@@ -122,7 +126,7 @@ struct RoomDefinition {
                      "assets/props/altar.png", 80.0f, 80.0f);
     }
 
-    // Pilares 80×80; eixos centrados a 60 px (axis 0=horizontal 1=vertical).
+    // Two 80×80 pillars centered 60 px apart; axis 0=horizontal 1=vertical.
     void add_pillar_pair(float cx, float cy, int axis) {
         const float ph = 40.0f;
         if ((axis % 2) == 0) {

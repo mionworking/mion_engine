@@ -2,9 +2,9 @@
 
 namespace mion {
 
-// Layout lógico padrão para sprites de personagens estilo "Puny".
-// Mantendo estes valores centralizados, fica fácil migrar de 32×32
-// para 48×48 ou 64×64 no futuro sem caçar números mágicos no código.
+// Standard logical layout for Puny-style character sprites.
+// Keeping these values centralized makes it easy to migrate from 32×32
+// to 48×48 or 64×64 in the future without hunting down magic numbers.
 struct SpriteLayout {
     static constexpr int PunyFrameW  = 32;
     static constexpr int PunyFrameH  = 32;

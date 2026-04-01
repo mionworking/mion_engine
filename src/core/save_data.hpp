@@ -10,12 +10,12 @@
 
 namespace mion {
 
-/// Formato gravado em disco.
-/// v1/v2 carregam; talentos em v3 são níveis 0–3 por slot;
-/// v4 adiciona atributos base; v5 adiciona pontos de atributo pendentes e scene_flags.
+// Format written to disk.
+// v1/v2 load; talent levels in v3 are 0–3 per slot;
+// v4 adds base attributes; v5 adds pending attribute points and scene_flags.
 inline constexpr int kSaveFormatVersion = 5;
 inline constexpr int kSaveMaxRoomIndex  = 63;
-inline constexpr int kSaveMaxAttrPoints = 999; // teto de sanidade para attr_points_available
+inline constexpr int kSaveMaxAttrPoints = 999; // sanity cap for attr_points_available
 
 struct SaveData {
     int              version = kSaveFormatVersion;
@@ -28,14 +28,14 @@ struct SaveData {
     ManaState        mana{};
     StaminaState     stamina{};
     bool             victory_reached = false;
-    int              difficulty      = 1; // 0 easy, 1 normal, 2 hard
+    int              difficulty      = 1; // 0=easy, 1=normal, 2=hard
     RunStats         last_run_stats{};
-    AttributesState  attributes{};         // v4: Vigor/Forca/Destreza/Inteligencia/Endurance
-    int              attr_points_available = 0; // v5: pontos de atributo nao distribuidos
-    unsigned int     scene_flags = 0;      // v5: bitmask de flags persistentes de cena
+    AttributesState  attributes{};         // v4: all five base attributes
+    int              attr_points_available = 0; // v5: unspent attribute points
+    unsigned int     scene_flags = 0;      // v5: persistent scene flag bitmask
     // bit 0 = boss_dungeon1_defeated, bit 1 = dungeon2_unlocked,
     // bit 2 = blessing_altar_used, bit 3 = grimjaw_intro_played
-    // bits 4-31 = reservados
+    // bits 4-31 = reserved
 };
 
 } // namespace mion

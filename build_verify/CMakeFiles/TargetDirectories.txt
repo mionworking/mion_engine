@@ -1,0 +1,16 @@
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_engine.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_stress.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_render_stress.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_sprite_bench.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_tests_v2.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_tests_v2_core.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_tests_v2_scenes.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/mion_tests_v2_input.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/test.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/edit_cache.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/CMakeFiles/rebuild_cache.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/_deps/sdl3-build/CMakeFiles/SDL3-static.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/_deps/sdl3-build/CMakeFiles/SDL_uclibc.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/_deps/sdl3-build/CMakeFiles/test.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/_deps/sdl3-build/CMakeFiles/edit_cache.dir
+/home/danten/Documents/G_v2/mion_engine_cpp/build_verify/_deps/sdl3-build/CMakeFiles/rebuild_cache.dir

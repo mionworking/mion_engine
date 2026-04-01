@@ -1,0 +1,1 @@
+/usr/bin/c++ -pthread CMakeFiles/mion_sprite_bench.dir/tools/sprite_bench_main.cpp.o -o mion_sprite_bench  _deps/sdl3-build/libSDL3.a -lm 

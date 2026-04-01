@@ -15,11 +15,11 @@ struct Projectile {
     Team  owner_team                = Team::Player;
     bool  active                    = true;
 
-    /// Lentidão ao acertar (FrostBolt). Nomes alinhados ao roadmap (`is_frost` / `frost_rank`).
+    // Slow on hit (FrostBolt). Field names aligned with the roadmap (`is_frost` / `frost_rank`).
     bool is_frost  = false;
     int  frost_rank = 0;
 
-    /// Veneno ao acertar (PoisonArrow). `is_poison` + `poison_rank`.
+    // Poison on hit (PoisonArrow). `is_poison` + `poison_rank`.
     bool is_poison  = false;
     int  poison_rank = 0;
 };

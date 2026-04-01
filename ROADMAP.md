@@ -112,6 +112,18 @@ O plano detalhado em [`.cursor/plans/roadmap_conteudo_gameplay.md`](.cursor/plan
 
 ---
 
+## Padronização de comentários (EN)
+
+- [x] `src/components/` — 17 arquivos
+- [x] `src/core/` — ~30 arquivos
+- [x] `src/entities/` — 6 arquivos
+- [x] `src/world/` — 4 arquivos
+- [ ] `src/systems/` — 43 arquivos
+- [ ] `src/scenes/` — 6 arquivos
+- [ ] `src/main.cpp` + `vendor/stb_image_impl.cpp`
+
+---
+
 ## Próximas prioridades
 
 ### 1. Jogo jogável completo (sem arte final)

@@ -10,7 +10,7 @@ struct GroundItem {
     GroundItemType type = GroundItemType::Health;
     int            gold_value = 0;
     bool           active = true;
-    /// Item de narrativa — ao apanhar dispara diálogo (uma vez por pickup).
+    // Lore item — triggers a dialogue on pickup (fires once per pickup).
     bool           lore_pickup = false;
 };
 

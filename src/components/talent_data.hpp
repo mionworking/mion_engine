@@ -5,9 +5,13 @@
 
 namespace mion {
 
+// Which class archetype a talent belongs to.
 enum class Discipline { Melee, Ranged, Magic };
+
+// Whether the talent grants a passive bonus or unlocks an active ability.
 enum class SkillType { Passive, Active };
 
+// Unique identifier for each node in the talent tree.
 enum class TalentId {
     MeleeForce = 0,
     IronBody,
@@ -31,17 +35,19 @@ enum class TalentId {
 
 inline constexpr int kTalentCount = static_cast<int>(TalentId::Count);
 
+// Static definition of a talent node: prerequisites, cost, and level cap.
 struct TalentNode {
     TalentId    id               = TalentId::MeleeForce;
     Discipline  discipline       = Discipline::Melee;
     SkillType   skill_type       = SkillType::Passive;
     bool        has_parent       = false;
-    TalentId    parent           = TalentId::MeleeForce;
-    int         parent_min_level = 1;
+    TalentId    parent           = TalentId::MeleeForce; // required prerequisite (if has_parent)
+    int         parent_min_level = 1;                    // minimum level needed in parent
     int         cost_per_level   = 1;
     int         max_level        = 3;
 };
 
+// Global talent node table — mutated by apply_talents_ini(), reset by reset_talent_tree_defaults().
 inline std::array<TalentNode, kTalentCount> g_talent_nodes = {{
     { TalentId::MeleeForce, Discipline::Melee, SkillType::Passive, false, TalentId::MeleeForce, 1, 1,
       3 },
@@ -75,6 +81,7 @@ inline std::array<TalentNode, kTalentCount> g_talent_nodes = {{
       1, 3 },
 }};
 
+// Display names shown in the talent tree UI.
 inline std::array<std::string, kTalentCount> g_talent_display_names = {
     "Melee Force",     "Iron Body",     "Crushing Blow",    "Cleave",
     "Whirlwind",       "Battle Cry",    "Sharp Arrow",      "Multi Shot",
@@ -83,6 +90,7 @@ inline std::array<std::string, kTalentCount> g_talent_display_names = {
     "Chain Lightning",
 };
 
+// Restores both global tables to their compiled-in defaults.
 inline void reset_talent_tree_defaults() {
     g_talent_nodes = {{
         { TalentId::MeleeForce, Discipline::Melee, SkillType::Passive, false, TalentId::MeleeForce,
@@ -129,6 +137,7 @@ inline void reset_talent_tree_defaults() {
     };
 }
 
+// Accessor helpers — prefer these over direct array indexing.
 inline const TalentNode& talent_def(TalentId id) {
     return g_talent_nodes[static_cast<int>(id)];
 }
@@ -138,4 +147,3 @@ inline const std::string& talent_display_name(TalentId id) {
 }
 
 } // namespace mion
-

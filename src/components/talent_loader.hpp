@@ -7,6 +7,8 @@
 
 namespace mion {
 
+// Patches g_talent_nodes from data/talents.ini — one INI section per talent.
+// Only fields present in the file are overwritten; missing keys keep their defaults.
 inline void apply_talents_ini(const IniData& d) {
     struct Row {
         const char* section;
@@ -45,4 +47,3 @@ inline void apply_talents_ini(const IniData& d) {
 }
 
 } // namespace mion
-

@@ -20,17 +20,17 @@ struct NpcEntity {
     std::string dialogue_quest_active;
     std::string dialogue_quest_done;
 
-    // --- Campos de posição base e wander ---
-    float spawn_x         = 0.0f;  // posição original (centro do wander)
+    // --- Base position and wander fields ---
+    float spawn_x         = 0.0f;  // original position (wander center)
     float spawn_y         = 0.0f;
-    float wander_radius   = 80.0f; // raio máximo de afastamento do spawn
-    float wander_speed    = 35.0f; // pixels por segundo
-    float wander_timer    = 0.0f;  // tempo até próximo reposicionamento
-    float wander_dir_x    = 0.0f;  // direção atual de movimento
+    float wander_radius   = 80.0f; // maximum wander distance from spawn
+    float wander_speed    = 35.0f; // pixels per second
+    float wander_timer    = 0.0f;  // time until next repositioning
+    float wander_dir_x    = 0.0f;  // current movement direction
     float wander_dir_y    = 0.0f;
-    float collision_half  = 14.0f; // meia-largura/altura do AABB NPC
+    float collision_half  = 14.0f; // NPC AABB half-extents
 
-    // Actor associado na cena (Town) para integrar com MovementSystem/RoomCollisionSystem.
+    // Linked Actor in the Town scene, used by MovementSystem and RoomCollisionSystem.
     Actor*      actor           = nullptr;
 };
 

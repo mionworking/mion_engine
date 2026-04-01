@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <cstring>
 
-// Bitmap font 8x8 — ASCII 32-126, público domínio (baseado em VGA CP437)
-// Cada char: 8 bytes (1 por linha), bit 7 = pixel mais à esquerda
+// 8x8 bitmap font — ASCII 32-126, public domain (based on VGA CP437)
+// Each char: 8 bytes (1 per row), bit 7 = leftmost pixel
 namespace mion {
 
 static const uint8_t FONT_8X8[96][8] = {
@@ -105,7 +105,7 @@ static const uint8_t FONT_8X8[96][8] = {
     {0x76,0xDC,0x00,0x00,0x00,0x00,0x00,0x00}, // 126 '~'
 };
 
-// Renderiza texto diretamente na tela (coordenadas de tela, não de mundo)
+// Renders text directly to screen (screen coordinates, not world).
 // scale=1 → 8px, scale=2 → 16px, scale=3 → 24px
 inline void draw_text(SDL_Renderer* r,
                       float sx, float sy,
@@ -137,7 +137,7 @@ inline void draw_text(SDL_Renderer* r,
     }
 }
 
-// Largura em pixels de uma string (para centralizar)
+// Width in pixels of a string (useful for centering).
 inline float text_width(const char* text, int scale) {
     int len = 0;
     while (text[len]) ++len;

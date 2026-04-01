@@ -5,7 +5,7 @@
 
 namespace mion {
 
-// Interface que toda cena implementa
+// Interface that every scene must implement.
 class IScene {
 public:
     virtual ~IScene() = default;
@@ -15,12 +15,12 @@ public:
     virtual void fixed_update(float dt, const InputState& input) = 0;
     virtual void render(SDL_Renderer* renderer, float blend_factor) = 0;
 
-    // Retorna o nome da próxima cena, ou "" se não há transição
+    // Returns the name of the next scene, or "" if no transition is requested.
     virtual const char* next_scene() const { return ""; }
     virtual void clear_next_scene_request() {}
 };
 
-// Gerencia a cena ativa e troca entre cenas
+// Manages the active scene and handles scene transitions.
 class SceneManager {
 public:
     std::unique_ptr<IScene> current;
@@ -31,7 +31,7 @@ public:
         if (current) current->enter();
     }
 
-    // Chama fixed_update e retorna o nome da próxima cena (ou "" se nenhuma)
+    // Calls fixed_update and returns the next scene name (or "" if none).
     const char* fixed_update(float dt, const InputState& input) {
         if (!current) return "";
         current->fixed_update(dt, input);

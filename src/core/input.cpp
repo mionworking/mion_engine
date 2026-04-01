@@ -25,7 +25,7 @@ InputState KeyboardInputSource::read_state() const {
         keys[_kb.attack] || keys[_kb.attack_alt];
     state.confirm_pressed =
         keys[_kb.confirm] || keys[SDL_SCANCODE_KP_ENTER];
-    // Backspace: fechar loja / diálogos; Escape → pausa (tratado nas cenas)
+    // Backspace: close shop / dialogues; Escape → pause (handled in scenes)
     state.ui_cancel_pressed = keys[SDL_SCANCODE_BACKSPACE];
     state.erase_save_pressed = keys[_kb.erase_save];
     state.dash_pressed    = keys[_kb.dash];

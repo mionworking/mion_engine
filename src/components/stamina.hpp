@@ -2,11 +2,13 @@
 
 namespace mion {
 
+// Stamina pool with regeneration delay.
+// Regen is paused for regen_delay seconds after any consumption.
 struct StaminaState {
     float current               = 100.0f;
     float max                   = 100.0f;
-    float regen_rate            = 30.0f;  // por segundo
-    float regen_delay           = 1.0f;   // segundos sem regen após consumo
+    float regen_rate            = 30.0f;  // per second
+    float regen_delay           = 1.0f;   // seconds without regen after consumption
     float regen_delay_remaining = 0.0f;
 
     bool can_afford(float cost) const { return current >= cost; }
