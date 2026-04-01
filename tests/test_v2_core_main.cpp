@@ -11,7 +11,7 @@ int main() {
     run_legacy_tests();
     // run_extended_plan_tests(); migrado
     run_dungeon_controller_tests();
-    run_player_action_v2_tests();
+    // run_player_action_v2_tests(); foi migrado!
     // run_gaps_v2_tests(); foi migrado!
 
     RunAllRegisteredTests("V2 Core Auto-Registered Tests");
