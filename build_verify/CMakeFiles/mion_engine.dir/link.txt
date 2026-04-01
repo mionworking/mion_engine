@@ -1,1 +1,0 @@
-/usr/bin/c++ -pthread CMakeFiles/mion_engine.dir/src/main.cpp.o CMakeFiles/mion_engine.dir/src/core/audio.cpp.o CMakeFiles/mion_engine.dir/src/core/input.cpp.o CMakeFiles/mion_engine.dir/src/core/register_scenes.cpp.o CMakeFiles/mion_engine.dir/src/vendor/stb_image_impl.cpp.o -o mion_engine  _deps/sdl3-build/libSDL3.a -lm 

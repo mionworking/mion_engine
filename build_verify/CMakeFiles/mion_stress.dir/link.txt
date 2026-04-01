@@ -1,1 +1,0 @@
-/usr/bin/c++ -pthread CMakeFiles/mion_stress.dir/tools/stress_main.cpp.o CMakeFiles/mion_stress.dir/src/core/audio.cpp.o CMakeFiles/mion_stress.dir/src/core/input.cpp.o CMakeFiles/mion_stress.dir/src/core/register_scenes.cpp.o CMakeFiles/mion_stress.dir/src/vendor/stb_image_impl.cpp.o -o mion_stress  _deps/sdl3-build/libSDL3.a -lm 
