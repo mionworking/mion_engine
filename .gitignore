@@ -1,13 +1,28 @@
-build/
-build_release/
+# Build directories
+build*/
+bin/
+lib/
+
+# IDE and Cache
 .cache/
+.vscode/
+.cursor/
+.claude/
 compile_commands.json
+
+# Objects and Libraries
 *.o
 *.a
+*.so
+*.dll
+*.exe
+
+# Logs
+*.log
+mion_debug.log
+
+# Legacy and Misc
 lagacy/
-.cursor/   
-.claude/
-.github/
-.vscode/
 ROADMAP.md/
 readme_ia.md
+.github/
