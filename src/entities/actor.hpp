@@ -13,6 +13,8 @@
 #include "../components/talent_state.hpp"
 #include "../components/attributes.hpp"
 #include "../components/equipment.hpp"
+#include "../components/item_bag.hpp"
+#include "../components/potion_quickslot.hpp"
 #include "../core/animation.hpp"
 #include "enemy_type.hpp"
 
@@ -104,7 +106,9 @@ struct Actor {
     SpellBookState    spell_book;        // spells + cooldowns
     TalentState       talents;           // skill tree points and unlocks
     AttributesState   attributes;        // base attributes
-    EquipmentState    equipment;         // equipment slots v1
+    EquipmentState    equipment;         // equipment slots (11)
+    ItemBag           bag;               // itens acumulados (bag)
+    PotionQuickslot   potion;            // quickslot de poção (estilo Diablo 3)
     DerivedStats      derived;           // final stats computed by recompute_player_derived_stats
     int               gold              = 0;
 

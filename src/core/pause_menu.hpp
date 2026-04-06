@@ -123,39 +123,43 @@ private:
     Callback              _on_open;
 
     void _render_overlay(SDL_Renderer* r, int vw, int vh) const {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
-        SDL_FRect full{0, 0, (float)vw, (float)vh};
-        SDL_RenderFillRect(r, &full);
+        ui::draw_dim(r, vw, vh, {0, 0, 0, 160});
 
         ui::Panel panel;
         panel.rect = {vw * 0.35f, vh * 0.25f, vw * 0.30f, vh * 0.50f};
         panel.render(r);
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f,
-                  "PAUSED", 3, 255, 220, 60, 255);
+                  "PAUSED", 3,
+                  ui::g_theme.text_title.r, ui::g_theme.text_title.g,
+                  ui::g_theme.text_title.b, ui::g_theme.text_title.a);
         list.render(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f);
     }
 
     void _render_settings(SDL_Renderer* r, int vw, int vh) const {
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
-        SDL_FRect dim{0, 0, (float)vw, (float)vh};
-        SDL_RenderFillRect(r, &dim);
+        ui::draw_dim(r, vw, vh);
 
         ui::Panel panel;
         panel.rect = {vw * 0.30f, vh * 0.30f, vw * 0.40f, vh * 0.40f};
         panel.render(r);
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 16.0f,
-                  "SETTINGS", 3, 220, 200, 120, 255);
+                  "SETTINGS", 3,
+                  ui::g_theme.text_title.r, ui::g_theme.text_title.g,
+                  ui::g_theme.text_title.b, ui::g_theme.text_title.a);
         const char* l1 = "Audio and keybinds live in config.ini";
         const char* l2 = "for now. More options coming soon.";
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 56.0f,
-                  l1, 2, 190, 190, 175, 255);
+                  l1, 2,
+                  ui::g_theme.text_subtitle.r, ui::g_theme.text_subtitle.g,
+                  ui::g_theme.text_subtitle.b, ui::g_theme.text_subtitle.a);
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + 84.0f,
-                  l2, 2, 190, 190, 175, 255);
+                  l2, 2,
+                  ui::g_theme.text_subtitle.r, ui::g_theme.text_subtitle.g,
+                  ui::g_theme.text_subtitle.b, ui::g_theme.text_subtitle.a);
         const char* hint = "ESC / ENTER / BACKSPACE - back";
         draw_text(r, panel.rect.x + 20.0f, panel.rect.y + panel.rect.h - 36.0f,
-                  hint, 1, 160, 200, 220, 255);
+                  hint, 1,
+                  ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+                  ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
     }
 };
 

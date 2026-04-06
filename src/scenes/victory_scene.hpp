@@ -56,7 +56,7 @@ public:
         if (ok) {
             switch (_list.selected) {
             case 0:
-                _next = "town";
+                _next = "world";
                 break;
             case 1: {
                 SaveData d{};

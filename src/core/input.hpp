@@ -18,6 +18,8 @@ struct InputState {
     bool  ui_left_pressed     = false; // arrow ←
     bool  ui_right_pressed    = false; // arrow →
     bool  skill_tree_pressed  = false; // Tab — talent tree
+    bool  inventory_pressed   = false; // I — equipment screen
+    bool  potion_pressed      = false; // H — use potion
     bool  erase_save_pressed = false; // N — erase save on title screen
     bool  dash_pressed   = false;  // LShift
     bool  ranged_pressed = false;  // X

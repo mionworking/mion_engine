@@ -2,8 +2,8 @@
 
 Gerado automaticamente por `tools/audit_texture_contract.py`.
 
-- Referências no código: **9**
-- Entradas no manifesto: **9**
+- Referências no código: **23**
+- Entradas no manifesto: **23**
 - Em falta no manifesto: **0**
 - Extras no manifesto (não referenciados no código): **0**
 
@@ -18,10 +18,24 @@ Gerado automaticamente por `tools/audit_texture_contract.py`.
 - `assets/Puny-Characters/Puny-Characters/Orc-Grunt.png`
 - `assets/Puny-Characters/Puny-Characters/Soldier-Blue.png`
 - `assets/Puny-Characters/Puny-Characters/Soldier-Red.png`
+- `assets/npcs/npc_elder.png`
+- `assets/npcs/npc_forge.png`
+- `assets/npcs/npc_mira.png`
+- `assets/npcs/npc_villager.png`
 - `assets/props/altar.png`
 - `assets/props/barrel.png`
+- `assets/props/building_elder.png`
+- `assets/props/building_forge.png`
+- `assets/props/building_tavern.png`
+- `assets/props/door_closed.png`
+- `assets/props/door_open.png`
 - `assets/props/dungeon_pillar.png`
 - `assets/props/dungeon_wall_mid.png`
+- `assets/props/fountain.png`
+- `assets/sprites/player.png`
+- `assets/tiles/corridor_floor.png`
+- `assets/tiles/dungeon_tileset.png`
+- `assets/tiles/town_tileset.png`
 
 ## Em falta no manifesto
 

@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <string>
 #include "../components/attributes.hpp"
+#include "../components/equipment.hpp"
+#include "../components/item_bag.hpp"
 #include "../components/mana.hpp"
 #include "../components/progression.hpp"
 #include "../components/stamina.hpp"
@@ -13,7 +17,7 @@ namespace mion {
 // Format written to disk.
 // v1/v2 load; talent levels in v3 are 0–3 per slot;
 // v4 adds base attributes; v5 adds pending attribute points and scene_flags.
-inline constexpr int kSaveFormatVersion = 5;
+inline constexpr int kSaveFormatVersion = 7;
 inline constexpr int kSaveMaxRoomIndex  = 63;
 inline constexpr int kSaveMaxAttrPoints = 999; // sanity cap for attr_points_available
 
@@ -36,6 +40,21 @@ struct SaveData {
     // bit 0 = boss_dungeon1_defeated, bit 1 = dungeon2_unlocked,
     // bit 2 = blessing_altar_used, bit 3 = grimjaw_intro_played
     // bits 4-31 = reserved
+
+    // v6: open world
+    float        player_world_x    = 0.f;
+    float        player_world_y    = 0.f;
+    uint8_t      visited_area_mask = 0; // bit0=Room0, bit1=Room1, bit2=Room2, bit3=Boss
+
+    // v7: equipment slots (11) + bag (24 slots).
+    // Stored as item names; "" = empty slot.
+    std::string  equipped_names[kEquipSlotCount];
+    std::string  bag_names[kBagSize];               // item name; "" = vazio
+    int          bag_equip_slots[kBagSize] = {};    // EquipSlot enum value
+
+    // v7: potion quickslot
+    int          potion_stack   = 0;
+    int          potion_quality = 1; // PotionQuality enum value (default: Normal)
 };
 
 } // namespace mion

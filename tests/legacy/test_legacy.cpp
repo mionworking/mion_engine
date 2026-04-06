@@ -760,8 +760,7 @@ static void test_register_default_scenes_creates_title_and_dungeon() {
     ctx.viewport_h = 540;
 
     EXPECT_TRUE(reg.create("title", ctx) != nullptr);
-    EXPECT_TRUE(reg.create("town", ctx) != nullptr);
-    EXPECT_TRUE(reg.create("dungeon", ctx) != nullptr);
+    EXPECT_TRUE(reg.create("world", ctx) != nullptr);
     EXPECT_TRUE(reg.create("credits", ctx) != nullptr);
 }
 
@@ -782,7 +781,7 @@ static void test_title_scene_attack_requests_town() {
     mion::InputState confirm;
     confirm.confirm_pressed = true;
     scene.fixed_update(0.016f, confirm);
-    EXPECT_EQ(std::strcmp(scene.next_scene(), "town"), 0);
+    EXPECT_EQ(std::strcmp(scene.next_scene(), "world"), 0);
     EXPECT_TRUE(diff == mion::DifficultyLevel::Normal);
 
     scene.clear_next_scene_request();
@@ -866,7 +865,7 @@ static void test_title_scene_continue_with_save_requests_town() {
     mion::InputState pick_press;
     pick_press.confirm_pressed = true;
     scene.fixed_update(0.016f, pick_press);
-    EXPECT_EQ(std::strcmp(scene.next_scene(), "town"), 0);
+    EXPECT_EQ(std::strcmp(scene.next_scene(), "world"), 0);
 
     mion::SaveSystem::remove_default_saves();
     std::remove("mion_save.txt");
@@ -1704,7 +1703,7 @@ static void test_integration_scripted_title_to_town() {
     ok.confirm_pressed = true;
     src.push(ok);
     scene.fixed_update(0.016f, src.read_state());
-    EXPECT_EQ(std::strcmp(scene.next_scene(), "town"), 0);
+    EXPECT_EQ(std::strcmp(scene.next_scene(), "world"), 0);
     EXPECT_TRUE(diff == mion::DifficultyLevel::Normal);
 }
 

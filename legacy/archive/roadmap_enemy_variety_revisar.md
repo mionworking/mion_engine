@@ -1,4 +1,7 @@
 # Roadmap — Enemy Variety + Boss Phases
+
+> **Arquivado (2026-04-04):** rascunho histórico. `AiBehavior`, Archer/Patrol/Elite/Boss, fases Grimjaw **já no código** (`enemy_ai`, `ai_patrol`, `boss_state_controller`, `data/enemies.ini`).
+
 > Novos comportamentos de IA, inimigos ranged/patrulha/elite, boss Grimjaw com 2 fases.
 
 ---

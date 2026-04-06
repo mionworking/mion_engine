@@ -1,4 +1,7 @@
 # Roadmap — Distribution / Packaging
+
+> **Arquivado (2026-04-04):** rascunho histórico. Rebinding, gamepad, créditos, localização e `locale_*.ini` **já existem**; CI Windows/empacotamento ainda em aberto no [ROADMAP.md](../../ROADMAP.md).
+
 > Rebinding de teclas, suporte a gamepad, build Windows, empacotamento de assets, créditos, localização.
 
 ---

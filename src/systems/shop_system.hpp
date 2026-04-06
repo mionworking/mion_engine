@@ -5,6 +5,7 @@
 #include "../entities/actor.hpp"
 #include "../entities/shop.hpp"
 #include "../core/bitmap_font.hpp"
+#include "../core/ui.hpp"
 
 namespace mion {
 
@@ -56,16 +57,15 @@ struct ShopSystem {
         const float y0      = pad;
         const float h       = (float)viewport_h - pad * 2.0f;
 
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r, 20, 18, 32, 230);
-        SDL_FRect bg{x0, y0, panel_w, h};
-        SDL_RenderFillRect(r, &bg);
-        SDL_SetRenderDrawColor(r, 140, 120, 200, 255);
-        SDL_RenderRect(r, &bg);
+        ui::Panel panel;
+        panel.rect = {x0, y0, panel_w, h};
+        panel.render(r);
 
         const int scale = 2;
         float       ty  = y0 + pad;
-        draw_text(r, x0 + pad, ty, "FORGE", scale, 220, 200, 140, 255);
+        draw_text(r, x0 + pad, ty, "FORGE", scale,
+                  ui::g_theme.text_title.r, ui::g_theme.text_title.g,
+                  ui::g_theme.text_title.b, ui::g_theme.text_title.a);
         ty += 28.0f;
 
         char gold_line[64];
@@ -77,22 +77,28 @@ struct ShopSystem {
             const ShopItem& it = shop.items[static_cast<size_t>(i)];
             bool              sel = (i == shop.selected_index);
             if (sel) {
-                SDL_SetRenderDrawColor(r, 60, 50, 90, 255);
+                SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+                SDL_SetRenderDrawColor(r, ui::g_theme.list_hl_bg.r, ui::g_theme.list_hl_bg.g,
+                                          ui::g_theme.list_hl_bg.b, ui::g_theme.list_hl_bg.a);
                 SDL_FRect row{x0 + 8.0f, ty - 2.0f, panel_w - 16.0f, 22.0f};
                 SDL_RenderFillRect(r, &row);
             }
             char line[128];
             std::snprintf(line, sizeof(line), "%s  %dg", it.display_name.c_str(),
                           it.gold_cost);
-            draw_text(r, x0 + pad, ty, line, scale,
-                      sel ? 255 : 200, sel ? 255 : 200, sel ? 220 : 200, 255);
+            const SDL_Color& tc = sel ? ui::g_theme.text_selected : ui::g_theme.text_normal;
+            draw_text(r, x0 + pad, ty, line, scale, tc.r, tc.g, tc.b, tc.a);
             ty += 24.0f;
         }
 
         ty = y0 + h - pad - 48.0f;
-        draw_text(r, x0 + pad, ty, "ENTER - comprar", scale, 160, 200, 160, 255);
+        draw_text(r, x0 + pad, ty, "ENTER - comprar", scale,
+                  ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+                  ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
         ty += 22.0f;
-        draw_text(r, x0 + pad, ty, "BACKSPACE - fechar", scale, 140, 140, 160, 255);
+        draw_text(r, x0 + pad, ty, "BACKSPACE - fechar", scale,
+                  ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+                  ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
     }
 };
 

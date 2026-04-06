@@ -1,4 +1,7 @@
 # Roadmap — Audio Polish
+
+> **Arquivado (2026-04-04):** rascunho histórico. `MusicState`, `AmbientId`, `play_sfx_at`, `play_sfx_pitched`, footsteps, SFX de skills **já no código** (`audio`, `dungeon_audio_system`, `footstep_audio_system`).
+
 > Áudio ambiente, música dinâmica, variação de SFX, áudio posicional simples, footsteps.
 
 ---

@@ -19,6 +19,13 @@ set(SDL_STATIC ON  CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL3)
 
+# SDL 3.2.x: Wayland_InitMouse() keeps an unused SDL_VideoData* (harmless upstream noise).
+# Use CXX compiler id: top-level project() enables CXX only, so C id may be unset here.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND TARGET SDL3-static)
+    target_compile_options(SDL3-static PRIVATE
+        $<$<COMPILE_LANGUAGE:C>:-Wno-unused-variable>)
+endif()
+
 # --- stb (single-header libs) — apenas stb_image.h, sem submodules ---
 FetchContent_Declare(
     stb

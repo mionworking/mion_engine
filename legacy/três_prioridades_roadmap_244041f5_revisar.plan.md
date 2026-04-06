@@ -10,18 +10,20 @@ todos:
     status: completed
   - id: save-api
     content: Implementar save_system.hpp (SaveData, key=value, save/load/exists)
-    status: pending
+    status: completed
   - id: save-dungeon
     content: Integrar load em enter, save em _advance_room e ao sair para title; testes round-trip
-    status: pending
+    status: completed
   - id: ini-parser
     content: Implementar ini_loader.hpp + data/*.ini de exemplo
-    status: pending
+    status: completed
   - id: data-enemy-spell-item
     content: Tabela runtime inimigos/magias + DropSystem configurável; enter() carrega INIs com fallback
-    status: pending
+    status: completed
 isProject: false
 ---
+
+> **Estado 2026-04-04:** todos os todos do frontmatter estão **completed**. O corpo abaixo descreve o desenho original; o comportamento actual está em `save_system`, `ini_loader`, `data/*.ini` e cenas.
 
 # Plano: diálogo, save/load e stats em dados
 

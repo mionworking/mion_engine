@@ -61,21 +61,25 @@ inline void apply_separation(Actor* enemy, std::vector<Actor*>& actors, float dt
     enemy->transform.translate(sep_x * kSepStrength * dt, sep_y * kSepStrength * dt);
 }
 
-inline void replan_chase_path(Actor* enemy, Actor* player, Pathfinder* pathfinder, float dt) {
+inline void replan_chase_path(Actor* enemy, Actor* player, Pathfinder* pathfinder, float dt,
+                              float nav_ox, float nav_oy) {
     if (!pathfinder)
         return;
 
     enemy->path_replan_timer -= dt;
     if (enemy->path_replan_timer <= 0.0f) {
-        enemy->nav_path = pathfinder->find_path(
-            enemy->transform.x, enemy->transform.y,
-            player->transform.x, player->transform.y);
+        const float ex = enemy->transform.x - nav_ox;
+        const float ey = enemy->transform.y - nav_oy;
+        const float px = player->transform.x - nav_ox;
+        const float py = player->transform.y - nav_oy;
+        enemy->nav_path = pathfinder->find_path(ex, ey, px, py);
         enemy->path_replan_timer = kPathReplanSec;
     }
 }
 
 inline void move_along_path_toward(Actor* enemy, Actor* player, float& move_nx,
-                                   float& move_ny, Pathfinder* pathfinder) {
+                                   float& move_ny, Pathfinder* pathfinder,
+                                   float nav_ox, float nav_oy) {
     const float dx   = player->transform.x - enemy->transform.x;
     const float dy   = player->transform.y - enemy->transform.y;
     const float dist = sqrtf(dx * dx + dy * dy);
@@ -88,16 +92,16 @@ inline void move_along_path_toward(Actor* enemy, Actor* player, float& move_nx,
 
     if (enemy->nav_path.valid && !enemy->nav_path.done()) {
         auto  wp  = enemy->nav_path.next_wp();
-        float wdx = wp.x - enemy->transform.x;
-        float wdy = wp.y - enemy->transform.y;
+        float wdx = (wp.x + nav_ox) - enemy->transform.x;
+        float wdy = (wp.y + nav_oy) - enemy->transform.y;
         float wd  = sqrtf(wdx * wdx + wdy * wdy);
 
         if (wd < kPathAdvancePx) {
             enemy->nav_path.advance();
             if (!enemy->nav_path.done()) {
                 wp  = enemy->nav_path.next_wp();
-                wdx = wp.x - enemy->transform.x;
-                wdy = wp.y - enemy->transform.y;
+                wdx = (wp.x + nav_ox) - enemy->transform.x;
+                wdy = (wp.y + nav_oy) - enemy->transform.y;
                 wd  = sqrtf(wdx * wdx + wdy * wdy);
             }
         }
@@ -110,16 +114,17 @@ inline void move_along_path_toward(Actor* enemy, Actor* player, float& move_nx,
 }
 
 inline void chase_and_melee_attack(Actor* enemy, Actor* player, float dx, float dy,
-                                   float dist, float dt, Pathfinder* pathfinder) {
+                                   float dist, float dt, Pathfinder* pathfinder,
+                                   float nav_ox, float nav_oy) {
     if (enemy->boss_charging)
         return;
 
-    replan_chase_path(enemy, player, pathfinder, dt);
+    replan_chase_path(enemy, player, pathfinder, dt, nav_ox, nav_oy);
 
     if (dist > enemy->stop_range_ai && enemy->combat.is_attack_idle()) {
         float move_nx = 0.0f;
         float move_ny = 0.0f;
-        move_along_path_toward(enemy, player, move_nx, move_ny, pathfinder);
+        move_along_path_toward(enemy, player, move_nx, move_ny, pathfinder, nav_ox, nav_oy);
         const float speed = enemy->effective_move_speed();
         enemy->transform.translate(move_nx * speed * dt, move_ny * speed * dt);
         enemy->set_facing(move_nx, move_ny);
@@ -135,15 +140,16 @@ inline void chase_and_melee_attack(Actor* enemy, Actor* player, float dx, float 
 
 inline void update_ranged(Actor* enemy, Actor* player, float dx, float dy, float dist,
                           float dt, Pathfinder* pathfinder,
-                          std::vector<Projectile>* projectiles) {
-    replan_chase_path(enemy, player, pathfinder, dt);
+                          std::vector<Projectile>* projectiles,
+                          float nav_ox, float nav_oy) {
+    replan_chase_path(enemy, player, pathfinder, dt, nav_ox, nav_oy);
 
     const float keep = std::max(80.0f, enemy->ranged_keep_dist);
     float move_nx = 0.0f;
     float move_ny = 0.0f;
 
     if (dist > keep * 1.05f) {
-        move_along_path_toward(enemy, player, move_nx, move_ny, pathfinder);
+        move_along_path_toward(enemy, player, move_nx, move_ny, pathfinder, nav_ox, nav_oy);
     } else if (dist < keep * 0.6f) {
         if (dist > kDistanceEpsilon) {
             move_nx = -dx / dist;

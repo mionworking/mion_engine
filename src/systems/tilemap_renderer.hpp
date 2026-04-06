@@ -29,6 +29,12 @@ struct TilemapRenderer {
     int floor_tile_col = 0,  floor_tile_row = 0;  // padrão: col 0, linha 0
     int wall_tile_col  = 1,  wall_tile_row  = 0;  // padrão: col 1, linha 0
 
+    // Chão alternativo (ex.: corredor town→dungeon). Se não-null, só o chão usa esta textura;
+    // paredes continuam em `tileset`.
+    SDL_Texture* floor_tileset = nullptr;
+    // Faixa horizontal de N tiles de `tile_size` px: coluna fonte = (col % floor_strip_cols).
+    int floor_strip_cols = 1;
+
     void render(SDL_Renderer* r,
                 const Camera2D& cam,
                 const Tilemap&  map) const
@@ -57,7 +63,16 @@ struct TilemapRenderer {
                 float sy = cam.world_to_screen_y(row * ts);
                 SDL_FRect dst = { sx, sy, ts, ts };
 
-                if (tileset) {
+                if (type == TileType::Floor && floor_tileset) {
+                    int fc = floor_tile_col, fr = floor_tile_row;
+                    if (floor_strip_cols > 1) {
+                        fc = col % floor_strip_cols;
+                        fr = 0;
+                    }
+                    SDL_FRect src = { (float)(fc * map.tile_size), (float)(fr * map.tile_size),
+                                      (float)map.tile_size, (float)map.tile_size };
+                    SDL_RenderTexture(r, floor_tileset, &src, &dst);
+                } else if (tileset) {
                     // Tileset PNG: suporta atlas 2D via floor/wall_tile_{col,row}
                     int tc = (type == TileType::Floor) ? floor_tile_col : wall_tile_col;
                     int tr = (type == TileType::Floor) ? floor_tile_row : wall_tile_row;

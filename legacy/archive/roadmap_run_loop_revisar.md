@@ -1,4 +1,7 @@
 # Roadmap — Run Loop / Win Condition
+
+> **Arquivado (2026-04-04):** rascunho histórico. Grande parte disto **já está no código** (`run_stats.hpp`, `game_over_scene`, `victory_scene`, dificuldade no título, `SaveData::last_run_stats`). Ver [ROADMAP.md](../../ROADMAP.md) para o estado actual.
+
 > Game over com estatísticas, ecrã de vitória, seletor de dificuldade, tracking de run.
 
 ---

@@ -243,6 +243,21 @@ def render_ambient_wind() -> list[float]:
     return out
 
 
+def render_ambient_transition_wind() -> list[float]:
+    """Corredor town→dungeon: mais grave, ruído e eco leve (loop)."""
+    n = int(SR * 5.0)
+    delay = int(SR * 0.11)
+    out: list[float] = []
+    for i in range(n):
+        t = i / SR
+        w = 0.48 * math.sin(t * math.pi * 2 * 0.07 + _noise(i) * 0.18)
+        rumble = _square(t * 18.0 % 1.0) * 0.055
+        out.append((w * 0.11 + rumble + _noise(i // 3) * 0.065) * 0.38)
+    for i in range(delay, n):
+        out[i] += out[i - delay] * 0.2
+    return out
+
+
 def render_ambient_birds() -> list[float]:
     n = int(SR * 5.0)
     out = [0.0] * n
@@ -355,6 +370,7 @@ def main() -> None:
         "ambient_dungeon_torch.wav": render_ambient_torch(),
         "ambient_town_wind.wav": render_ambient_wind(),
         "ambient_town_birds.wav": render_ambient_birds(),
+        "ambient_transition_wind.wav": render_ambient_transition_wind(),
     }
 
     for name, samples in specs.items():

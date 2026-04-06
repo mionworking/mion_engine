@@ -16,6 +16,7 @@ Assets gerados:
 
   Dungeon:
     assets/tiles/dungeon_tileset.png    — tileset 64x32 (floor col0 / wall col1)
+    assets/tiles/corridor_floor.png     — faixa 192×32 (6 tiles) para corredor town→dungeon
     assets/props/door_closed.png        — porta 32x48
     assets/props/door_open.png          — porta aberta 32x48
 
@@ -151,6 +152,27 @@ def make_dungeon_tileset() -> tuple[int, int, bytes]:
             spx(buf, W, H, x, y, (35, 28, 38, 255))
         offset = 8 - offset
 
+    return W, H, bytes(buf)
+
+
+def make_corridor_floor() -> tuple[int, int, bytes]:
+    """Faixa horizontal 6×32 px (largura do corredor em tiles) no estilo do chão dungeon."""
+    W, H = 192, 32
+    buf = new_buf(W, H)
+    for y in range(H):
+        for x in range(W):
+            bx = x % 32
+            base = 42 + ((bx + y) % 2) * 5
+            noise = ((x * 7 + y * 13) % 8) - 4
+            v = max(20, min(80, base + noise))
+            buf_i = (y * W + x) * 4
+            buf[buf_i:buf_i + 4] = (v, v - 4, v + 2, 255)
+    for x in range(0, W, 8):
+        for y in range(H):
+            spx(buf, W, H, x, y, (22, 18, 26, 255))
+    for y in range(0, H, 8):
+        for x in range(W):
+            spx(buf, W, H, x, y, (22, 18, 26, 255))
     return W, H, bytes(buf)
 
 
@@ -688,6 +710,7 @@ def render_npc_sheet(pal: dict) -> bytes:
 ASSETS: list[dict] = [
     # Tilesets
     {"path": "assets/tiles/dungeon_tileset.png", "fn": make_dungeon_tileset},
+    {"path": "assets/tiles/corridor_floor.png", "fn": make_corridor_floor},
     {"path": "assets/tiles/town_tileset.png",    "fn": make_town_tileset},
     # Portas
     {"path": "assets/props/door_closed.png", "fn": make_door_closed},

@@ -1,16 +1,20 @@
 # Roadmap — Conteúdo / Gameplay
-> Documento de referência. O bloco **Estado no código** abaixo deve ser actualizado quando fechar fases.
 
-## Estado no código (última actualização)
+> **Actualizado 2026-04-04.** O quadro **Estado no código** resume o repo actual. Tudo a partir de **«Ordem de implementação»** e dos temas 1–2 em diante é **especificação histórica** (útil como arquivo de desenho, não como lista de tarefas).
+
+## Estado no código (última actualização: 2026-04-04)
 
 | Área | Estado | Notas |
 |------|--------|--------|
 | **Fase A INI (stats)** | Feito | `player.ini`, `progression.ini`, `talents.ini`, `spells.ini`, `enemies.ini`, `items.ini` + `apply_*` / `g_*` mutáveis. |
-| **Tema 1 — salas** | Feito | `dungeon_rules::room_bounds` / `room_template`; `room.hpp` (`add_barrel_cluster`, `add_wall_L`, `add_altar`, `add_pillar_pair`); `DungeonScene` `_build_room` + `_layout_*` e portas relativas aos bounds. |
-| **Tema 2 — skill tree + magias** | Feito | 17 talentos (`TalentState::levels[]`); 8 `SpellId`; `spell_book::sync_from_talents` / `spell_damage_rank`; save **v3** sem `spell_unlocked`; Q/E/R/F + cleave / multishot+veneno / chain+strafe / battle cry; `spell_effects`; projétil `is_frost`/`frost_rank`, `is_poison`/`poison_rank`; áudio com paths dedicados para chain e battle cry (ficheiros WAV podem ainda não existir no repo). |
-| **Testes Tema 2** | Feito (legacy) | `SpellBook.NovaArcaneL2`, `Spell.RankFrostSpellPow`, `Spell.ChainCDScales`, `Spell.RankBattleCry`, `Save.V3TalentInt`; `Room.CompoundObstacles` = 7 obstáculos após `add_pillar_pair` (2 pilares). |
-| **Tema 3 Fase A1** | Feito (doc + código) | `enemy_type.hpp` / `apply_enemy_ini_section`: `sprite_sheet_path`, `sprite_scale`, `frame_fps`, `dir_row`. `data/enemies.ini` documenta campos; valores de sprite ficam comentados até à arte final. |
-| **Tema 3 Fase B0–B2 + refactor** | Feito | `IniData::sections_with_prefix`; `data/rooms.ini` com 6 templates (`arena`, `corredor`, `cruzamento`, `labirinto`, `boss_arena`, `intro`) e `ini_obstacles=0` por defeito; `room_loader.hpp` + `dungeon_rules::room_template_id_name`; `_load_data_files()` (ex-`_load_data_tables`) carrega `rooms.ini`; `_build_room` tenta INI se `ini_obstacles=1`, senão `_layout_*`. Testes: `Ini.PrefixSections`, `RoomLoader.*`, `DungeonRules.TemplateIds`. |
+| **Tema 1 — salas** | Feito | `dungeon_rules::room_bounds` / `room_template` / `room_template_id_name()`; `room.hpp` (obstáculos compostos); `DungeonScene` `_build_room` + `_layout_*`; portas relativas aos bounds. |
+| **Tema 2 — skill tree + magias** | Feito | 17 talentos (`TalentState::levels[]`); 8 `SpellId`; `talent_data` / `talent_loader` / `talent_tree`; `spell_book::sync_from_talents` / `spell_damage_rank`; save com talentos por nível (ver **Save v5** abaixo); Q/E/R/F + cleave / multishot+veneno / chain+strafe / battle cry; `spell_effects`; projétil `is_frost`/`frost_rank`, `is_poison`/`poison_rank`; SFX dedicados em `audio` (WAV em `assets/audio/`). |
+| **Testes (oficial V2)** | Feito | Suíte modular em `tests/` por domínio (`tests/core/`, `tests/systems/`, `tests/components/`, …). Categorias `spell` / `ini` / `dungeon_rules` / `save` cobrem grande parte do Tema 2; suíte legada em `tests/legacy/test_legacy.cpp` + `tests_legacy/` no CMake. |
+| **Tema 3 Fase A1** | Feito (doc + código) | `enemy_type.hpp` / `apply_enemy_ini_section`: `sprite_sheet_path`, `sprite_scale`, `frame_fps`, `dir_row`. `data/enemies.ini` documenta campos; valores de sprite podem ficar comentados até à arte final. |
+| **Tema 3 Fase B0–B2 + refactor** | Feito | `IniData::sections_with_prefix`; `data/rooms.ini` com templates e `ini_obstacles=0` por defeito; `room_loader.hpp`; `_load_data_files()` carrega `rooms.ini`; `_build_room` tenta INI se `ini_obstacles=1`, senão `_layout_*`. |
+| **Save / migração** | Feito | `SaveData` em `save_data.hpp` — **v5**: atributos base, `attr_points_available`, `scene_flags`; cadeia `save_migration.hpp` (v1→…→v5). Ver também `last_run_stats` para ecrãs de fim de run. |
+| **Cena dungeon — modularização** | Feito | Fluxo, save, áudio, FX, morte, boss e diálogo extraídos para headers em `src/systems/` (`dungeon_flow_controller`, `dungeon_save_controller`, `dungeon_audio_system`, `combat_fx_controller`, `enemy_death_controller`, `boss_state_controller`, `dungeon_config_loader`, `footstep_audio_system`, `animation_driver`, etc.). Mapa: [`map_controllers_revisar.md`](map_controllers_revisar.md). |
+| **Cena town — modularização** | Feito | `town_builder`, `town_config_loader`, `town_save_controller`, `town_world_renderer`, `town_npc_wander`, `town_npc_interaction`, `shop_input_controller`, etc. |
 
 ### Detalhes já registados no código (Tema 2)
 
@@ -26,7 +30,7 @@
 
 ---
 
-## Ordem de implementação recomendada
+## Ordem de implementação recomendada *(histórico — já concluída)*
 
 ```
 1. INI Fase A (stats)   — sem dependências, desbloqueia balanceamento imediato
@@ -37,7 +41,7 @@
 
 ---
 
-## Tema 1 — Geometria e Obstáculos por room_index
+## Tema 1 — Geometria e Obstáculos por room_index *(especificação de arquivo)*
 
 ### Ficheiros a tocar
 
@@ -127,7 +131,7 @@ float midy = (b.min_y + b.max_y) * 0.5f;
 
 ---
 
-## Tema 2 — Skill Tree (D2-style) + Magias + Melee + Ranged
+## Tema 2 — Skill Tree (D2-style) + Magias + Melee + Ranged *(especificação de arquivo)*
 
 ### Árvores
 

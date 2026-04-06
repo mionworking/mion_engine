@@ -113,16 +113,16 @@ REGISTER_TEST(test_draw_sprite_null_texture_is_safe);
 static void test_equipment_total_modifiers_accumulate_slots() {
     mion::EquipmentState eq;
     mion::ItemDef weapon;
-    weapon.slot = mion::EquipSlot::Weapon;
+    weapon.slot = mion::EquipSlot::MainHand;
     weapon.modifiers.melee_damage = 3;
     weapon.modifiers.spell_mult = 0.1f;
-    eq.equip(mion::EquipSlot::Weapon, weapon);
+    eq.equip(mion::EquipSlot::MainHand, weapon);
 
     mion::ItemDef armor;
-    armor.slot = mion::EquipSlot::Armor;
+    armor.slot = mion::EquipSlot::Chest;
     armor.modifiers.hp_bonus = 20;
     armor.modifiers.stamina_bonus = 8.0f;
-    eq.equip(mion::EquipSlot::Armor, armor);
+    eq.equip(mion::EquipSlot::Chest, armor);
 
     mion::ItemModifiers m = eq.total_modifiers();
     EXPECT_EQ(m.melee_damage, 3);
@@ -150,7 +150,7 @@ static void test_attributes_recompute_player_derived_stats() {
     mion::ItemDef acc;
     acc.modifiers.ranged_damage = 1;
     acc.modifiers.mana_bonus = 5.0f;
-    e.equip(mion::EquipSlot::Accessory, acc);
+    e.equip(mion::EquipSlot::Amulet, acc);
 
     mion::recompute_player_derived_stats(d, a, p, t, e, 10, 8);
 

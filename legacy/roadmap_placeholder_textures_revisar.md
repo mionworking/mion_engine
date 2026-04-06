@@ -1,4 +1,7 @@
 # Roadmap — Placeholder Textures / Art Stub
+
+> **Actualizado 2026-04-04.** Secções **Objetivo** / **O que já existe** / **O que falta** / **Comandos** reflectem o repo actual. A **estratégia técnica** abaixo é referência de desenho (já aplicada).
+
 > Gerar texturas simples automaticamente para manter o jogo visualmente legível até a arte final ficar pronta.
 
 ---
@@ -28,26 +31,29 @@
 
 ---
 
-## O que falta
+## O que falta *(backlog de melhoria, 2026-04-04)*
 
-- Integrar validação de contrato no CI (env `MION_TEXTURE_INTEGRATION_TESTS`)
-- Conectar backlog planejado ao runtime quando essas texturas passarem a ser usadas no código
-- Melhorar preview com legenda embutida por célula e comparação dimensão esperada vs real
-- Expandir backlog para UI/FX adicionais conforme novas features entrarem
+- Opcional: ligar `MION_TEXTURE_INTEGRATION_TESTS=1` na CI para travar regressão de inventário ([ROADMAP.md](../ROADMAP.md) — secção infra).
+- Conectar texturas do **backlog** (`texture_backlog_contract.json`) ao código quando chão/portas/FX passarem a usar PNG dedicados.
+- Melhorar preview com legenda por célula e comparação dimensão esperada vs real no relatório de auditoria.
+- Expandir backlog para UI/FX adicionais conforme novas features entrarem.
 
 ---
 
-## Ficheiros a criar / tocar
+## Ficheiros (estado no repo)
 
-| Ficheiro | Tipo |
+| Ficheiro | Estado |
 |---|---|
-| `tools/gen_placeholder_textures.py` | NOVO — gera PNGs placeholder |
-| `tools/texture_manifest.json` | NOVO — lista declarativa de texturas e metadados |
-| `tools/preview_placeholders.py` | NOVO — gera uma sheet/preview com legendas |
-| `assets/placeholders/preview.png` | NOVO — saída visual gerada |
-| `tests/test_plan.cpp` | +teste de cobertura do manifest (opcional via env) |
-| `src/core/asset_manifest.hpp` | +entradas mínimas para placeholders críticos |
-| `README.md` | +secção “Gerar placeholders” |
+| `tools/gen_placeholder_textures.py` | Implementado |
+| `tools/texture_manifest.json` | Implementado |
+| `tools/texture_backlog_contract.json` | Implementado |
+| `tools/preview_placeholders.py` | Implementado |
+| `tools/audit_texture_contract.py` | Implementado |
+| `tools/texture_contract_inventory.md` | Gerado / actualizado pela auditoria |
+| `assets/placeholders/preview.png` (e `preview_backlog.png`) | Saída do preview (regenerável) |
+| Cobertura de manifest em testes | Opcional via env `MION_TEXTURE_INTEGRATION_TESTS` (alinhado ao [README.md](../README.md)) |
+| `src/core/asset_manifest.hpp` | Lista mínima + `log_missing_assets_optional` no boot |
+| `README.md` | Secção de build / placeholders e alvos Make |
 
 ---
 

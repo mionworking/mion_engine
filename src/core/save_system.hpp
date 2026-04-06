@@ -217,12 +217,38 @@ inline bool load(const std::string& path, SaveData& d) {
     if (d.attr_points_available > kSaveMaxAttrPoints) d.attr_points_available = kSaveMaxAttrPoints;
     d.scene_flags = static_cast<unsigned int>(get_int(kv, "scene_flags", 0));
 
+    // --- block: open world (v6+) ---
+    d.player_world_x    = get_float(kv, "player_world_x", 0.f);
+    d.player_world_y    = get_float(kv, "player_world_y", 0.f);
+    d.visited_area_mask = static_cast<uint8_t>(get_int(kv, "visited_area_mask", 0));
+
+    // --- block: equipment slots + bag (v7+) ---
+    for (int i = 0; i < kEquipSlotCount; ++i) {
+        char key[32];
+        std::snprintf(key, sizeof(key), "equip_%d", i);
+        auto it = kv.find(key);
+        d.equipped_names[i] = (it != kv.end()) ? it->second : "";
+    }
+    for (int i = 0; i < kBagSize; ++i) {
+        char key[32];
+        std::snprintf(key, sizeof(key), "bag_%d", i);
+        auto it = kv.find(key);
+        d.bag_names[i] = (it != kv.end()) ? it->second : "";
+        char skey[32];
+        std::snprintf(skey, sizeof(skey), "bag_slot_%d", i);
+        d.bag_equip_slots[i] = get_int(kv, skey, 0);
+    }
+    d.potion_stack   = get_int(kv, "potion_stack",   0);
+    d.potion_quality = get_int(kv, "potion_quality", 1);
+
     // --- migration chain ---
     SaveMigration::clamp_room_index(d);
     if (ver <= 1) d = SaveMigration::migrate_v1_to_v2(d);
     if (ver <= 2) d = SaveMigration::migrate_v2_to_v3(d);
     if (ver <= 3) d = SaveMigration::migrate_v3_to_v4(d);
     if (ver <= 4) d = SaveMigration::migrate_v4_to_v5(d);
+    if (ver <= 5) d = SaveMigration::migrate_v5_to_v6(d);
+    if (ver <= 6) d = SaveMigration::migrate_v6_to_v7(d);
     return true;
 }
 
@@ -306,6 +332,21 @@ inline bool save(const std::string& path, const SaveData& d) {
     // == pending attributes and scene flags (v5+) ==
     f << "attr_points_available=" << d.attr_points_available << "\n";
     f << "scene_flags=" << d.scene_flags << "\n";
+
+    // == open world (v6+) ==
+    f << "player_world_x=" << d.player_world_x << "\n";
+    f << "player_world_y=" << d.player_world_y << "\n";
+    f << "visited_area_mask=" << static_cast<int>(d.visited_area_mask) << "\n";
+
+    // == equipment slots + bag (v7+) ==
+    for (int i = 0; i < kEquipSlotCount; ++i)
+        f << "equip_" << i << "=" << d.equipped_names[i] << "\n";
+    for (int i = 0; i < kBagSize; ++i) {
+        f << "bag_" << i      << "=" << d.bag_names[i]       << "\n";
+        f << "bag_slot_" << i << "=" << d.bag_equip_slots[i] << "\n";
+    }
+    f << "potion_stack="   << d.potion_stack   << "\n";
+    f << "potion_quality=" << d.potion_quality << "\n";
 
     return f.good();
 }

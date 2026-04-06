@@ -1,4 +1,7 @@
 # Roadmap — Cidade, NPCs e Quest
+
+> **Arquivado (2026-04-04):** blueprint pré-implementação. Cidade, loja, NPCs, `town_dialogues.ini`, quest Grimjaw **já no código** (`town_scene`, `shop_system`, `town_npc_*`).
+
 > Documento de referência antes da implementação.
 
 ---

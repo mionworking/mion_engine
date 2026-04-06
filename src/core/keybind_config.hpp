@@ -21,6 +21,8 @@ struct KeybindConfig {
     SDL_Scancode confirm    = SDL_SCANCODE_RETURN;
     SDL_Scancode pause      = SDL_SCANCODE_ESCAPE;
     SDL_Scancode skill_tree = SDL_SCANCODE_TAB;
+    SDL_Scancode inventory  = SDL_SCANCODE_I;
+    SDL_Scancode potion     = SDL_SCANCODE_H;
     SDL_Scancode erase_save = SDL_SCANCODE_N;
     SDL_Scancode upgrade_1  = SDL_SCANCODE_1;
     SDL_Scancode upgrade_2  = SDL_SCANCODE_2;
@@ -60,6 +62,8 @@ inline KeybindConfig load_keybinds(const IniData& d) {
     kb.confirm    = get("confirm", kb.confirm);
     kb.pause      = get("pause", kb.pause);
     kb.skill_tree = get("skill_tree", kb.skill_tree);
+    kb.inventory  = get("inventory",  kb.inventory);
+    kb.potion     = get("potion",     kb.potion);
     kb.erase_save = get("erase_save", kb.erase_save);
     kb.upgrade_1  = get("upgrade_1", kb.upgrade_1);
     kb.upgrade_2  = get("upgrade_2", kb.upgrade_2);

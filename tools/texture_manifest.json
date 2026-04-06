@@ -2,58 +2,6 @@
   "version": 1,
   "textures": [
     {
-      "path": "assets/props/barrel.png",
-      "kind": "prop",
-      "palette": "dungeon_prop",
-      "width": 64,
-      "height": 64,
-      "label": "BARREL"
-    },
-    {
-      "path": "assets/props/altar.png",
-      "kind": "prop",
-      "palette": "dungeon_prop",
-      "width": 80,
-      "height": 80,
-      "label": "ALTAR"
-    },
-    {
-      "path": "assets/props/dungeon_pillar.png",
-      "kind": "prop",
-      "palette": "dungeon_stone",
-      "width": 96,
-      "height": 128,
-      "label": "PILLAR"
-    },
-    {
-      "path": "assets/props/dungeon_wall_mid.png",
-      "kind": "tile",
-      "palette": "dungeon_stone",
-      "width": 128,
-      "height": 128,
-      "label": "WALL"
-    },
-    {
-      "path": "assets/Puny-Characters/Puny-Characters/Soldier-Red.png",
-      "kind": "sprite_sheet",
-      "palette": "enemy_red",
-      "width": 256,
-      "height": 256,
-      "frames_x": 8,
-      "frames_y": 8,
-      "label": "SOLDIER-R"
-    },
-    {
-      "path": "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png",
-      "kind": "sprite_sheet",
-      "palette": "enemy_orc",
-      "width": 256,
-      "height": 256,
-      "frames_x": 8,
-      "frames_y": 8,
-      "label": "ORC"
-    },
-    {
       "path": "assets/Puny-Characters/Puny-Characters/Mage-Cyan.png",
       "kind": "sprite_sheet",
       "palette": "enemy_cyan",
@@ -74,6 +22,16 @@
       "label": "MAGE-P"
     },
     {
+      "path": "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_orc",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "ORC"
+    },
+    {
       "path": "assets/Puny-Characters/Puny-Characters/Soldier-Blue.png",
       "kind": "sprite_sheet",
       "palette": "enemy_blue",
@@ -84,6 +42,136 @@
       "label": "SOLDIER-B"
     },
     {
+      "path": "assets/Puny-Characters/Puny-Characters/Soldier-Red.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_red",
+      "width": 256,
+      "height": 256,
+      "frames_x": 8,
+      "frames_y": 8,
+      "label": "SOLDIER-R"
+    },
+    {
+      "path": "assets/npcs/npc_elder.png",
+      "kind": "sprite_sheet",
+      "palette": "town_npc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "NPC_ELDER"
+    },
+    {
+      "path": "assets/npcs/npc_forge.png",
+      "kind": "sprite_sheet",
+      "palette": "town_npc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "NPC_FORGE"
+    },
+    {
+      "path": "assets/npcs/npc_mira.png",
+      "kind": "sprite_sheet",
+      "palette": "town_npc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "NPC_MIRA"
+    },
+    {
+      "path": "assets/npcs/npc_villager.png",
+      "kind": "sprite_sheet",
+      "palette": "town_npc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "NPC_VILLAGER"
+    },
+    {
+      "path": "assets/props/altar.png",
+      "kind": "prop",
+      "palette": "dungeon_prop",
+      "width": 80,
+      "height": 80,
+      "label": "ALTAR"
+    },
+    {
+      "path": "assets/props/barrel.png",
+      "kind": "prop",
+      "palette": "dungeon_prop",
+      "width": 64,
+      "height": 64,
+      "label": "BARREL"
+    },
+    {
+      "path": "assets/props/building_elder.png",
+      "kind": "prop",
+      "palette": "town_building",
+      "width": 300,
+      "height": 300,
+      "label": "BUILDING_ELDER"
+    },
+    {
+      "path": "assets/props/building_forge.png",
+      "kind": "prop",
+      "palette": "town_building",
+      "width": 300,
+      "height": 300,
+      "label": "BUILDING_FORGE"
+    },
+    {
+      "path": "assets/props/building_tavern.png",
+      "kind": "prop",
+      "palette": "town_building",
+      "width": 400,
+      "height": 300,
+      "label": "BUILDING_TAVERN"
+    },
+    {
+      "path": "assets/props/door_closed.png",
+      "kind": "prop",
+      "palette": "dungeon_stone",
+      "width": 32,
+      "height": 48,
+      "label": "DOOR_CLOSED"
+    },
+    {
+      "path": "assets/props/door_open.png",
+      "kind": "prop",
+      "palette": "dungeon_stone",
+      "width": 32,
+      "height": 48,
+      "label": "DOOR_OPEN"
+    },
+    {
+      "path": "assets/props/dungeon_pillar.png",
+      "kind": "prop",
+      "palette": "dungeon_stone",
+      "width": 96,
+      "height": 128,
+      "label": "PILLAR"
+    },
+    {
+      "path": "assets/props/dungeon_wall_mid.png",
+      "kind": "tile",
+      "palette": "dungeon_stone",
+      "width": 128,
+      "height": 128,
+      "label": "WALL"
+    },
+    {
+      "path": "assets/props/fountain.png",
+      "kind": "prop",
+      "palette": "town_prop",
+      "width": 200,
+      "height": 200,
+      "label": "FOUNTAIN"
+    },
+    {
       "path": "assets/sprites/player.png",
       "kind": "sprite_sheet",
       "palette": "default",
@@ -92,6 +180,30 @@
       "frames_x": 8,
       "frames_y": 8,
       "label": "PLAYER"
+    },
+    {
+      "path": "assets/tiles/corridor_floor.png",
+      "kind": "tile",
+      "palette": "dungeon_stone",
+      "width": 192,
+      "height": 32,
+      "label": "CORRIDOR_FLOOR"
+    },
+    {
+      "path": "assets/tiles/dungeon_tileset.png",
+      "kind": "tile",
+      "palette": "dungeon_stone",
+      "width": 64,
+      "height": 32,
+      "label": "DUNGEON_TILESET"
+    },
+    {
+      "path": "assets/tiles/town_tileset.png",
+      "kind": "tile",
+      "palette": "town_ground",
+      "width": 64,
+      "height": 32,
+      "label": "TOWN_TILESET"
     }
   ]
 }

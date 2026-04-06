@@ -83,6 +83,17 @@ struct DropSystem {
                 case GroundItemType::Gold:
                     player.gold += it.gold_value;
                     break;
+                case GroundItemType::Potion:
+                    player.potion.pickup(it.potion_quality, it.potion_amount);
+                    break;
+                case GroundItemType::Equipment:
+                    // Bag cheia: item fica no chão (não desativa).
+                    if (!it.item_name.empty() && !player.bag.is_full()) {
+                        player.bag.add(it.item_name, it.item_slot);
+                    } else {
+                        continue; // mantém ativo no chão
+                    }
+                    break;
             }
             if (it.lore_pickup) picked_lore = true;
             it.active = false;

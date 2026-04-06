@@ -19,7 +19,7 @@
 #include <cstdlib>
 
 #include "core/input.hpp"
-#include "scenes/dungeon_scene.hpp"
+#include "scenes/world_scene.hpp"
 
 namespace {
 
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     mion::InputState idle_input{};
 
     for (int n = step; n <= max_n; n += step) {
-        mion::DungeonScene scene;
+        mion::WorldScene scene;
         scene.viewport_w = win_w;
         scene.viewport_h = win_h;
         scene.set_renderer(renderer);

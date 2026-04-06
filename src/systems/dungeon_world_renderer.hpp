@@ -21,7 +21,11 @@
 namespace mion {
 
 struct DungeonWorldRenderInputs {
+    /// Câmera em coordenadas **locais da área** (top-left = câmara mundo − offset da área).
+    /// Usada para tilemap, obstáculos e portas (dados da room em espaço local).
     const Camera2D&                 camera;
+    /// Câmera em **coordenadas de mundo** — atores, projéteis, drops, partículas, textos flutuantes.
+    const Camera2D&                 world_camera;
     const RoomDefinition&           room;
     const Tilemap&                  tilemap;
     const TilemapRenderer&          tile_renderer;
@@ -34,6 +38,8 @@ struct DungeonWorldRenderInputs {
     LightingSystem&                 lighting;
     const Actor&                    player;
     bool                            room_cleared = false;
+    // When false, skip full-screen torch mask (WorldScene applies it once after all areas).
+    bool                            apply_lighting_overlay = true;
 };
 
 struct DungeonWorldRenderer {
@@ -41,19 +47,20 @@ struct DungeonWorldRenderer {
         in.tile_renderer.render(r, in.camera, in.tilemap);
         render_obstacles(r, in);
         render_doors(r, in);
+        const Camera2D& wcam = in.world_camera;
         for (const auto* actor : in.actors)
-            render_actor(r, in.camera, *actor);
-        in.particles.render(r, in.camera);
-        render_projectiles(r, in);
-        render_ground_items(r, in);
-        render_actor_hp_values(r, in);
+            render_actor(r, wcam, *actor);
+        in.particles.render(r, wcam);
+        render_projectiles(r, in, wcam);
+        render_ground_items(r, in, wcam);
+        render_actor_hp_values(r, in, wcam);
         in.floating_texts.render(
             r,
-            [&](float wx) { return in.camera.world_to_screen_x(wx); },
-            [&](float wy) { return in.camera.world_to_screen_y(wy); });
-        if (in.player.is_alive) {
-            const float lx = in.camera.world_to_screen_x(in.player.transform.x);
-            const float ly = in.camera.world_to_screen_y(in.player.transform.y);
+            [&](float wx) { return wcam.world_to_screen_x(wx); },
+            [&](float wy) { return wcam.world_to_screen_y(wy); });
+        if (in.apply_lighting_overlay && in.player.is_alive) {
+            const float lx = wcam.world_to_screen_x(in.player.transform.x);
+            const float ly = wcam.world_to_screen_y(in.player.transform.y);
             in.lighting.render(r, lx, ly);
         }
     }
@@ -96,13 +103,15 @@ private:
         }
     }
 
-    static void render_projectiles(SDL_Renderer* r, const DungeonWorldRenderInputs& in) {
+    static void render_projectiles(SDL_Renderer* r, const DungeonWorldRenderInputs& in,
+                                   const Camera2D& wcam) {
         for (const auto& projectile : in.projectiles)
-            draw_world_rect(r, in.camera, projectile.x, projectile.y,
+            draw_world_rect(r, wcam, projectile.x, projectile.y,
                             projectile.half_w, projectile.half_h, 255, 220, 60);
     }
 
-    static void render_ground_items(SDL_Renderer* r, const DungeonWorldRenderInputs& in) {
+    static void render_ground_items(SDL_Renderer* r, const DungeonWorldRenderInputs& in,
+                                    const Camera2D& wcam) {
         for (const auto& item : in.ground_items) {
             if (!item.active)
                 continue;
@@ -118,19 +127,20 @@ private:
                 gg = 180;
                 bb = 255;
             }
-            draw_world_rect(r, in.camera, item.x, item.y, 10.0f, 10.0f, rr, gg, bb);
+            draw_world_rect(r, wcam, item.x, item.y, 10.0f, 10.0f, rr, gg, bb);
         }
     }
 
-    static void render_actor_hp_values(SDL_Renderer* r, const DungeonWorldRenderInputs& in) {
+    static void render_actor_hp_values(SDL_Renderer* r, const DungeonWorldRenderInputs& in,
+                                       const Camera2D& wcam) {
         for (const auto* actor : in.actors) {
             if (!actor->is_alive)
                 continue;
             char hp_text[8];
             SDL_snprintf(hp_text, sizeof(hp_text), "%d", actor->health.current_hp);
-            const float sx = in.camera.world_to_screen_x(actor->transform.x)
+            const float sx = wcam.world_to_screen_x(actor->transform.x)
                            - text_width(hp_text, 1) * 0.5f;
-            const float sy = in.camera.world_to_screen_y(actor->transform.y) - 36.0f;
+            const float sy = wcam.world_to_screen_y(actor->transform.y) - 36.0f;
             draw_text(r, sx, sy, hp_text, 1, 200, 200, 200);
         }
     }

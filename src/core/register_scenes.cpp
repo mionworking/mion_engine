@@ -1,9 +1,8 @@
 #include "register_scenes.hpp"
 #include "scene_context.hpp"
 
-#include "../scenes/dungeon_scene.hpp"
 #include "../scenes/title_scene.hpp"
-#include "../scenes/town_scene.hpp"
+#include "../scenes/world_scene.hpp"
 #include "../scenes/game_over_scene.hpp"
 #include "../scenes/victory_scene.hpp"
 #include "../scenes/credits_scene.hpp"
@@ -20,17 +19,8 @@ void register_default_scenes(SceneRegistry& registry) {
         return s;
     });
 
-    registry.register_scene("town", [](const SceneCreateContext& ctx) {
-        auto s = std::make_unique<TownScene>();
-        s->viewport_w = ctx.viewport_w;
-        s->viewport_h = ctx.viewport_h;
-        s->set_renderer(ctx.renderer);
-        s->set_audio(ctx.audio);
-        return s;
-    });
-
-    registry.register_scene("dungeon", [](const SceneCreateContext& ctx) {
-        auto s = std::make_unique<DungeonScene>();
+    registry.register_scene("world", [](const SceneCreateContext& ctx) {
+        auto s = std::make_unique<WorldScene>();
         s->viewport_w = ctx.viewport_w;
         s->viewport_h = ctx.viewport_h;
         s->set_renderer(ctx.renderer);

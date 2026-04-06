@@ -1,7 +1,10 @@
 #include "../test_common.hpp"
 #include "core/audio.hpp"
 #include "systems/simple_particles.hpp"
+#include "systems/world_audio_system.hpp"
+#include "world/world_area.hpp"
 #include <SDL3/SDL.h>
+#include <cstdlib>
 #include <random>
 
 static void test_sfx_distance_attenuation_quadratic() {
@@ -42,6 +45,38 @@ static void test_audio_integration_optional_env() {
     EXPECT_TRUE(true);
 }
 REGISTER_TEST(test_audio_integration_optional_env);
+
+// Fase 7 audit: zone cross calls the same entry points as WorldScene::_handle_zone_transition.
+static void test_world_audio_init_for_zone_optional_env() {
+    if (!std::getenv("MION_AUDIO_INTEGRATION_TESTS"))
+        return;
+    if (SDL_Init(SDL_INIT_AUDIO) != 0)
+        return;
+    mion::AudioSystem audio;
+    if (!audio.init()) {
+        SDL_Quit();
+        return;
+    }
+    audio.set_master_volume(0.01f);
+    mion::WorldAudioSystem::init_for_zone(audio, mion::ZoneId::Town);
+    for (int i = 0; i < 12; ++i)
+        audio.tick_music();
+    EXPECT_TRUE(audio.current_music_state() == mion::MusicState::Town);
+
+    mion::WorldAudioSystem::init_for_zone(audio, mion::ZoneId::Transition);
+    for (int i = 0; i < 12; ++i)
+        audio.tick_music();
+    EXPECT_TRUE(audio.current_music_state() == mion::MusicState::Town);
+
+    mion::WorldAudioSystem::init_for_zone(audio, mion::ZoneId::DungeonRoom0);
+    for (int i = 0; i < 12; ++i)
+        audio.tick_music();
+    EXPECT_TRUE(audio.current_music_state() == mion::MusicState::DungeonCalm);
+
+    audio.shutdown();
+    SDL_Quit();
+}
+REGISTER_TEST(test_world_audio_init_for_zone_optional_env);
 
 static void test_audio_music_state_optional_env() {
     if (!std::getenv("MION_AUDIO_INTEGRATION_TESTS"))

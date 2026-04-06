@@ -128,6 +128,43 @@ public:
         for (auto* a : actors) resolve(*a, room);
     }
 
+    void resolve(Actor& actor,
+                 const std::vector<Obstacle>& obstacles,
+                 const WorldBounds& bounds) {
+        if (!actor.is_alive) return;
+
+        float& cx = actor.transform.x;
+        float& cy = actor.transform.y;
+        float hw   = actor.collision.half_w;
+        float hh   = actor.collision.half_h;
+
+        bounds.clamp_box(cx, cy, hw, hh);
+
+        for (const auto& obs : obstacles) {
+            AABB actor_box = actor.collision.bounds_at(cx, cy);
+            if (!actor_box.intersects(obs.bounds)) continue;
+
+            float overlap_left  = actor_box.max_x - obs.bounds.min_x;
+            float overlap_right = obs.bounds.max_x - actor_box.min_x;
+            float overlap_up    = actor_box.max_y - obs.bounds.min_y;
+            float overlap_down  = obs.bounds.max_y - actor_box.min_y;
+
+            float min_x_overlap = (overlap_left < overlap_right) ? -overlap_left : overlap_right;
+            float min_y_overlap = (overlap_up   < overlap_down)  ? -overlap_up   : overlap_down;
+
+            if (std::abs(min_x_overlap) < std::abs(min_y_overlap))
+                cx += min_x_overlap;
+            else
+                cy += min_y_overlap;
+        }
+    }
+
+    void resolve_all(std::vector<Actor*>& actors,
+                     const std::vector<Obstacle>& obstacles,
+                     const WorldBounds& world_bounds) {
+        for (auto* a : actors) resolve(*a, obstacles, world_bounds);
+    }
+
     // Colisão actor vs actor — 3 iterações para convergir quando há vários actors empilhados
     void resolve_actors(std::vector<Actor*>& actors,
                         const RoomDefinition* room = nullptr)

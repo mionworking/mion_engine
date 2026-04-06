@@ -22,12 +22,20 @@ struct ProjectileSystem {
     };
     std::vector<HitEvent> last_hit_events;
 
+    /// `world_origin_*` — offset da `WorldArea` em que o player está; posições de projéteis e atores são globais.
     void fixed_update(std::vector<Projectile>& projectiles,
                       std::vector<Actor*>& actors,
                       const RoomDefinition& room,
+                      float world_origin_x,
+                      float world_origin_y,
                       float dt) {
         projectile_hit_actor = false;
         last_hit_events.clear();
+        const float bx0 = room.bounds.min_x + world_origin_x;
+        const float bx1 = room.bounds.max_x + world_origin_x;
+        const float by0 = room.bounds.min_y + world_origin_y;
+        const float by1 = room.bounds.max_y + world_origin_y;
+
         for (auto& pr : projectiles) {
             if (!pr.active) continue;
 
@@ -45,14 +53,18 @@ struct ProjectileSystem {
                 pr.y - pr.half_h, pr.y + pr.half_h
             };
 
-            if (pb.min_x < room.bounds.min_x || pb.max_x > room.bounds.max_x
-                || pb.min_y < room.bounds.min_y || pb.max_y > room.bounds.max_y) {
+            if (pb.min_x < bx0 || pb.max_x > bx1 || pb.min_y < by0 || pb.max_y > by1) {
                 pr.active = false;
                 continue;
             }
 
             for (const auto& obs : room.obstacles) {
-                if (pb.intersects(obs.bounds)) {
+                AABB ob = obs.bounds;
+                ob.min_x += world_origin_x;
+                ob.max_x += world_origin_x;
+                ob.min_y += world_origin_y;
+                ob.max_y += world_origin_y;
+                if (pb.intersects(ob)) {
                     pr.active = false;
                     break;
                 }

@@ -29,7 +29,8 @@ inline void alert_patrol_neighbors(Actor* source, std::vector<Actor*>& actors) {
 }
 
 inline void steer_on_nav_path(Actor* enemy, float goal_x, float goal_y,
-                              float& move_nx, float& move_ny) {
+                              float& move_nx, float& move_ny,
+                              float nav_ox, float nav_oy) {
     const float wdx = goal_x - enemy->transform.x;
     const float wdy = goal_y - enemy->transform.y;
     const float wd  = sqrtf(wdx * wdx + wdy * wdy);
@@ -41,15 +42,15 @@ inline void steer_on_nav_path(Actor* enemy, float goal_x, float goal_y,
         return;
 
     auto  wp  = enemy->nav_path.next_wp();
-    float pdx = wp.x - enemy->transform.x;
-    float pdy = wp.y - enemy->transform.y;
+    float pdx = (wp.x + nav_ox) - enemy->transform.x;
+    float pdy = (wp.y + nav_oy) - enemy->transform.y;
     float pd  = sqrtf(pdx * pdx + pdy * pdy);
     if (pd < kPathAdvancePx) {
         enemy->nav_path.advance();
         if (!enemy->nav_path.done()) {
             wp  = enemy->nav_path.next_wp();
-            pdx = wp.x - enemy->transform.x;
-            pdy = wp.y - enemy->transform.y;
+            pdx = (wp.x + nav_ox) - enemy->transform.x;
+            pdy = (wp.y + nav_oy) - enemy->transform.y;
             pd  = sqrtf(pdx * pdx + pdy * pdy);
         }
     }
@@ -60,7 +61,8 @@ inline void steer_on_nav_path(Actor* enemy, float goal_x, float goal_y,
     }
 }
 
-inline void patrol_along_waypoints(Actor* enemy, float dt, Pathfinder* pathfinder) {
+inline void patrol_along_waypoints(Actor* enemy, float dt, Pathfinder* pathfinder,
+                                   float nav_ox, float nav_oy) {
     if (enemy->patrol_waypoints.empty())
         return;
 
@@ -84,12 +86,13 @@ inline void patrol_along_waypoints(Actor* enemy, float dt, Pathfinder* pathfinde
         enemy->path_replan_timer -= dt;
         if (enemy->path_replan_timer <= 0.0f) {
             enemy->nav_path = pathfinder->find_path(
-                enemy->transform.x, enemy->transform.y, wp.x, wp.y);
+                enemy->transform.x - nav_ox, enemy->transform.y - nav_oy,
+                wp.x - nav_ox, wp.y - nav_oy);
             enemy->path_replan_timer = kPathReplanSec;
         }
     }
 
-    steer_on_nav_path(enemy, wp.x, wp.y, move_nx, move_ny);
+    steer_on_nav_path(enemy, wp.x, wp.y, move_nx, move_ny, nav_ox, nav_oy);
     const float speed = enemy->effective_move_speed() * 0.75f;
     enemy->transform.translate(move_nx * speed * dt, move_ny * speed * dt);
     enemy->set_facing(move_nx, move_ny);
@@ -97,7 +100,8 @@ inline void patrol_along_waypoints(Actor* enemy, float dt, Pathfinder* pathfinde
 }
 
 inline void update_patrol(Actor* enemy, Actor* player, float dx, float dy, float dist,
-                          float dt, std::vector<Actor*>& actors, Pathfinder* pathfinder) {
+                          float dt, std::vector<Actor*>& actors, Pathfinder* pathfinder,
+                          float nav_ox, float nav_oy) {
     const float aggro = enemy->aggro_range;
 
     switch (enemy->patrol_state) {
@@ -107,7 +111,7 @@ inline void update_patrol(Actor* enemy, Actor* player, float dx, float dy, float
             enemy->alert_timer  = kAlertDurationSec;
             alert_patrol_neighbors(enemy, actors);
         } else {
-            patrol_along_waypoints(enemy, dt, pathfinder);
+            patrol_along_waypoints(enemy, dt, pathfinder, nav_ox, nav_oy);
         }
         break;
     case PatrolState::Alert:
@@ -123,7 +127,7 @@ inline void update_patrol(Actor* enemy, Actor* player, float dx, float dy, float
             enemy->nav_path.reset();
             break;
         }
-        chase_and_melee_attack(enemy, player, dx, dy, dist, dt, pathfinder);
+        chase_and_melee_attack(enemy, player, dx, dy, dist, dt, pathfinder, nav_ox, nav_oy);
         break;
     }
 }

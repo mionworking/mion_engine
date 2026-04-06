@@ -17,6 +17,8 @@ InputState KeyboardInputSource::read_state() const {
     state.ui_left_pressed  = keys[SDL_SCANCODE_LEFT];
     state.ui_right_pressed = keys[SDL_SCANCODE_RIGHT];
     state.skill_tree_pressed = keys[_kb.skill_tree];
+    state.inventory_pressed  = keys[_kb.inventory];
+    state.potion_pressed     = keys[_kb.potion];
     const bool esc = keys[_kb.pause];
     state.pause_pressed  = esc;
     state.cancel_pressed = esc;
@@ -105,6 +107,7 @@ InputState GamepadInputSource::read_state() const {
     state.ui_left_pressed = SDL_GetGamepadButton(_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
     state.ui_right_pressed = SDL_GetGamepadButton(_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
     state.skill_tree_pressed = SDL_GetGamepadButton(_gamepad, SDL_GAMEPAD_BUTTON_BACK);
+    state.inventory_pressed  = SDL_GetGamepadButton(_gamepad, SDL_GAMEPAD_BUTTON_NORTH);
 
     return state;
 }

@@ -5,6 +5,25 @@
 
 namespace mion {
 
+struct ScreenFlashState {
+    float     timer    = 0.0f;
+    float     duration = 0.25f;
+    SDL_Color color    = {255, 255, 255, 0};
+
+    void trigger(SDL_Color c, float dur) {
+        color    = c;
+        duration = dur;
+        timer    = dur;
+    }
+
+    void tick(float dt) {
+        timer -= dt;
+        if (timer < 0.0f) timer = 0.0f;
+    }
+
+    bool active() const { return timer > 0.0f; }
+};
+
 struct ScreenFx {
     static void render_boss_intro(SDL_Renderer* r,
                                   int viewport_w,
@@ -62,6 +81,14 @@ struct ScreenFx {
         SDL_SetRenderDrawColor(r, 80, 5, 5, static_cast<Uint8>(alpha * 220.0f));
         SDL_FRect full{0, 0, static_cast<float>(viewport_w), static_cast<float>(viewport_h)};
         SDL_RenderFillRect(r, &full);
+    }
+
+    static void render_screen_flash(SDL_Renderer* r,
+                                    int viewport_w,
+                                    int viewport_h,
+                                    const ScreenFlashState& flash) {
+        render_screen_flash(r, viewport_w, viewport_h,
+                            flash.timer, flash.duration, flash.color);
     }
 
     static void render_screen_flash(SDL_Renderer* r,

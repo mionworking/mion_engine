@@ -1,4 +1,7 @@
 # Roadmap — UI System
+
+> **Arquivado (2026-04-04):** rascunho histórico. `ui.hpp`, pause, skill tree overlay, HUD e Escape sem quit **já implementados**. Ver código e [README.md](../../README.md).
+
 > Pause menu, Skill Tree screen, HUD melhorado, navegação de menu.
 
 ---

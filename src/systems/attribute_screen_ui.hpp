@@ -12,19 +12,20 @@ inline void render_attribute_screen(SDL_Renderer* r, int vw, int vh,
                                      int pending_level_ups,
                                      int selected)
 {
-    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 210);
-    SDL_FRect full{0, 0, (float)vw, (float)vh};
-    SDL_RenderFillRect(r, &full);
+    ui::draw_dim(r, vw, vh, {0, 0, 0, 210});
 
     const char* title = "LEVEL UP - Distribute Attribute Point";
     draw_text(r, vw * 0.5f - text_width(title, 2) * 0.5f, 18.0f,
-              title, 2, 255, 220, 80, 255);
+              title, 2,
+              ui::g_theme.text_title.r, ui::g_theme.text_title.g,
+              ui::g_theme.text_title.b, ui::g_theme.text_title.a);
 
     char pts_buf[48];
     SDL_snprintf(pts_buf, sizeof(pts_buf), "Points remaining: %d", pending_level_ups);
     draw_text(r, vw * 0.5f - text_width(pts_buf, 2) * 0.5f, 42.0f,
-              pts_buf, 2, 200, 200, 180, 255);
+              pts_buf, 2,
+              ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+              ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
 
     struct AttrRow { const char* name; const char* desc; int current; };
     const AttrRow rows[5] = {
@@ -42,7 +43,6 @@ inline void render_attribute_screen(SDL_Renderer* r, int vw, int vh,
 
     ui::Panel panel;
     panel.rect   = {panel_x, panel_y, panel_w, panel_h};
-    panel.border = {180, 140, 60, 255};
     panel.render(r);
 
     const float row_h = panel_h / 5.0f;
@@ -59,21 +59,25 @@ inline void render_attribute_screen(SDL_Renderer* r, int vw, int vh,
             SDL_RenderRect(r, &hi);
         }
 
-        Uint8 nr = sel ? 255 : 200, ng = sel ? 220 : 200, nb = sel ? 80 : 180;
+        const SDL_Color& tc = sel ? ui::g_theme.text_selected : ui::g_theme.text_normal;
         draw_text(r, panel_x + 18.0f, ry + 10.0f,
-                  rows[i].name, 2, nr, ng, nb, 255);
+                  rows[i].name, 2, tc.r, tc.g, tc.b, tc.a);
 
         char lvbuf[16];
         SDL_snprintf(lvbuf, sizeof(lvbuf), "%d", rows[i].current);
         draw_text(r, panel_x + panel_w - text_width(lvbuf, 3) - 20.0f, ry + 8.0f,
-                  lvbuf, 3, nr, ng, nb, 255);
+                  lvbuf, 3, tc.r, tc.g, tc.b, tc.a);
 
         draw_text(r, panel_x + 18.0f, ry + 32.0f,
-                  rows[i].desc, 1, 160, 165, 145, 200);
+                  rows[i].desc, 1,
+                  ui::g_theme.text_desc.r, ui::g_theme.text_desc.g,
+                  ui::g_theme.text_desc.b, ui::g_theme.text_desc.a);
     }
 
     const char* hint = "UP/DOWN selecionar   ENTER confirmar   ESC fechar";
-    draw_text(r, 16.0f, (float)vh - 28.0f, hint, 2, 200, 200, 180, 255);
+    draw_text(r, 16.0f, (float)vh - 28.0f, hint, 2,
+              ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+              ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
 }
 
 } // namespace mion

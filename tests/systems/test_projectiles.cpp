@@ -18,7 +18,7 @@ static void test_projectile_expires_on_lifetime() {
     mion::RoomDefinition room;
     room.bounds = { 0, 500, 0, 500 };
     std::vector<mion::Actor*> actors;
-    psys.fixed_update(prs, actors, room, 0.05f);
+    psys.fixed_update(prs, actors, room, 0.f, 0.f, 0.05f);
     EXPECT_EQ((int)prs.size(), 0);
 }
 REGISTER_TEST(test_projectile_expires_on_lifetime);
@@ -37,7 +37,7 @@ static void test_projectile_despawns_outside_room() {
     mion::RoomDefinition room;
     room.bounds = { 0, 200, 0, 200 };
     std::vector<mion::Actor*> actors;
-    psys.fixed_update(prs, actors, room, 0.05f);
+    psys.fixed_update(prs, actors, room, 0.f, 0.f, 0.05f);
     EXPECT_EQ((int)prs.size(), 0);
 }
 REGISTER_TEST(test_projectile_despawns_outside_room);
@@ -69,7 +69,7 @@ static void test_projectile_hits_enemy_and_applies_damage() {
     mion::RoomDefinition room;
     room.bounds = { -500, 500, -500, 500 };
     std::vector<mion::Actor*> actors = { &enemy };
-    psys.fixed_update(prs, actors, room, 0.016f);
+    psys.fixed_update(prs, actors, room, 0.f, 0.f, 0.016f);
     EXPECT_EQ(enemy.health.current_hp, 75);
     EXPECT_TRUE(psys.projectile_hit_actor);
     EXPECT_EQ((int)prs.size(), 0);
@@ -104,7 +104,7 @@ static void test_projectile_skips_same_team() {
     mion::RoomDefinition room;
     room.bounds = { -500, 500, -500, 500 };
     std::vector<mion::Actor*> actors = { &ally };
-    psys.fixed_update(prs, actors, room, 0.016f);
+    psys.fixed_update(prs, actors, room, 0.f, 0.f, 0.016f);
     EXPECT_EQ(ally.health.current_hp, 100);
 }
 REGISTER_TEST(test_projectile_skips_same_team);
@@ -127,7 +127,7 @@ static void test_projectile_blocked_by_obstacle() {
     room.add_obstacle("x", 80, 80, 120, 120);
 
     std::vector<mion::Actor*> actors;
-    psys.fixed_update(prs, actors, room, 0.2f);
+    psys.fixed_update(prs, actors, room, 0.f, 0.f, 0.2f);
     EXPECT_EQ((int)prs.size(), 0);
 }
 REGISTER_TEST(test_projectile_blocked_by_obstacle);

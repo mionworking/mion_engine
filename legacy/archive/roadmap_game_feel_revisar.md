@@ -1,4 +1,7 @@
 # Roadmap — Game Feel / Juice
+
+> **Arquivado (2026-04-04):** rascunho histórico. `SceneFader`, `FloatingTextSystem`, screen flash, boss intro, partículas **já no código** (`scene_fader`, `floating_text`, `screen_fx`, `combat_fx_controller`).
+
 > Transições de cena, dano flutuante, tint de status effects, hit flash, level-up FX, screen flash, boss intro.
 
 ---

@@ -12,10 +12,7 @@ inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
                                        int selected_col, int selected_row,
                                        const std::vector<int> col_indices[3])
 {
-    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 200);
-    SDL_FRect full{0, 0, (float)vw, (float)vh};
-    SDL_RenderFillRect(r, &full);
+    ui::draw_dim(r, vw, vh);
 
     char pts[48];
     SDL_snprintf(pts, sizeof(pts), "Pontos: %d", talents.pending_points);
@@ -31,7 +28,7 @@ inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
         ui::Panel col_panel;
         col_panel.rect = {gap + (colw + gap) * (float)c, top, colw, height};
         if (c == selected_col) {
-            col_panel.border    = {255, 210, 80, 255};
+            col_panel.border    = ui::g_theme.list_hl_border;
             col_panel.border_px = 3;
         }
         col_panel.render(r);
@@ -51,11 +48,11 @@ inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
             char line[96];
             SDL_snprintf(line, sizeof(line), "%s %d/%d",
                          talent_display_name(tid).c_str(), lv, node.max_level);
-            Uint8 R = 200, G = 200, B = 190;
+            SDL_Color tc = ui::g_theme.text_normal;
             if (lock && lv == 0) {
-                R = 90; G = 88; B = 85;
+                tc = ui::g_theme.text_disabled;
             } else if (talents.can_spend(tid)) {
-                R = 180; G = 240; B = 160;
+                tc = {180, 240, 160, 255}; // verde: pode gastar ponto
             }
             if (sel) {
                 SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
@@ -64,13 +61,15 @@ inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
                               col_panel.rect.w - 12.0f, 22.0f};
                 SDL_RenderFillRect(r, &hi);
             }
-            draw_text(r, col_panel.rect.x + 12.0f, ty, line, 1, R, G, B, 255);
+            draw_text(r, col_panel.rect.x + 12.0f, ty, line, 1, tc.r, tc.g, tc.b, tc.a);
             ty += 24.0f;
         }
     }
 
     const char* hint = "SETAS  ENTER - gastar ponto  TAB/ESC - fechar";
-    draw_text(r, 16.0f, (float)vh - 28.0f, hint, 2, 200, 200, 180, 255);
+    draw_text(r, 16.0f, (float)vh - 28.0f, hint, 2,
+              ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
+              ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
 }
 
 } // namespace mion

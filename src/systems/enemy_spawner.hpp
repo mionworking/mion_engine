@@ -43,7 +43,9 @@ struct EnemySpawner {
                                              int room_index,
                                              int budget,
                                              bool stress_mode,
-                                             const DifficultyLevel* difficulty) {
+                                             const DifficultyLevel* difficulty,
+                                             float world_origin_x = 0.f,
+                                             float world_origin_y = 0.f) {
         enemies.clear();
 
         EnemySpawnResult result{};
@@ -54,7 +56,8 @@ struct EnemySpawner {
             const float        height = bounds.max_y - bounds.min_y;
             spawn_enemy(enemies, EnemyType::BossGrimjaw,
                         bounds.min_x + width * 0.625f, bounds.min_y + height * 0.5f,
-                        "Grimjaw", enemy_defs, tex_cache, stress_mode, difficulty);
+                        "Grimjaw", enemy_defs, tex_cache, stress_mode, difficulty,
+                        world_origin_x, world_origin_y);
             result.boss_intro_pending = true;
             return result;
         }
@@ -62,10 +65,11 @@ struct EnemySpawner {
         enemies.reserve(static_cast<size_t>(std::max(budget, 4)));
         if (budget <= 3)
             spawn_default_enemies(enemies, room, enemy_defs, tex_cache, stress_mode, difficulty,
-                                  budget);
+                                  budget, world_origin_x, world_origin_y);
         else
             spawn_stress_enemies(enemies, tilemap, pathfinder, player, enemy_defs,
-                                 tex_cache, stress_mode, difficulty, budget);
+                                 tex_cache, stress_mode, difficulty, budget,
+                                 world_origin_x, world_origin_y);
         return result;
     }
 
@@ -78,7 +82,9 @@ private:
                             const EnemyDef* enemy_defs,
                             TextureCache* tex_cache,
                             bool stress_mode,
-                            const DifficultyLevel* difficulty) {
+                            const DifficultyLevel* difficulty,
+                            float world_origin_x,
+                            float world_origin_y) {
         const EnemyDef& def = enemy_defs[static_cast<int>(type)];
         Actor           actor;
         actor.name               = name;
@@ -109,7 +115,7 @@ private:
         actor.combat.attack_active_duration_seconds   = def.active_sec;
         actor.combat.attack_recovery_duration_seconds = def.recovery_sec;
         actor.combat.reset_for_spawn();
-        actor.transform.set_position(x, y);
+        actor.transform.set_position(x + world_origin_x, y + world_origin_y);
         actor.is_alive           = true;
         actor.was_alive          = true;
         actor.knockback_vx       = 0.0f;
@@ -121,6 +127,9 @@ private:
             : nullptr;
         if (actor.sprite_sheet)
             actor.anim.build_puny_clips(def.dir_row, def.frame_fps);
+
+        const float wx = x + world_origin_x;
+        const float wy = y + world_origin_y;
 
         actor.ai_behavior        = def.ai_behavior;
         actor.ranged_fire_rate   = def.ranged_fire_rate;
@@ -137,15 +146,16 @@ private:
         actor.patrol_waypoints.clear();
 
         if (type == EnemyType::PatrolGuard)
-            actor.patrol_waypoints = {{x - 90.0f, y}, {x + 90.0f, y}, {x, y - 70.0f}, {x, y + 70.0f}};
+            actor.patrol_waypoints = {{wx - 90.0f, wy}, {wx + 90.0f, wy},
+                                      {wx, wy - 70.0f}, {wx, wy + 70.0f}};
         if (type == EnemyType::BossGrimjaw)
-            actor.patrol_waypoints = {{x - 180.0f, y - 130.0f},
-                                      {x + 180.0f, y - 130.0f},
-                                      {x + 180.0f, y + 130.0f},
-                                      {x - 180.0f, y + 130.0f}};
+            actor.patrol_waypoints = {{wx - 180.0f, wy - 130.0f},
+                                      {wx + 180.0f, wy - 130.0f},
+                                      {wx + 180.0f, wy + 130.0f},
+                                      {wx - 180.0f, wy + 130.0f}};
 
-        actor.footstep_prev_x     = x;
-        actor.footstep_prev_y     = y;
+        actor.footstep_prev_x     = wx;
+        actor.footstep_prev_y     = wy;
         actor.footstep_accum_dist = 0.0f;
         enemies.push_back(std::move(actor));
     }
@@ -156,22 +166,27 @@ private:
                                       TextureCache* tex_cache,
                                       bool stress_mode,
                                       const DifficultyLevel* difficulty,
-                                      int count) {
+                                      int count,
+                                      float world_origin_x,
+                                      float world_origin_y) {
         const WorldBounds& bounds = room.bounds;
         const float        width  = bounds.max_x - bounds.min_x;
         const float        height = bounds.max_y - bounds.min_y;
         if (count >= 1)
             spawn_enemy(enemies, EnemyType::Skeleton, bounds.min_x + width * 0.56f,
                         bounds.min_y + height * 0.5f, "skeleton_01",
-                        enemy_defs, tex_cache, stress_mode, difficulty);
+                        enemy_defs, tex_cache, stress_mode, difficulty,
+                        world_origin_x, world_origin_y);
         if (count >= 2)
             spawn_enemy(enemies, EnemyType::Orc, bounds.min_x + width * 0.69f,
                         bounds.min_y + height * 0.33f, "orc_01",
-                        enemy_defs, tex_cache, stress_mode, difficulty);
+                        enemy_defs, tex_cache, stress_mode, difficulty,
+                        world_origin_x, world_origin_y);
         if (count >= 3)
             spawn_enemy(enemies, EnemyType::Ghost, bounds.min_x + width * 0.44f,
                         bounds.min_y + height * 0.25f, "ghost_01",
-                        enemy_defs, tex_cache, stress_mode, difficulty);
+                        enemy_defs, tex_cache, stress_mode, difficulty,
+                        world_origin_x, world_origin_y);
     }
 
     static void spawn_stress_enemies(std::vector<Actor>& enemies,
@@ -182,10 +197,15 @@ private:
                                      TextureCache* tex_cache,
                                      bool stress_mode,
                                      const DifficultyLevel* difficulty,
-                                     int count) {
+                                     int count,
+                                     float world_origin_x,
+                                     float world_origin_y) {
         constexpr float player_clear_radius_sq = 180.0f * 180.0f;
         constexpr int   step_tiles             = 2;
         int             spawned                = 0;
+
+        const float plx = player.transform.x - world_origin_x;
+        const float ply = player.transform.y - world_origin_y;
 
         for (int row = 1; row < tilemap.rows - 1 && spawned < count; row += step_tiles) {
             for (int col = 1; col < tilemap.cols - 1 && spawned < count; col += step_tiles) {
@@ -194,8 +214,8 @@ private:
 
                 const float x = (col + 0.5f) * static_cast<float>(tilemap.tile_size);
                 const float y = (row + 0.5f) * static_cast<float>(tilemap.tile_size);
-                const float dx = x - player.transform.x;
-                const float dy = y - player.transform.y;
+                const float dx = x - plx;
+                const float dy = y - ply;
                 if (dx * dx + dy * dy < player_clear_radius_sq)
                     continue;
 
@@ -204,7 +224,7 @@ private:
                 SDL_snprintf(name, sizeof(name), "%s_%03d",
                              dungeon_rules::enemy_type_name(type), spawned + 1);
                 spawn_enemy(enemies, type, x, y, name, enemy_defs, tex_cache,
-                            stress_mode, difficulty);
+                            stress_mode, difficulty, world_origin_x, world_origin_y);
                 ++spawned;
             }
         }

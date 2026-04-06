@@ -12,7 +12,7 @@ enum class SoundId : int {
     PlayerDeath,      // player dies
     Dash,             // player dash
     RangedAttack,     // ranged attack
-    SpellBolt,        // legacy / fallback
+    SpellBolt,        // Strafe volley (spell slot 3 when Chain unavailable)
     SpellNova,        // Nova spell (E)
     SpellFrost,       // FrostBolt (Q)
     SpellChain,       // Chain Lightning (R)
@@ -33,6 +33,7 @@ enum class AmbientId : int {
     DungeonTorch,
     TownWind,
     TownBirds,
+    TransitionWind,
     AMBIENT_COUNT
 };
 

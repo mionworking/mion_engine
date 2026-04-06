@@ -154,6 +154,59 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         draw_slot(2, "R", rid, lab);
     }
     draw_slot(3, "F", SpellId::BattleCry, "Cry");
+
+    // Potion quickslot — canto inferior esquerdo, abaixo das barras de HP
+    {
+        const float pot_x = 20.0f;
+        const float pot_y = y_hp - 60.0f;
+        const float pot_w = 44.0f;
+        const float pot_h = 44.0f;
+
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+
+        // fundo do slot
+        const bool ready = player.potion.can_use();
+        SDL_SetRenderDrawColor(r, 30, 15, 15, 230);
+        SDL_FRect pot_box{pot_x, pot_y, pot_w, pot_h};
+        SDL_RenderFillRect(r, &pot_box);
+
+        // borda: dourada se pronta, cinza se cooldown
+        if (ready)
+            SDL_SetRenderDrawColor(r, 200, 160, 60, 255);
+        else
+            SDL_SetRenderDrawColor(r, 80, 70, 60, 200);
+        SDL_RenderRect(r, &pot_box);
+
+        // overlay de cooldown (escurece proporcionalmente)
+        if (!ready && player.potion.max_cooldown > 0.0f) {
+            const float ratio = player.potion.cooldown_ratio();
+            SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(160 * ratio));
+            SDL_FRect dim{pot_x, pot_y, pot_w, pot_h * ratio};
+            SDL_RenderFillRect(r, &dim);
+        }
+
+        // label da tecla
+        draw_text(r, pot_x + 3.0f, pot_y + 2.0f, "H", 1, 160, 160, 200, 220);
+
+        // stack count
+        if (player.potion.stack > 0) {
+            char sc[8];
+            SDL_snprintf(sc, sizeof(sc), "x%d", player.potion.stack);
+            draw_text(r, pot_x + 3.0f, pot_y + pot_h - 14.0f, sc, 1,
+                      ready ? 220 : 140,
+                      ready ? 200 : 130,
+                      ready ? 160 : 110, 255);
+        } else {
+            draw_text(r, pot_x + 10.0f, pot_y + 14.0f, "--", 1, 90, 80, 80, 200);
+        }
+
+        // qualidade
+        const char* qual_label = (player.potion.quality == PotionQuality::Greater) ? "Grt"
+                               : (player.potion.quality == PotionQuality::Normal)  ? "Nrm"
+                               :                                                     "Min";
+        draw_text(r, pot_x + 3.0f, pot_y + 16.0f, qual_label, 1,
+                  180, 140, 80, player.potion.stack > 0 ? 220 : 100);
+    }
 }
 
 } // namespace mion

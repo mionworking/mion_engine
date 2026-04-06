@@ -5,6 +5,9 @@
 #include "../../src/systems/town_builder.hpp"
 #include "../../src/systems/town_npc_interaction.hpp"
 #include "../../src/systems/town_npc_wander.hpp"
+#include "../../src/world/world_context.hpp"
+#include "../../src/world/world_map.hpp"
+#include "../../src/world/zone_manager.hpp"
 
 using namespace mion;
 
@@ -20,6 +23,7 @@ static void npc_actor_factory_links_npcs_to_runtime_actors() {
 
     player.sprite_scale = 2.0f;
     TownBuilder::build_town_world(room, tilemap, tile_renderer, npcs, shop, player, nullptr);
+    actors.push_back(&player);
     NpcActorFactory::rebuild_npc_actors(npcs, player, npc_actors, actors);
 
     EXPECT_EQ(static_cast<int>(npc_actors.size()), static_cast<int>(npcs.size()));
@@ -64,7 +68,6 @@ static void town_npc_interaction_finds_nearest_npc_and_opens_shop() {
     std::vector<Actor*> actors;
     Camera2D camera;
     DialogueSystem dialogue;
-    RoomFlowSystem room_flow;
     ResourceSystem resource;
     PlayerActionSystem player_action;
     QuestState quest_state;
@@ -76,22 +79,31 @@ static void town_npc_interaction_finds_nearest_npc_and_opens_shop() {
     NpcActorFactory::rebuild_npc_actors(npcs, player, npc_actors, actors);
     player.transform.set_position(1450.0f, 540.0f);
 
-    TownContext ctx;
-    ctx.room = &room;
-    ctx.tilemap = &tilemap;
+    WorldMap wm;
+    WorldArea wa;
+    wa.zone = ZoneId::Town;
+    wa.room    = room;
+    wa.tilemap = tilemap;
+    wm.areas.push_back(std::move(wa));
+
+    ZoneManager zm;
+    zm.current = ZoneId::Town;
+
+    WorldContext ctx;
+    ctx.world_map     = &wm;
+    ctx.zone_mgr      = &zm;
     ctx.tile_renderer = &tile_renderer;
-    ctx.player = &player;
-    ctx.actors = &actors;
-    ctx.npc_actors = &npc_actors;
-    ctx.npcs = &npcs;
-    ctx.shop_forge = &shop;
-    ctx.camera = &camera;
-    ctx.dialogue = &dialogue;
-    ctx.room_flow = &room_flow;
-    ctx.resource = &resource;
+    ctx.player        = &player;
+    ctx.actors        = &actors;
+    ctx.npc_actors    = &npc_actors;
+    ctx.npcs          = &npcs;
+    ctx.shop_forge    = &shop;
+    ctx.camera        = &camera;
+    ctx.dialogue      = &dialogue;
+    ctx.resource      = &resource;
     ctx.player_action = &player_action;
-    ctx.quest_state = &quest_state;
-    ctx.scene_flags = &scene_flags;
+    ctx.quest_state   = &quest_state;
+    ctx.scene_flags   = &scene_flags;
 
     const int idx = TownNpcInteractionController::find_nearest_npc(player, npcs);
     TownNpcInteractionController::handle_npc_interaction(idx, ctx, shop_open, 120);

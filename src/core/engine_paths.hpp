@@ -17,6 +17,23 @@ inline std::string resolve_data_path(const std::string& relative) {
             return p;
         }
     }
+
+    {
+        std::string p = "data/" + relative;
+        if (FILE* f = std::fopen(p.c_str(), "r")) {
+            std::fclose(f);
+            return p;
+        }
+    }
+
+    {
+        std::string p = "../data/" + relative;
+        if (FILE* f = std::fopen(p.c_str(), "r")) {
+            std::fclose(f);
+            return p;
+        }
+    }
+
     return "data/" + relative;
 }
 

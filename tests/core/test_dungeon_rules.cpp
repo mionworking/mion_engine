@@ -2,7 +2,7 @@
 #include "world/dungeon_rules.hpp"
 #include "world/room.hpp"
 #include "core/ini_loader.hpp"
-#include "scenes/dungeon_scene.hpp"
+#include "scenes/world_scene.hpp"
 #include "entities/enemy_type.hpp"
 #include <SDL3/SDL.h>
 #include <cstring>
@@ -138,7 +138,7 @@ static void test_dungeon_scene_smoke_optional() {
         return;
     }
     {
-        mion::DungeonScene scene;
+        mion::WorldScene scene;
         scene.set_renderer(ren);
         scene.viewport_w = 320;
         scene.viewport_h = 240;

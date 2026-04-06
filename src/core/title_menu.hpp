@@ -169,7 +169,7 @@ struct TitleMenuController {
             break;
         case 1:
             if (menu.save_exists)
-                next = "town";
+                next = "world";
             break;
         case 2:
             menu.ui = TitleUiState::Settings;
@@ -202,7 +202,7 @@ struct TitleMenuController {
             save_data.difficulty = menu.diff_list.selected;
             SaveSystem::save_default(save_data);
         }
-        next = "town";
+        next = "world";
     }
 
     static TitleMenuActionResult activate_settings_selection(TitleMenu& menu) {

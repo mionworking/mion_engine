@@ -10,7 +10,7 @@ inline constexpr float kBossChargeDuration = 0.45f;
 inline constexpr float kBossChargeCooldown = 4.0f;
 
 inline void update_boss(Actor* enemy, Actor* player, float dx, float dy, float dist,
-                        float dt, Pathfinder* pathfinder) {
+                        float dt, Pathfinder* pathfinder, float nav_ox, float nav_oy) {
     const int   max_hp = std::max(1, enemy->health.max_hp);
     const float half   = static_cast<float>(max_hp) * 0.5f;
     if (enemy->boss_phase == 1 && enemy->health.current_hp < half) {
@@ -42,7 +42,7 @@ inline void update_boss(Actor* enemy, Actor* player, float dx, float dy, float d
         return;
     }
 
-    chase_and_melee_attack(enemy, player, dx, dy, dist, dt, pathfinder);
+    chase_and_melee_attack(enemy, player, dx, dy, dist, dt, pathfinder, nav_ox, nav_oy);
 }
 
 } // namespace mion::enemy_ai

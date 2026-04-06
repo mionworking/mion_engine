@@ -102,8 +102,12 @@ struct SpellSystem {
                                          kArrowSpeed, damage, poison, poison_rank);
         }
 
-        if (audio)
-            audio->play_sfx_pitched(SoundId::RangedAttack);
+        if (audio) {
+            if (shot_count > 1)
+                audio->play_sfx_pitched(SoundId::SkillMultiShot);
+            else
+                audio->play_sfx_pitched(SoundId::RangedAttack);
+        }
     }
 
     static void try_cast_spell_inputs(Actor& player, const InputState& input, AudioSystem* audio,
@@ -202,7 +206,7 @@ struct SpellSystem {
                 if (out_spell_casts)
                     ++*out_spell_casts;
                 if (audio)
-                    audio->play_sfx_pitched(SoundId::SkillMultiShot);
+                    audio->play_sfx_pitched(SoundId::SpellBolt);
             }
         }
 

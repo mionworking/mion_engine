@@ -4,10 +4,35 @@
 namespace mion {
 
 // ---------------------------------------------------------------------------
-// Equipment slots v1: weapon, armor, accessory.
+// Equipment slots v2: 11 slots (armadura, acessórios, armas).
 // ---------------------------------------------------------------------------
-enum class EquipSlot { Weapon = 0, Armor, Accessory, Count };
-inline constexpr int kEquipSlotCount = static_cast<int>(EquipSlot::Count);
+enum class EquipSlot {
+    // Armadura (5)
+    Head = 0, Chest, Legs, Feet, Hands,
+    // Acessórios (4)
+    Belt, Amulet, RingLeft, RingRight,
+    // Armas (2)
+    MainHand, OffHand,
+    Count
+};
+inline constexpr int kEquipSlotCount = static_cast<int>(EquipSlot::Count); // 11
+
+inline const char* equip_slot_name(EquipSlot s) {
+    switch (s) {
+        case EquipSlot::Head:     return "Head";
+        case EquipSlot::Chest:    return "Chest";
+        case EquipSlot::Legs:     return "Legs";
+        case EquipSlot::Feet:     return "Feet";
+        case EquipSlot::Hands:    return "Hands";
+        case EquipSlot::Belt:     return "Belt";
+        case EquipSlot::Amulet:   return "Amulet";
+        case EquipSlot::RingLeft: return "Ring L";
+        case EquipSlot::RingRight:return "Ring R";
+        case EquipSlot::MainHand: return "Main Hand";
+        case EquipSlot::OffHand:  return "Off Hand";
+        default:                  return "?";
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Modifiers applied to DerivedStats by an equipped item.
@@ -16,25 +41,24 @@ inline constexpr int kEquipSlotCount = static_cast<int>(EquipSlot::Count);
 struct ItemModifiers {
     int   melee_damage  = 0;
     int   ranged_damage = 0;
-    float spell_mult    = 0.0f;  // added to the final spell_damage_mult
+    float spell_mult    = 0.0f;
     int   hp_bonus      = 0;
     float stamina_bonus = 0.0f;
     float mana_bonus    = 0.0f;
 };
 
 // ---------------------------------------------------------------------------
-// Item definition (v1: no rarity, no tier).
+// Item definition (data-driven: loaded from data/equipment.ini by name).
 // ---------------------------------------------------------------------------
 struct ItemDef {
     std::string    name;
-    EquipSlot      slot      = EquipSlot::Weapon;
+    EquipSlot      slot      = EquipSlot::MainHand;
     ItemModifiers  modifiers{};
     bool           valid     = false; // false = empty slot
 };
 
 // ---------------------------------------------------------------------------
 // Player equipment state: one slot per type.
-// Exposes helpers to compute the total modifier sum across all slots.
 // ---------------------------------------------------------------------------
 struct EquipmentState {
     ItemDef slots[kEquipSlotCount]{};
@@ -44,7 +68,7 @@ struct EquipmentState {
     }
 
     void equip(EquipSlot s, const ItemDef& item) {
-        slots[static_cast<int>(s)] = item;
+        slots[static_cast<int>(s)]       = item;
         slots[static_cast<int>(s)].valid = true;
     }
 
@@ -52,7 +76,6 @@ struct EquipmentState {
         slots[static_cast<int>(s)] = ItemDef{};
     }
 
-    // Sum of modifiers from all equipped slots.
     ItemModifiers total_modifiers() const {
         ItemModifiers total{};
         for (int i = 0; i < kEquipSlotCount; ++i) {

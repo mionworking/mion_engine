@@ -37,6 +37,7 @@ const char* AudioSystem::_ambient_paths[(int)AmbientId::AMBIENT_COUNT] = {
     "assets/audio/ambient_dungeon_torch.wav",
     "assets/audio/ambient_town_wind.wav",
     "assets/audio/ambient_town_birds.wav",
+    "assets/audio/ambient_transition_wind.wav",
 };
 
 const char* AudioSystem::_sfx_paths[(int)SoundId::COUNT] = {

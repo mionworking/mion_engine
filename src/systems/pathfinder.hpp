@@ -66,8 +66,8 @@ struct Pathfinder {
         nav.build(map, room);
     }
 
-    // Encontra caminho de (sx,sy) até (gx,gy) em coordenadas de mundo.
-    // Retorna Path com waypoints em centros de tiles.
+    // (sx,sy)→(gx,gy) em coordenadas **locais da sala** (mesmo espaço que o tilemap / room.bounds).
+    // Retorna waypoints em centros de tiles, também locais — somar offset da WorldArea para mundo.
     Path find_path(float sx, float sy, float gx, float gy) const {
         Path result;
         if (nav.cols == 0 || nav.rows == 0) return result;

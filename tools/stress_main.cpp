@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 #include "core/input.hpp"
-#include "scenes/dungeon_scene.hpp"
+#include "scenes/world_scene.hpp"
 
 namespace {
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     const int frames = read_arg_or_env(argc, argv, 2,
                                        "MION_STRESS_FRAMES", 600, 1);
 
-    mion::DungeonScene dungeon;
+    mion::WorldScene dungeon;
     dungeon.enable_stress_mode(enemy_count);
     dungeon.enter();
 
