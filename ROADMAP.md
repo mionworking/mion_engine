@@ -24,9 +24,9 @@ O projeto já tem um loop jogável completo com `title -> town -> dungeon`, comb
 - [x] `RoomDefinition` com bounds, obstáculos e portas
 - [x] `RoomCollisionSystem` (mundo + actor vs actor)
 - [x] `MeleeCombatSystem`, knockback, hitstop e screen shake
-- [x] `EnemyAISystem` com aggro, separação, perseguição, ataque e pathfinding; **ext.** dispatch por `AiBehavior` (Melee / Ranged / Patrol / Elite / BossPhased), projéteis de inimigo, patrulha com alerta a vizinhos, boss em 2 fases com carga — ver [`.cursor/plans/roadmap_enemy_variety.md`](.cursor/plans/roadmap_enemy_variety.md)
+- [x] `EnemyAISystem` com aggro, separação, perseguição, ataque e pathfinding; **ext.** dispatch por `AiBehavior` (Melee / Ranged / Patrol / Elite / BossPhased), projéteis de inimigo, patrulha com alerta a vizinhos, boss em 2 fases com carga — ver [`legacy/roadmap_enemy_variety_revisar.md`](legacy/roadmap_enemy_variety_revisar.md)
 - [x] Tipos de inimigo alargados: `Archer`, `PatrolGuard`, `EliteSkeleton`, `BossGrimjaw`; `data/enemies.ini` com secções correspondentes; spawn em stress (ciclo 6 tipos) + Grimjaw na sala 3 com intro e gatilho de fase 2 (shake, diálogo, flash)
-- [x] UI reutilizável [`src/core/ui.hpp`](src/core/ui.hpp) (`Panel`, `List`, `Label`, `ProgressBar`); menu de **pausa** na dungeon e na cidade; **Escape** não termina o processo no `main` (quit via fecho de janela) — ver [`.cursor/plans/roadmap_ui_system.md`](.cursor/plans/roadmap_ui_system.md)
+- [x] UI reutilizável [`src/core/ui.hpp`](src/core/ui.hpp) (`Panel`, `List`, `Label`, `ProgressBar`); menu de **pausa** na dungeon e na cidade; **Escape** não termina o processo no `main` (quit via fecho de janela) — ver [`legacy/roadmap_ui_system_revisar.md`](legacy/roadmap_ui_system_revisar.md)
 - [x] **Skill tree** em overlay na dungeon (Tab e entrada pelo menu de pausa), 3 disciplinas, navegação por setas, Enter para gastar ponto; opção desativada na cidade
 - [x] HUD dungeon: ouro, nível, barra XP no rodapé, hotbar Q/E/R/F com cooldown; HUD básica, HP bars, flash de dano, debug de facing/hitbox
 - [x] `SceneManager`, `SceneRegistry`, `register_default_scenes`
@@ -57,7 +57,7 @@ O projeto já tem um loop jogável completo com `title -> town -> dungeon`, comb
 
 ## Conteúdo / Gameplay (roadmap fechado)
 
-O plano detalhado em [`.cursor/plans/roadmap_conteudo_gameplay.md`](.cursor/plans/roadmap_conteudo_gameplay.md) está **concluído** no código. Checklist com itens ~~riscados~~ e mapa testes ↔ funcionalidade: [`.cursor/plans/roadmap_conteudo_gameplay_planilha.md`](.cursor/plans/roadmap_conteudo_gameplay_planilha.md).
+O plano detalhado em [`legacy/roadmap_conteudo_gameplay_revisar.md`](legacy/roadmap_conteudo_gameplay_revisar.md) está **concluído** no código.
 
 - [x] ~~Skill tree D2-style (17 nós), 8 `SpellId`, efeitos/handlers, save v3 por nível de talento~~
 - [x] ~~`rooms.ini` + `sections_with_prefix` + `room_loader` + integração em `_build_room` (fallback `_layout_*`)~~
@@ -128,7 +128,7 @@ O plano detalhado em [`.cursor/plans/roadmap_conteudo_gameplay.md`](.cursor/plan
 
 ### 1. Jogo jogável completo (sem arte final)
 
-Conteúdo/gameplay do plano `roadmap_conteudo_gameplay` está fechado. Roadmaps **UI** e **enemy variety** (planos em `.cursor/plans/`) estão espelhados em código e referenciados em **Feito** acima. Seguinte: clarificar objectivos de run (vitória / fim de run; ver `roadmap_run_loop.md` se aplicável), rebinding em `config.ini`, e testes extra para magias avançadas se desejares cobertura total.
+Conteúdo/gameplay do plano `roadmap_conteudo_gameplay` está fechado. Roadmaps **UI** e **enemy variety** (arquivos em `legacy/*_revisar*.md`) estão espelhados em código e referenciados em **Feito** acima. Seguinte: clarificar objectivos de run (vitória / fim de run; ver [`legacy/roadmap_run_loop_revisar.md`](legacy/roadmap_run_loop_revisar.md) se aplicável), rebinding em `config.ini`, e testes extra para magias avançadas se desejares cobertura total.
 
 ### 2. Infra de distribuição
 

@@ -249,7 +249,7 @@ autosave_indicator=0
 | `tools/asset_pipeline/` | Pipeline de classificação e conversão de assets (Python + Pillow vendorado) |
 | `tests_legacy/` | Suíte compartilhada + runner `test_main.cpp` (ctest etiqueta `legacy`) |
 | `tests_v2/` | Suíte oficial modular (4 targets, etiqueta ctest `official`) |
-| `legacy/` | Documentação arquivada (`PLAYER_DOCUMENTATION.md`, `README_ASSET_SCRIPTS.md`, `ROADMAP_FALHAS.md`) |
+| `legacy/` | Documentação arquivada e planos antigos para rever (`*_revisar*.md`, `PLAYER_DOCUMENTATION.md`, `README_ASSET_SCRIPTS.md`, `ROADMAP_FALHAS.md`) |
 
 ## Módulos extraídos na refatoração SRP
 
