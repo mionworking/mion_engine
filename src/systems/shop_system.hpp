@@ -5,6 +5,7 @@
 #include "../entities/actor.hpp"
 #include "../entities/shop.hpp"
 #include "../core/bitmap_font.hpp"
+#include "../core/locale.hpp"
 #include "../core/ui.hpp"
 
 namespace mion {
@@ -50,7 +51,11 @@ struct ShopSystem {
     }
 
     static void render_shop_ui(SDL_Renderer* r, const ShopInventory& shop,
-                               int player_gold, int viewport_w, int viewport_h) {
+                               int player_gold, int viewport_w, int viewport_h,
+                               const LocaleSystem* locale = nullptr) {
+        const auto tr = [locale](const std::string& key) -> const char* {
+            return locale ? locale->get(key) : key.c_str();
+        };
         const float panel_w = 320.0f;
         const float pad     = 16.0f;
         const float x0      = (float)viewport_w - panel_w - pad;
@@ -63,13 +68,13 @@ struct ShopSystem {
 
         const int scale = 2;
         float       ty  = y0 + pad;
-        draw_text(r, x0 + pad, ty, "FORGE", scale,
+        draw_text(r, x0 + pad, ty, tr("shop_title"), scale,
                   ui::g_theme.text_title.r, ui::g_theme.text_title.g,
                   ui::g_theme.text_title.b, ui::g_theme.text_title.a);
         ty += 28.0f;
 
         char gold_line[64];
-        std::snprintf(gold_line, sizeof(gold_line), "Gold: %d", player_gold);
+        SDL_snprintf(gold_line, sizeof(gold_line), tr("shop_gold_label"), player_gold);
         draw_text(r, x0 + pad, ty, gold_line, scale, 255, 220, 100, 255);
         ty += 36.0f;
 
@@ -92,11 +97,11 @@ struct ShopSystem {
         }
 
         ty = y0 + h - pad - 48.0f;
-        draw_text(r, x0 + pad, ty, "ENTER - comprar", scale,
+        draw_text(r, x0 + pad, ty, tr("shop_buy_hint"), scale,
                   ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
                   ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
         ty += 22.0f;
-        draw_text(r, x0 + pad, ty, "BACKSPACE - fechar", scale,
+        draw_text(r, x0 + pad, ty, tr("shop_close_hint"), scale,
                   ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
                   ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);
     }

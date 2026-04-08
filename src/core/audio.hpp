@@ -149,9 +149,6 @@ private:
     bool _load_ambient(AmbientId id, const char* path);
     bool _load_sfx(SoundId id, const char* path);
 
-    static const char* _sfx_paths[(int)SoundId::COUNT];
-    static const char* _ambient_paths[(int)AmbientId::AMBIENT_COUNT];
-    static const char* _music_paths[(int)MusicState::MUSIC_STATE_COUNT];
 };
 
 } // namespace mion

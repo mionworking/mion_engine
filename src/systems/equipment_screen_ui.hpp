@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 
 #include "../core/bitmap_font.hpp"
+#include "../core/locale.hpp"
 #include "../core/ui.hpp"
 #include "../components/equipment.hpp"
 #include "../components/item_bag.hpp"
@@ -31,8 +32,12 @@ struct EquipScreenRenderState {
 
 inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
                                     const Actor& player,
-                                    const EquipScreenRenderState& state)
+                                    const EquipScreenRenderState& state,
+                                    const LocaleSystem* locale = nullptr)
 {
+    const auto tr = [locale](const std::string& key) -> const char* {
+        return locale ? locale->get(key) : key.c_str();
+    };
     const float alpha = state.open_alpha;
 
     // --- dim fullscreen ---
@@ -57,7 +62,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
         left.border = !state.focus_bag ? ui::g_theme.list_hl_border : ui::g_theme.panel_border;
         left.render(r);
 
-        const char* title = "EQUIPAMENTO";
+        const char* title = tr("equip_title");
         draw_text(r, slot_x + 10.0f, panel_y + 8.0f, title, 2,
                   ui::g_theme.text_title.r, ui::g_theme.text_title.g,
                   ui::g_theme.text_title.b, (Uint8)(ui::g_theme.text_title.a * alpha));
@@ -101,7 +106,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
         right.border = state.focus_bag ? ui::g_theme.list_hl_border : ui::g_theme.panel_border;
         right.render(r);
 
-        const char* title = "INVENTARIO";
+        const char* title = tr("equip_inventory_title");
         draw_text(r, bag_x + 10.0f, panel_y + 8.0f, title, 2,
                   ui::g_theme.text_title.r, ui::g_theme.text_title.g,
                   ui::g_theme.text_title.b, (Uint8)(ui::g_theme.text_title.a * alpha));
@@ -150,8 +155,8 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
     if (state.ctx_open) {
         // Options depend on focus: slots → Unequip/Cancel, bag → Equip/Cancel
         const char* opts[2] = {
-            state.focus_bag ? "Equipar" : "Desequipar",
-            "Cancelar"
+            state.focus_bag ? tr("equip_ctx_equip") : tr("equip_ctx_unequip"),
+            tr("equip_ctx_cancel")
         };
         const float cm_w = 160.0f;
         const float cm_h = 72.0f;
@@ -180,8 +185,8 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
 
     // ==== HINT BAR ====
     const char* hint = state.focus_bag
-        ? "TAB: slots   SETAS: navegar   ENTER: acao   ESC: fechar"
-        : "TAB: bag   SETAS: navegar   ENTER: acao   ESC: fechar";
+        ? tr("equip_hint_focus_bag")
+        : tr("equip_hint_focus_slots");
     draw_text(r, pad, (float)vh - 24.0f, hint, 1,
               ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
               ui::g_theme.text_hint.b, (Uint8)(ui::g_theme.text_hint.a * alpha));

@@ -3,6 +3,8 @@
 #include <vector>
 
 #include "../core/sprite.hpp"
+#include "../core/town_dialogue_ids.hpp"
+#include "../core/world_layout_ids.hpp"
 #include "../entities/actor.hpp"
 #include "../entities/npc.hpp"
 #include "../entities/shop.hpp"
@@ -21,7 +23,7 @@ inline void build_town_world(RoomDefinition& room,
                              ShopInventory& shop_forge,
                              Actor& player,
                              TextureCache* tex_cache) {
-    room.name   = "town";
+    room.name   = WorldLayoutId::kTown;
     room.bounds = {0.0f, 2400.0f, 0.0f, 1600.0f};
     room.obstacles.clear();
     room.doors.clear();
@@ -47,7 +49,7 @@ inline void build_town_world(RoomDefinition& room,
     room.add_obstacle("building_elder", 300.0f, 900.0f, 600.0f, 1200.0f);
     room.add_obstacle("fountain", 1100.0f, 700.0f, 1300.0f, 900.0f);
 
-    room.add_door(2350.0f, 700.0f, 2390.0f, 900.0f, false, "dungeon");
+    room.add_door(2350.0f, 700.0f, 2390.0f, 900.0f, false, WorldLayoutId::kDungeon);
 
     npcs.clear();
     {
@@ -58,9 +60,9 @@ inline void build_town_world(RoomDefinition& room,
         mira.type             = NpcType::QuestGiver;
         mira.interact_radius  = 52.0f;
         mira.portrait_color   = {200, 180, 80, 255};
-        mira.dialogue_default      = "mira_default";
-        mira.dialogue_quest_active = "mira_quest_active";
-        mira.dialogue_quest_done   = "mira_quest_done";
+        mira.dialogue_default      = TownDialogueId::kMiraDefault;
+        mira.dialogue_quest_active = TownDialogueId::kMiraQuestActive;
+        mira.dialogue_quest_done   = TownDialogueId::kMiraQuestDone;
         mira.wander_radius = 60.0f;
         mira.wander_speed  = 28.0f;
         mira.wander_timer  = 1.2f;
@@ -74,7 +76,7 @@ inline void build_town_world(RoomDefinition& room,
         forge.type             = NpcType::Merchant;
         forge.interact_radius  = 52.0f;
         forge.portrait_color   = {220, 120, 60, 255};
-        forge.dialogue_default = "forge_greeting";
+        forge.dialogue_default = TownDialogueId::kForgeGreeting;
         forge.wander_radius = 50.0f;
         forge.wander_speed  = 22.0f;
         forge.wander_timer  = 0.8f;

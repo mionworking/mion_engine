@@ -1,5 +1,6 @@
 #include "../test_common.hpp"
 
+#include "../../src/core/town_dialogue_ids.hpp"
 #include "../../src/systems/town_config_loader.hpp"
 
 using namespace mion;
@@ -16,8 +17,8 @@ static void town_config_loader_registers_dialogues_from_ini() {
 
     TownConfigLoader::load_town_dialogues(dialogue);
 
-    EXPECT_TRUE(dialogue._sequences.find("mira_default") != dialogue._sequences.end());
-    EXPECT_TRUE(dialogue._sequences.find("forge_greeting") != dialogue._sequences.end());
+    EXPECT_TRUE(dialogue.has_sequence(TownDialogueId::kMiraDefault));
+    EXPECT_TRUE(dialogue.has_sequence(TownDialogueId::kForgeGreeting));
 }
 
 REGISTER_TEST(town_config_loader_loads_runtime_config);

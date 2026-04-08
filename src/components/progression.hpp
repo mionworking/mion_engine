@@ -15,9 +15,12 @@ struct ProgressionConfig {
     float spell_mult_bonus   = 0.08f;
 };
 
-inline ProgressionConfig g_progression_config{};
+inline constexpr ProgressionConfig kDefaultProgressionConfig{};
+inline ProgressionConfig g_progression_config = kDefaultProgressionConfig;
 
-inline void reset_progression_config_defaults() { g_progression_config = ProgressionConfig{}; }
+inline void reset_progression_config_defaults() {
+    g_progression_config = kDefaultProgressionConfig;
+}
 
 inline void apply_progression_ini(const IniData& d) {
     g_progression_config.xp_base =

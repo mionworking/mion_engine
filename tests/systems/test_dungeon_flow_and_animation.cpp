@@ -37,21 +37,12 @@ static void combat_fx_controller_applies_hitstop_and_death_fade() {
     EXPECT_EQ(hitstop, 5);
     EXPECT_GT(camera.shake_remaining, 0);
 
-    bool death_snapshot_done = false;
-    float death_fade_remaining = 0.0f;
-    std::string pending_next_scene;
     int snapshot_calls = 0;
-    CombatFxController::update_death_flow(
-        false,
-        2.0f,
-        death_snapshot_done,
-        death_fade_remaining,
-        1.5f,
-        pending_next_scene,
-        [&]() { ++snapshot_calls; });
-    EXPECT_TRUE(death_snapshot_done);
+    PlayerDeathFlow death_flow;
+    auto next = death_flow.tick(false, 2.0f, [&]() { ++snapshot_calls; });
+    EXPECT_TRUE(death_flow.snapshot_done);
     EXPECT_EQ(snapshot_calls, 1);
-    EXPECT_EQ(pending_next_scene, "game_over");
+    EXPECT_EQ(next, "game_over");
 }
 
 REGISTER_TEST(animation_driver_selects_expected_player_anims);

@@ -1,4 +1,5 @@
 #pragma once
+#include "../core/player_actor_id.hpp"
 #include "../entities/actor.hpp"
 #include "../components/player_config.hpp"
 #include "../components/attributes.hpp"
@@ -20,6 +21,7 @@ namespace mion {
 
 struct PlayerConfigureOptions {
     bool  reset_health_to_max   = true;
+    bool  preserve_resources    = false; // keep current mana/stamina (e.g. loading from save)
     bool  stress_mode           = false;
     float spawn_x               = 0.0f;
     float spawn_y               = 0.0f;
@@ -28,7 +30,7 @@ struct PlayerConfigureOptions {
 inline void configure_player(Actor& player, TextureCache* tex_cache,
                               const PlayerConfigureOptions& opts = {})
 {
-    player.name            = "player";
+    player.name            = PlayerActorId::kName;
     player.team            = Team::Player;
     player.attack_damage   = g_player_config.melee_damage;
     player.ranged_damage   = g_player_config.ranged_damage;
@@ -77,19 +79,25 @@ inline void configure_player(Actor& player, TextureCache* tex_cache,
     if (opts.reset_health_to_max)
         player.health.current_hp = player.health.max_hp;
 
-    // Stamina — always reset to base + derived bonus
+    // Stamina
+    const float prev_stamina      = player.stamina.current;
     player.stamina                = StaminaState{};
-    player.stamina.current        = g_player_config.base_stamina;
     player.stamina.max            = g_player_config.base_stamina_max + player.derived.stamina_max_bonus;
     player.stamina.regen_rate     = g_player_config.stamina_regen;
     player.stamina.regen_delay    = g_player_config.stamina_delay;
+    player.stamina.current        = opts.preserve_resources
+        ? (prev_stamina < player.stamina.max ? prev_stamina : player.stamina.max)
+        : g_player_config.base_stamina;
 
-    // Mana — always reset to base + derived bonus
+    // Mana
+    const float prev_mana         = player.mana.current;
     player.mana                   = ManaState{};
-    player.mana.current           = g_player_config.base_mana;
     player.mana.max               = g_player_config.base_mana_max + player.derived.mana_max_bonus;
     player.mana.regen_rate        = g_player_config.base_mana_regen;
     player.mana.regen_delay       = g_player_config.mana_regen_delay;
+    player.mana.current           = opts.preserve_resources
+        ? (prev_mana < player.mana.max ? prev_mana : player.mana.max)
+        : g_player_config.base_mana;
 
     // Sprite
     {

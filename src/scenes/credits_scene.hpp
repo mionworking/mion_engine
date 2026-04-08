@@ -9,6 +9,7 @@
 #include "../core/bitmap_font.hpp"
 #include "../core/locale.hpp"
 #include "../core/scene.hpp"
+#include "../core/scene_ids.hpp"
 
 namespace mion {
 
@@ -18,6 +19,7 @@ public:
     int viewport_h = 720;
 
     void set_audio(AudioSystem* a) { _audio = a; }
+    void set_locale(LocaleSystem* l) { _locale = l; }
 
     void enter() override {
         _scroll_y    = (float)viewport_h;
@@ -31,12 +33,12 @@ public:
     void fixed_update(float dt, const InputState& input) override {
         _scroll_y -= 40.0f * dt;
         if (input.ui_cancel_pressed && !_prev_cancel)
-            _next = "title";
+            _next = SceneId::kTitle;
         _prev_cancel = input.ui_cancel_pressed;
 
         float total_h = (float)(_lines.size() * 30);
         if (_scroll_y + total_h < 0.0f)
-            _next = "title";
+            _next = SceneId::kTitle;
     }
 
     void render(SDL_Renderer* r, float /*blend_factor*/) override {
@@ -50,7 +52,7 @@ public:
                 SDL_Color   c  = line.header ? SDL_Color{255, 215, 100, 255}
                                              : SDL_Color{200, 200, 190, 255};
                 const char* t  = (line.text_key && line.text_key[0] != '\0')
-                    ? L(line.text_key)
+                    ? tr(line.text_key)
                     : line.literal;
                 float x = viewport_w * 0.5f - text_width(t, sc) * 0.5f;
                 draw_text(r, x, y, t, sc, c.r, c.g, c.b, c.a);
@@ -58,7 +60,7 @@ public:
             y += line.header ? 46.0f : 30.0f;
         }
 
-        const char* hint = L("credits_back_hint");
+        const char* hint = tr("credits_back_hint");
         draw_text(r, 12.0f, viewport_h - 24.0f, hint, 2, 130, 130, 120, 255);
     }
 
@@ -69,6 +71,10 @@ public:
     void clear_next_scene_request() override { _next.clear(); }
 
 private:
+    const char* tr(const std::string& key) const {
+        return _locale ? _locale->get(key) : key.c_str();
+    }
+
     struct CreditLine {
         const char* literal = "";
         const char* text_key = "";
@@ -91,6 +97,7 @@ private:
     };
 
     AudioSystem* _audio = nullptr;
+    LocaleSystem* _locale = nullptr;
     float        _scroll_y = 0.0f;
     std::string  _next;
     bool         _prev_cancel = false;

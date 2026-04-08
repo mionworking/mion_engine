@@ -6,6 +6,7 @@
 
 #include "../core/bitmap_font.hpp"
 #include "../core/dialogue.hpp"
+#include "../core/locale.hpp"
 #include "dialogue_system.hpp"
 
 namespace mion {
@@ -14,17 +15,15 @@ namespace mion {
 inline void render_dialogue_ui(SDL_Renderer* r,
                                int viewport_w,
                                int viewport_h,
-                               const DialogueSystem& dlg)
+                               const DialogueSystem& dlg,
+                               const LocaleSystem* locale = nullptr)
 {
     if (!dlg.is_active())
         return;
 
-    const std::vector<DialogueLine>& lines = dlg.active_lines();
-    const int                       index = dlg.current_line_index();
-    if (index < 0 || index >= static_cast<int>(lines.size()))
+    const DialogueLine* line = dlg.current_line();
+    if (!line)
         return;
-
-    const DialogueLine& line = lines[static_cast<size_t>(index)];
 
     const int   text_scale  = 2;
     const float pad_x       = 24.0f;
@@ -42,11 +41,11 @@ inline void render_dialogue_ui(SDL_Renderer* r,
     draw_text(r,
               pad_x,
               name_y,
-              line.speaker.c_str(),
+              line->speaker.c_str(),
               text_scale,
-              line.portrait_color.r,
-              line.portrait_color.g,
-              line.portrait_color.b,
+              line->portrait_color.r,
+              line->portrait_color.g,
+              line->portrait_color.b,
               255);
 
     auto wrap_text_to_width = [](const std::string& text,
@@ -115,7 +114,7 @@ inline void render_dialogue_ui(SDL_Renderer* r,
     };
 
     std::vector<std::string> wrapped;
-    wrap_text_to_width(line.text, max_text_px, text_scale, wrapped);
+    wrap_text_to_width(line->text, max_text_px, text_scale, wrapped);
     float ty = name_y + 22.0f * static_cast<float>(text_scale);
     for (const auto& row : wrapped) {
         draw_text(r, pad_x, ty, row.c_str(), text_scale, 230, 230, 220, 255);
@@ -125,7 +124,7 @@ inline void render_dialogue_ui(SDL_Renderer* r,
     const Uint32 t        = SDL_GetTicks();
     const bool   blink_on = (t / 500u) % 2u == 0u;
     if (blink_on) {
-        const char* hint = "ENTER - continuar";
+        const char* hint = locale ? locale->get("dialogue_continue_hint") : "ENTER - continue";
         float       hx   = static_cast<float>(viewport_w)
                          - pad_x
                          - text_width(hint, text_scale);

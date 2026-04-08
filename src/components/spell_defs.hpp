@@ -4,6 +4,7 @@
 #include <string>
 
 #include "../core/ini_loader.hpp"
+#include "../core/data_section_names.hpp"
 
 namespace mion {
 
@@ -45,8 +46,7 @@ struct SpellDef {
 
 inline constexpr int kSpellCount = static_cast<int>(SpellId::Count);
 
-// Default spell stat table — individual entries overridable via data/spells.ini.
-inline std::array<SpellDef, kSpellCount> g_spell_defs = {{
+inline constexpr std::array<SpellDef, kSpellCount> kDefaultSpellDefs = {{
     { SpellId::FrostBolt, 18.0f, 0.45f, 16, 460.0f, 0.0f, 0, 0.0f },
     { SpellId::Nova, 30.0f, 1.20f, 20, 0.0f, 96.0f, 0, 0.0f },
     { SpellId::ChainLightning, 22.0f, 1.0f, 14, 0.0f, 0.0f, 4, 0.05f },
@@ -56,6 +56,11 @@ inline std::array<SpellDef, kSpellCount> g_spell_defs = {{
     { SpellId::Cleave, 0.0f, 0.85f, 14, 0.0f, 88.0f, 3, 0.06f },
     { SpellId::BattleCry, 0.0f, 12.0f, 0, 0.0f, 0.0f, 0, 0.0f },
 }};
+
+// Mutable runtime table overridable via data/spells.ini.
+inline std::array<SpellDef, kSpellCount> g_spell_defs = kDefaultSpellDefs;
+
+inline void reset_spell_defs_defaults() { g_spell_defs = kDefaultSpellDefs; }
 
 inline const SpellDef& spell_def(SpellId id) {
     return g_spell_defs[static_cast<int>(id)];
@@ -73,6 +78,37 @@ inline void apply_spell_ini_section(const IniData& d, const std::string& sec, Sp
         d.get_int(sec, "damage_per_level", def.damage_per_level);
     def.cooldown_per_level =
         d.get_float(sec, "cooldown_per_level", def.cooldown_per_level);
+}
+
+// Applies all known spell sections from spells.ini into g_spell_defs.
+inline void apply_spells_ini_overrides(const IniData& d) {
+    struct SpellIniBinding {
+        const char* section;
+        SpellId     id;
+    };
+    static constexpr std::array<SpellIniBinding, kSpellCount> kCanonicalBindings = {{
+        {data_sections::kSpellFrostBolt, SpellId::FrostBolt},
+        {data_sections::kSpellNova, SpellId::Nova},
+        {data_sections::kSpellChainLightning, SpellId::ChainLightning},
+        {data_sections::kSpellMultiShot, SpellId::MultiShot},
+        {data_sections::kSpellPoisonArrow, SpellId::PoisonArrow},
+        {data_sections::kSpellStrafe, SpellId::Strafe},
+        {data_sections::kSpellCleave, SpellId::Cleave},
+        {data_sections::kSpellBattleCry, SpellId::BattleCry},
+    }};
+    static constexpr std::array<SpellIniBinding, 1> kAliasBindings = {{
+        {data_sections::kSpellBolt, SpellId::FrostBolt}, // legacy alias
+    }};
+    static_assert(kCanonicalBindings.size() == static_cast<size_t>(kSpellCount),
+                  "Canonical spell INI bindings must match SpellId count");
+    for (const auto& binding : kCanonicalBindings) {
+        apply_spell_ini_section(d, binding.section,
+                                g_spell_defs[static_cast<int>(binding.id)]);
+    }
+    for (const auto& binding : kAliasBindings) {
+        apply_spell_ini_section(d, binding.section,
+                                g_spell_defs[static_cast<int>(binding.id)]);
+    }
 }
 
 } // namespace mion

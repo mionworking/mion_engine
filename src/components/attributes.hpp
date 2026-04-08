@@ -31,7 +31,10 @@ struct AttributeScales {
     float endurance_stamina_per_point = 10.0f;
 };
 
-inline AttributeScales g_attribute_scales{};
+inline constexpr AttributeScales kDefaultAttributeScales{};
+inline AttributeScales g_attribute_scales = kDefaultAttributeScales;
+
+inline void reset_attribute_scales_defaults() { g_attribute_scales = kDefaultAttributeScales; }
 
 // ---------------------------------------------------------------------------
 // Final derived stats for the player.

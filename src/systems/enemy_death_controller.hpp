@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../core/audio.hpp"
+#include "../core/dungeon_dialogue.hpp"
 #include "../core/quest_state.hpp"
 #include "../core/run_stats.hpp"
 #include "../entities/actor.hpp"
@@ -66,9 +67,9 @@ inline DeathResult process_deaths(const std::vector<Actor*>& actors,
                     std::max(run_stats->max_level_reached, player.progression.level);
             }
 
-            if (!stress_mode && a->name == "Grimjaw") {
+            if (!stress_mode && def.is_zone_boss) {
                 result.boss_defeated = true;
-                result.post_mortem_dialogue_id = "miniboss_grimjaw_death";
+                result.post_mortem_dialogue_id = DungeonDialogueId::kMinibossDeath;
                 if (run_stats) run_stats->boss_defeated = true;
                 if (quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)) {
                     quest_state.set(QuestId::DefeatGrimjaw, QuestStatus::Completed);

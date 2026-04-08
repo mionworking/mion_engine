@@ -6,8 +6,8 @@
 #include "bitmap_font.hpp"
 #include "config_loader.hpp"
 #include "locale.hpp"
+#include "scene_ids.hpp"
 #include "run_stats.hpp"
-#include "save_system.hpp"
 #include "ui.hpp"
 
 namespace mion {
@@ -20,6 +20,9 @@ struct TitleMenuActionResult {
     bool persist_runtime_cfg  = false;
     bool reload_locale        = false;
     bool refresh_menu_text    = false;
+    bool clear_default_saves  = false;
+    bool persist_difficulty_to_save = false;
+    int persisted_difficulty = 0;
 };
 
 struct TitleMenu {
@@ -32,6 +35,11 @@ struct TitleMenu {
     ui::List     main_list;
     ui::List     settings_list;
     ui::List     extras_list;
+    LocaleSystem* locale = nullptr;
+
+    const char* tr(const std::string& key) const {
+        return locale ? locale->get(key) : key.c_str();
+    }
 
     void initialize(bool save_exists_value, bool victory_unlock_value,
                     const ConfigData& cfg_value, bool lang_is_ptbr_value) {
@@ -42,18 +50,18 @@ struct TitleMenu {
         cfg            = cfg_value;
 
         main_list.items = {
-            L("menu_new_game"),
-            L("menu_continue"),
-            L("menu_settings"),
-            L("menu_extras"),
-            L("ui_quit"),
+            tr("menu_new_game"),
+            tr("menu_continue"),
+            tr("menu_settings"),
+            tr("menu_extras"),
+            tr("ui_quit"),
         };
         main_list.selected   = 0;
         main_list.item_h_px  = 32;
         main_list.text_scale = 2;
         main_list.disabled   = {false, !save_exists, false, false, false};
 
-        diff_list.items      = {L("diff_easy"), L("diff_normal"), L("diff_hard")};
+        diff_list.items      = {tr("diff_easy"), tr("diff_normal"), tr("diff_hard")};
         diff_list.selected   = 1;
         diff_list.item_h_px  = 32;
         diff_list.text_scale = 2;
@@ -64,8 +72,8 @@ struct TitleMenu {
         settings_list.text_scale = 2;
 
         extras_list.items = {
-            L("menu_credits"),
-            L("menu_back"),
+            tr("menu_credits"),
+            tr("menu_back"),
         };
         extras_list.selected   = 0;
         extras_list.item_h_px  = 32;
@@ -75,33 +83,33 @@ struct TitleMenu {
     void refresh_settings_items() {
         char vol_buf[64];
         SDL_snprintf(vol_buf, sizeof(vol_buf), "%s: %d%%",
-                     L("menu_settings_volume"),
+                     tr("menu_settings_volume"),
                      static_cast<int>(cfg.volume_master * 100.0f + 0.5f));
-        const char* mute_txt = cfg.mute ? L("ui_on") : L("ui_off");
-        const char* lang_txt = lang_is_ptbr ? "PT-BR" : "EN";
-        std::string mute_line = std::string(L("menu_settings_mute")) + ": " + mute_txt;
+        const char* mute_txt = cfg.mute ? tr("ui_on") : tr("ui_off");
+        const char* lang_txt = lang_is_ptbr ? tr("lang_label_ptbr") : tr("lang_label_en");
+        std::string mute_line = std::string(tr("menu_settings_mute")) + ": " + mute_txt;
         std::string vol_line  = std::string(vol_buf);
-        std::string lang_line = std::string(L("menu_settings_language")) + ": " + lang_txt;
+        std::string lang_line = std::string(tr("menu_settings_language")) + ": " + lang_txt;
         settings_list.items = {
             std::move(mute_line),
             std::move(vol_line),
             std::move(lang_line),
-            L("menu_settings_controls"),
-            L("menu_back"),
+            tr("menu_settings_controls"),
+            tr("menu_back"),
         };
     }
 
     void refresh_all_menu_text() {
         main_list.items = {
-            L("menu_new_game"),
-            L("menu_continue"),
-            L("menu_settings"),
-            L("menu_extras"),
-            L("ui_quit"),
+            tr("menu_new_game"),
+            tr("menu_continue"),
+            tr("menu_settings"),
+            tr("menu_extras"),
+            tr("ui_quit"),
         };
         main_list.disabled = {false, !save_exists, false, false, false};
-        diff_list.items = {L("diff_easy"), L("diff_normal"), L("diff_hard")};
-        extras_list.items = {L("menu_credits"), L("menu_back")};
+        diff_list.items = {tr("diff_easy"), tr("diff_normal"), tr("diff_hard")};
+        extras_list.items = {tr("menu_credits"), tr("menu_back")};
         refresh_settings_items();
     }
 
@@ -111,31 +119,31 @@ struct TitleMenu {
 
         const float cx = viewport_w * 0.5f;
         if (ui == TitleUiState::Main) {
-            const char* title = "MION ENGINE";
+            const char* title = tr("title_main_header");
             draw_text(r, cx - text_width(title, 3) * 0.5f, viewport_h * 0.24f,
                       title, 3, 220, 210, 180);
             main_list.render(r, cx - 90.0f, viewport_h * 0.40f);
         } else if (ui == TitleUiState::DifficultySelect) {
-            const char* hdr = L("menu_select_difficulty");
+            const char* hdr = tr("menu_select_difficulty");
             draw_text(r, cx - text_width(hdr, 3) * 0.5f, viewport_h * 0.28f,
                       hdr, 3, 220, 210, 180);
-            const char* sub = L("menu_diff_hint");
+            const char* sub = tr("menu_diff_hint");
             draw_text(r, cx - text_width(sub, 2) * 0.5f, viewport_h * 0.38f,
                       sub, 2, 130, 140, 170);
             diff_list.render(r, cx - 100.0f, viewport_h * 0.48f);
         } else if (ui == TitleUiState::Settings) {
-            const char* hdr = L("menu_settings");
+            const char* hdr = tr("menu_settings");
             draw_text(r, cx - text_width(hdr, 3) * 0.5f, viewport_h * 0.28f,
                       hdr, 3, 220, 210, 180);
-            const char* sub = L("menu_settings_hint");
+            const char* sub = tr("menu_settings_hint");
             draw_text(r, cx - text_width(sub, 2) * 0.5f, viewport_h * 0.38f,
                       sub, 2, 130, 140, 170);
             settings_list.render(r, cx - 130.0f, viewport_h * 0.48f);
         } else {
-            const char* hdr = L("menu_extras");
+            const char* hdr = tr("menu_extras");
             draw_text(r, cx - text_width(hdr, 3) * 0.5f, viewport_h * 0.28f,
                       hdr, 3, 220, 210, 180);
-            const char* sub = L("menu_extras_hint");
+            const char* sub = tr("menu_extras_hint");
             draw_text(r, cx - text_width(sub, 2) * 0.5f, viewport_h * 0.38f,
                       sub, 2, 130, 140, 170);
             extras_list.render(r, cx - 100.0f, viewport_h * 0.48f);
@@ -145,7 +153,6 @@ struct TitleMenu {
 
 struct TitleMenuController {
     static TitleMenuActionResult erase_save(TitleMenu& menu, float& erase_msg_timer) {
-        SaveSystem::remove_default_saves();
         menu.save_exists     = false;
         menu.victory_unlock  = false;
         menu.main_list.disabled = {false, true, false, false, false};
@@ -153,6 +160,7 @@ struct TitleMenuController {
 
         TitleMenuActionResult result;
         result.play_delete_sfx = true;
+        result.clear_default_saves = true;
         return result;
     }
 
@@ -160,16 +168,16 @@ struct TitleMenuController {
         TitleMenuActionResult result;
         switch (menu.main_list.selected) {
         case 0:
-            SaveSystem::remove_default_saves();
             menu.save_exists        = false;
             menu.victory_unlock     = false;
             menu.main_list.disabled = {false, true, false, false, false};
             menu.ui                 = TitleUiState::DifficultySelect;
             result.play_delete_sfx  = true;
+            result.clear_default_saves = true;
             break;
         case 1:
             if (menu.save_exists)
-                next = "world";
+                next = SceneId::kWorld;
             break;
         case 2:
             menu.ui = TitleUiState::Settings;
@@ -178,7 +186,7 @@ struct TitleMenuController {
             menu.ui = TitleUiState::Extras;
             break;
         case 4:
-            next = "__quit__";
+            next = SceneId::kQuit;
             break;
         default:
             break;
@@ -190,19 +198,18 @@ struct TitleMenuController {
         menu.ui = TitleUiState::Main;
     }
 
-    static void activate_difficulty_selection(TitleMenu& menu,
-                                              DifficultyLevel* difficulty_ptr,
-                                              std::string& next) {
+    static TitleMenuActionResult activate_difficulty_selection(TitleMenu& menu,
+                                                               DifficultyLevel* difficulty_ptr,
+                                                               std::string& next) {
+        TitleMenuActionResult result;
         if (!difficulty_ptr)
-            return;
+            return result;
 
         *difficulty_ptr = static_cast<DifficultyLevel>(menu.diff_list.selected);
-        SaveData save_data{};
-        if (SaveSystem::load_default(save_data)) {
-            save_data.difficulty = menu.diff_list.selected;
-            SaveSystem::save_default(save_data);
-        }
-        next = "world";
+        next = SceneId::kWorld;
+        result.persist_difficulty_to_save = true;
+        result.persisted_difficulty = menu.diff_list.selected;
+        return result;
     }
 
     static TitleMenuActionResult activate_settings_selection(TitleMenu& menu) {
@@ -234,7 +241,7 @@ struct TitleMenuController {
 
     static void activate_extras_selection(TitleMenu& menu, std::string& next) {
         if (menu.extras_list.selected == 0)
-            next = "credits";
+            next = SceneId::kCredits;
         else
             menu.ui = TitleUiState::Main;
     }

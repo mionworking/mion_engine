@@ -5,6 +5,7 @@
 #include "components/talent_tree.hpp"
 #include "entities/actor.hpp"
 #include "systems/attribute_levelup_controller.hpp"
+#include "systems/overlay_input.hpp"
 #include "systems/pause_menu_controller.hpp"
 #include "systems/skill_tree_controller.hpp"
 
@@ -54,24 +55,29 @@ static void test_attr_controller_closes_when_no_pending() {
     EXPECT_FALSE(r.world_paused);
 }
 
-static PauseMenuResult step_pause_menu(PauseMenuController& controller, const InputState& in) {
-    PauseMenuResult r = controller.update(in);
-    controller.flush_input(in);
+static PauseMenuResult step_pause_menu(OverlayInputTracker& tracker,
+                                       PauseMenuController& controller,
+                                       const InputState& in) {
+    OverlayInputEdges e = tracker.capture(in, controller);
+    PauseMenuResult     r = controller.update(e);
+    tracker.flush(in, controller);
     return r;
 }
 
 static void test_pause_menu_controller_opens_on_pause() {
+    OverlayInputTracker tracker;
     PauseMenuController controller;
     controller.init();
 
     InputState esc_on{};
     esc_on.pause_pressed = true;
-    PauseMenuResult r = step_pause_menu(controller, esc_on);
+    PauseMenuResult r = step_pause_menu(tracker, controller, esc_on);
     EXPECT_TRUE(r.world_paused);
     EXPECT_TRUE(controller.paused());
 }
 
 static void test_pause_menu_controller_calls_on_opened() {
+    OverlayInputTracker tracker;
     PauseMenuController controller;
     bool opened = false;
     PauseMenuController::InitOptions options;
@@ -80,52 +86,54 @@ static void test_pause_menu_controller_calls_on_opened() {
 
     InputState esc_on{};
     esc_on.pause_pressed = true;
-    (void)step_pause_menu(controller, esc_on);
+    (void)step_pause_menu(tracker, controller, esc_on);
     EXPECT_TRUE(opened);
 }
 
 static void test_pause_menu_controller_requests_skill_tree() {
+    OverlayInputTracker tracker;
     PauseMenuController controller;
     controller.init();
 
     InputState esc_on{};
     esc_on.pause_pressed = true;
-    (void)step_pause_menu(controller, esc_on);
+    (void)step_pause_menu(tracker, controller, esc_on);
     InputState idle{};
-    (void)step_pause_menu(controller, idle);
+    (void)step_pause_menu(tracker, controller, idle);
 
     InputState down_on{};
     down_on.ui_down_pressed = true;
-    (void)step_pause_menu(controller, down_on);
-    (void)step_pause_menu(controller, idle);
+    (void)step_pause_menu(tracker, controller, down_on);
+    (void)step_pause_menu(tracker, controller, idle);
 
     InputState confirm_on{};
     confirm_on.confirm_pressed = true;
-    PauseMenuResult r = step_pause_menu(controller, confirm_on);
+    PauseMenuResult r = step_pause_menu(tracker, controller, confirm_on);
     EXPECT_TRUE(r.should_open_skill_tree);
     EXPECT_FALSE(controller.paused());
 }
 
 static void test_pause_menu_controller_requests_quit_to_title() {
+    OverlayInputTracker tracker;
     PauseMenuController controller;
     controller.init();
 
     InputState esc_on{};
     esc_on.pause_pressed = true;
-    (void)step_pause_menu(controller, esc_on);
+    (void)step_pause_menu(tracker, controller, esc_on);
     InputState idle{};
-    (void)step_pause_menu(controller, idle);
+    (void)step_pause_menu(tracker, controller, idle);
 
     InputState down_on{};
     down_on.ui_down_pressed = true;
     for (int i = 0; i < 3; ++i) {
-        (void)step_pause_menu(controller, down_on);
-        (void)step_pause_menu(controller, idle);
+        (void)step_pause_menu(tracker, controller, down_on);
+        (void)step_pause_menu(tracker, controller, idle);
     }
 
     InputState confirm_on{};
     confirm_on.confirm_pressed = true;
-    PauseMenuResult r = step_pause_menu(controller, confirm_on);
+    PauseMenuResult r = step_pause_menu(tracker, controller, confirm_on);
     EXPECT_TRUE(r.should_quit_to_title);
     EXPECT_FALSE(controller.paused());
 }

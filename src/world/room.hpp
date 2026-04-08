@@ -32,11 +32,22 @@ struct WorldBounds {
     }
 };
 
-// Trigger zone that moves the player to the next room or a different scene.
+// Trigger zone that moves the player to the next room or requests a handoff target.
+//
+// Contract for `target_scene_id`:
+// - empty: advance to next room (`RoomFlowSystem::transition_requested = true`)
+// - non-empty: copied to `RoomFlowSystem::scene_exit_to` as-is
+//
+// The value can be either:
+// - a SceneRegistry id (e.g. `SceneId::kTitle`)
+// - a world-layout handoff tag (e.g. `WorldLayoutId::kTown`, `WorldLayoutId::kDungeon`)
+//
+// `DoorZone` stays transport-only: it does not interpret the string. The owner scene
+// decides how each token is resolved.
 struct DoorZone {
     AABB        bounds;
     bool        requires_room_cleared = true;
-    std::string target_scene_id; // empty = advance to next room; otherwise switches scene
+    std::string target_scene_id;
 };
 
 // Full runtime description of a single dungeon room.

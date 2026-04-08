@@ -1,9 +1,11 @@
 #pragma once
+#include <array>
 #include <cctype>
 #include <string>
 
 #include "../components/collision.hpp"
 #include "../core/ini_loader.hpp"
+#include "../core/data_section_names.hpp"
 
 namespace mion {
 
@@ -58,6 +60,7 @@ struct EnemyDef {
     float        ranged_keep_dist      = 200.0f;
     int          ranged_proj_damage    = 8;
     bool         is_elite_base         = false;
+    bool         is_zone_boss          = false;
 };
 
 inline AiBehavior parse_ai_behavior_string(const std::string& s) {
@@ -82,37 +85,37 @@ inline const EnemyDef& get_enemy_def(EnemyType type) {
           {16.0f, 16.0f}, {14.0f, 14.0f}, {20.0f, 12.0f, 22.0f},
           0.10f, 0.15f, 0.25f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Red.png", 2.0f, 8.0f, 0,
-          1, 3, AiBehavior::Melee, 1.5f, 200.0f, 8, false },
+          1, 3, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Orc, 120, 55.0f, 300.0f, 50.0f, 35.0f, 18, 0.68f,
           {20.0f, 18.0f}, {18.0f, 16.0f}, {26.0f, 14.0f, 28.0f},
           0.15f, 0.20f, 0.35f,
           "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png", 2.0f, 8.0f, 0,
-          3, 6, AiBehavior::Melee, 1.5f, 200.0f, 8, false },
+          3, 6, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Ghost, 35, 130.0f, 500.0f, 40.0f, 25.0f, 5, 0.80f,
           {14.0f, 14.0f}, {12.0f, 12.0f}, {18.0f, 10.0f, 20.0f},
           0.08f, 0.10f, 0.20f,
           "assets/Puny-Characters/Puny-Characters/Mage-Cyan.png", 2.0f, 8.0f, 0,
-          2, 4, AiBehavior::Melee, 1.5f, 200.0f, 8, false },
+          2, 4, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Archer, 40, 70.0f, 450.0f, 48.0f, 34.0f, 8, 0.75f,
           {14.0f, 14.0f}, {12.0f, 12.0f}, {18.0f, 10.0f, 20.0f},
           0.10f, 0.12f, 0.22f,
           "assets/Puny-Characters/Puny-Characters/Mage-Purple.png", 2.0f, 8.0f, 0,
-          2, 5, AiBehavior::Ranged, 1.5f, 200.0f, 10, false },
+          2, 5, AiBehavior::Ranged, 1.5f, 200.0f, 10, false, false },
         { EnemyType::PatrolGuard, 80, 65.0f, 280.0f, 50.0f, 32.0f, 12, 0.70f,
           {18.0f, 18.0f}, {16.0f, 16.0f}, {22.0f, 12.0f, 24.0f},
           0.12f, 0.18f, 0.30f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Blue.png", 2.0f, 8.0f, 0,
-          2, 6, AiBehavior::Patrol, 0.0f, 0.0f, 0, false },
+          2, 6, AiBehavior::Patrol, 0.0f, 0.0f, 0, false, false },
         { EnemyType::EliteSkeleton, 120, 96.0f, 420.0f, 45.0f, 30.0f, 12, 0.72f,
           {16.0f, 16.0f}, {14.0f, 14.0f}, {20.0f, 12.0f, 22.0f},
           0.10f, 0.15f, 0.25f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Red.png", 2.4f, 8.0f, 0,
-          5, 10, AiBehavior::Elite, 0.0f, 0.0f, 0, true },
+          5, 10, AiBehavior::Elite, 0.0f, 0.0f, 0, true, false },
         { EnemyType::BossGrimjaw, 320, 70.0f, 600.0f, 52.0f, 36.0f, 22, 0.65f,
           {22.0f, 20.0f}, {20.0f, 18.0f}, {28.0f, 14.0f, 30.0f},
           0.15f, 0.20f, 0.35f,
           "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png", 2.8f, 8.0f, 0,
-          25, 35, AiBehavior::BossPhased, 0.0f, 0.0f, 0, false },
+          25, 35, AiBehavior::BossPhased, 0.0f, 0.0f, 0, false, true },
     };
     const int i = static_cast<int>(type);
     if (i < 0 || i >= kEnemyTypeCount)
@@ -155,6 +158,19 @@ inline void apply_enemy_ini_section(const IniData& d, const std::string& sec, En
     def.ranged_keep_dist   = d.get_float(sec, "ranged_keep_dist", def.ranged_keep_dist);
     def.ranged_proj_damage = d.get_int(sec, "ranged_proj_damage", def.ranged_proj_damage);
     def.is_elite_base      = d.get_int(sec, "is_elite_base", def.is_elite_base ? 1 : 0) != 0;
+    def.is_zone_boss       = d.get_int(sec, "is_zone_boss", def.is_zone_boss ? 1 : 0) != 0;
+}
+
+// Applies all known enemies.ini sections into enemy_defs.
+inline void apply_enemies_ini_overrides(const IniData& d,
+                                        EnemyDef (&enemy_defs)[kEnemyTypeCount],
+                                        std::array<std::string, kEnemyTypeCount>& enemy_sprite_paths) {
+    static_assert(data_sections::kEnemyIniSections.size() == static_cast<size_t>(kEnemyTypeCount),
+                  "Enemy INI sections must match EnemyType count");
+    for (int i = 0; i < kEnemyTypeCount; ++i) {
+        apply_enemy_ini_section(d, data_sections::kEnemyIniSections[static_cast<size_t>(i)], enemy_defs[i],
+                                &enemy_sprite_paths[static_cast<size_t>(i)]);
+    }
 }
 
 } // namespace mion

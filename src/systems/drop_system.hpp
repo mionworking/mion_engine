@@ -5,6 +5,8 @@
 #include "../entities/actor.hpp"
 #include "../entities/enemy_type.hpp"
 #include "../entities/ground_item.hpp"
+#include "../core/ini_loader.hpp"
+#include "../core/data_section_names.hpp"
 
 namespace mion {
 
@@ -106,5 +108,20 @@ struct DropSystem {
         return picked_lore;
     }
 };
+
+inline void apply_drop_ini_overrides(const IniData& d, DropConfig& cfg) {
+    cfg.drop_chance_pct =
+        d.get_int(data_sections::kDrops, "drop_chance_pct", cfg.drop_chance_pct);
+    cfg.pickup_radius =
+        d.get_float(data_sections::kDrops, "pickup_radius", cfg.pickup_radius);
+    cfg.health_bonus =
+        d.get_int(data_sections::kDrops, "health_bonus", cfg.health_bonus);
+    cfg.damage_bonus =
+        d.get_int(data_sections::kDrops, "damage_bonus", cfg.damage_bonus);
+    cfg.speed_bonus =
+        d.get_float(data_sections::kDrops, "speed_bonus", cfg.speed_bonus);
+    cfg.lore_drop_chance_pct =
+        d.get_int(data_sections::kDrops, "lore_drop_chance_pct", cfg.lore_drop_chance_pct);
+}
 
 } // namespace mion

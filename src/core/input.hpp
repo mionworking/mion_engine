@@ -52,6 +52,21 @@ struct InputState {
     }
 };
 
+// Per-frame rising-edge flags for modal UI (pause menu, skill tree, shop, etc.).
+// Produced by `OverlayInputTracker::capture` using `InputState` + prior levels from
+// `PauseMenu::flush_input` and the tracker's own previous keys.
+struct OverlayInputEdges {
+    bool pause     = false;
+    bool tab       = false;
+    bool inventory = false;
+    bool up        = false;
+    bool down      = false;
+    bool left      = false;
+    bool right     = false;
+    bool confirm   = false;
+    bool back      = false;
+};
+
 // Interface — PlayerController reads from here, not directly from SDL.
 // Allows swapping in ScriptedInputSource for tests without changing anything.
 class IInputSource {

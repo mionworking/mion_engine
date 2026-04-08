@@ -105,10 +105,13 @@ static void town_npc_interaction_finds_nearest_npc_and_opens_shop() {
     ctx.quest_state   = &quest_state;
     ctx.scene_flags   = &scene_flags;
 
-    const int idx = TownNpcInteractionController::find_nearest_npc(player, npcs);
-    TownNpcInteractionController::handle_npc_interaction(idx, ctx, shop_open, 120);
+    const auto near = TownNpcInteractionController::find_nearest_npc_for_interaction(player, npcs);
+    EXPECT_TRUE(near.has_value());
+    if (!near.has_value())
+        return;
+    TownNpcInteractionController::handle_npc_interaction(near->index, ctx, shop_open, 120);
 
-    EXPECT_EQ(npcs[static_cast<size_t>(idx)].name, "Forge");
+    EXPECT_EQ(npcs[static_cast<size_t>(near->index)].name, "Forge");
     EXPECT_TRUE(shop_open);
     EXPECT_EQ(shop.selected_index, 0);
 }
@@ -125,27 +128,26 @@ static void shop_input_controller_navigates_and_buys_items() {
     player.health.current_hp = 50;
     player.health.max_hp = 100;
     bool shop_open = true;
-    float prev_move_y = 0.0f;
-    bool prev_confirm = false;
-    bool prev_cancel = false;
 
-    InputState move_down{};
-    move_down.move_y = 1.0f;
-    ShopInputController::update_shop_input(
-        shop, player, move_down, nullptr, shop_open, prev_move_y, prev_confirm, prev_cancel);
+    ShopInputController ctrl;
+
+    OverlayInputEdges move_down{};
+    move_down.down = true;
+    auto r0 = ctrl.update(shop, player, move_down, nullptr, shop_open);
     EXPECT_EQ(shop.selected_index, 1);
+    EXPECT_FALSE(r0.should_save);
 
-    InputState confirm{};
-    confirm.confirm_pressed = true;
-    ShopInputController::update_shop_input(
-        shop, player, confirm, nullptr, shop_open, prev_move_y, prev_confirm, prev_cancel);
+    OverlayInputEdges confirm{};
+    confirm.confirm = true;
+    auto r1 = ctrl.update(shop, player, confirm, nullptr, shop_open);
     EXPECT_EQ(player.gold, 38);
+    EXPECT_TRUE(r1.should_save);
 
-    InputState cancel{};
-    cancel.ui_cancel_pressed = true;
-    ShopInputController::update_shop_input(
-        shop, player, cancel, nullptr, shop_open, prev_move_y, prev_confirm, prev_cancel);
+    OverlayInputEdges cancel{};
+    cancel.back = true;
+    auto r2 = ctrl.update(shop, player, cancel, nullptr, shop_open);
     EXPECT_FALSE(shop_open);
+    EXPECT_FALSE(r2.should_save);
 }
 
 REGISTER_TEST(npc_actor_factory_links_npcs_to_runtime_actors);

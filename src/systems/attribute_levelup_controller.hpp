@@ -2,26 +2,30 @@
 
 #include <SDL3/SDL.h>
 
+#include "../core/locale.hpp"
 #include "../components/progression.hpp"
 #include "../components/attributes.hpp"
 #include "../components/player_config.hpp"
 #include "../entities/actor.hpp"
 #include "overlay_input.hpp"
 #include "attribute_screen_ui.hpp"
+#include "ui_controller_contract.hpp"
 
 namespace mion {
 
-struct AttributeLevelUpResult {
-    bool screen_open  = false;
-    bool world_paused = false;
-    bool should_save  = false;
-    bool just_opened  = false;
-    bool just_closed  = false;
+struct AttributeLevelUpResult : UiControllerResult {
+    bool screen_open   = false;
+    bool just_opened   = false;
+    bool just_closed   = false;
     int  applied_index = -1;
 };
 
 class AttributeLevelUpController {
 public:
+    void set_locale(LocaleSystem* locale) {
+        _locale = locale;
+    }
+
     void sync_open_from_progression(const Actor& player) {
         _just_opened = false;
         _just_closed = false;
@@ -133,7 +137,8 @@ public:
                                 viewport_h,
                                 player.attributes,
                                 player.progression.pending_level_ups,
-                                _selected_index);
+                                _selected_index,
+                                _locale);
     }
 
     bool is_open() const { return _screen_open; }
@@ -144,6 +149,7 @@ private:
     int  _selected_index = 0;
     bool _just_opened    = false;
     bool _just_closed    = false;
+    LocaleSystem* _locale = nullptr;
 };
 
 } // namespace mion

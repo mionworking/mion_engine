@@ -2,9 +2,11 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 
 #include <SDL3/SDL.h>
@@ -255,10 +257,35 @@ inline bool load(const std::string& path, SaveData& d) {
 inline bool load_candidates(const std::string& primary_path,
                             const std::string& fallback_legacy_path,
                             SaveData& d) {
-    if (!primary_path.empty() && load(primary_path, d)) return true;
-    return !fallback_legacy_path.empty()
+    auto file_mtime = [](const std::string& path) -> std::filesystem::file_time_type {
+        std::error_code ec;
+        const auto t = std::filesystem::last_write_time(path, ec);
+        if (ec)
+            return std::filesystem::file_time_type::min();
+        return t;
+    };
+
+    const bool has_primary = !primary_path.empty() && exists(primary_path);
+    const bool has_fallback = !fallback_legacy_path.empty()
         && fallback_legacy_path != primary_path
-        && load(fallback_legacy_path, d);
+        && exists(fallback_legacy_path);
+
+    if (has_primary && has_fallback) {
+        const bool primary_is_newer_or_equal =
+            file_mtime(primary_path) >= file_mtime(fallback_legacy_path);
+        if (primary_is_newer_or_equal) {
+            if (load(primary_path, d)) return true;
+            return load(fallback_legacy_path, d);
+        }
+        if (load(fallback_legacy_path, d)) return true;
+        return load(primary_path, d);
+    }
+
+    if (has_primary)
+        return load(primary_path, d);
+    if (has_fallback)
+        return load(fallback_legacy_path, d);
+    return false;
 }
 
 inline bool save(const std::string& path, const SaveData& d) {

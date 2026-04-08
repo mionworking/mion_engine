@@ -43,7 +43,8 @@ struct Theme {
     SDL_Color bar_border         = {120, 100, 80,  180};
 };
 
-inline Theme g_theme;
+inline constexpr Theme kDefaultTheme{};
+inline const Theme g_theme = kDefaultTheme;
 
 // ---------------------------------------------------------------------------
 // Utilitário: dim fullscreen (usado por todas as telas modais)

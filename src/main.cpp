@@ -17,11 +17,12 @@
 #include "core/scene_context.hpp"
 #include "core/scene_registry.hpp"
 #include "core/register_scenes.hpp"
-#include "core/save_system.hpp"
+#include "core/scene_ids.hpp"
 #include "core/audio.hpp"
 #include "core/asset_manifest.hpp"
 #include "core/run_stats.hpp"
 #include "core/scene_fader.hpp"
+#include "systems/world_save_controller.hpp"
 
 namespace {
 
@@ -76,20 +77,15 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
     mion::RunStats          run_stats{};
     mion::DifficultyLevel   difficulty = mion::DifficultyLevel::Normal;
-    {
-        mion::SaveData boot{};
-        if (mion::SaveSystem::load_default(boot))
-            difficulty = static_cast<mion::DifficultyLevel>(std::clamp(boot.difficulty, 0, 2));
-    }
+    mion::WorldSaveController::load_saved_difficulty(difficulty);
 
     mion::IniData             ini_full = mion::ini_load(mion::config_file_path());
     mion::KeybindConfig       keybinds = mion::load_keybinds(ini_full);
     const std::string         lang = ini_full.get_string("ui", "language", "en");
 
-    // LocaleSystem na stack; locale_bind() aponta o módulo para esta instância
+    // LocaleSystem na stack; passado explicitamente via SceneCreateContext.
     mion::LocaleSystem locale_sys;
     locale_sys.load(mion::resolve_data_path("locale_" + lang + ".ini"));
-    mion::locale_bind(&locale_sys);
 
     mion::SceneCreateContext ctx;
     ctx.renderer    = renderer;
@@ -111,9 +107,9 @@ int main(int /*argc*/, char* /*argv*/[]) {
     mion::register_default_scenes(registry);
 
     mion::SceneManager scene_mgr;
-    scene_mgr.set(registry.create("title", ctx));
+    scene_mgr.set(registry.create(mion::SceneId::kTitle, ctx));
     if (!scene_mgr.current) {
-        SDL_Log("Falha ao criar cena inicial \"title\"");
+        SDL_Log("Falha ao criar cena inicial \"%s\"", mion::SceneId::kTitle);
         audio.shutdown();
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -129,6 +125,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
     const float fixed_dt    = config.fixed_delta_seconds;
     float       accumulator = 0.0f;
+    const int   max_substeps_per_frame = 5;
+    const float max_accumulator = fixed_dt * static_cast<float>(max_substeps_per_frame);
     Uint64      last_tick   = SDL_GetTicks();
     bool        running     = true;
 
@@ -155,10 +153,13 @@ int main(int /*argc*/, char* /*argv*/[]) {
                                   config.max_frame_time_seconds);
         last_tick = now;
         accumulator += dt_secs;
+        accumulator = std::min(accumulator, max_accumulator);
 
         // --- Ticks físicos (input estático por frame) ---
-        while (accumulator >= fixed_dt) {
+        int substeps = 0;
+        while (accumulator >= fixed_dt && substeps < max_substeps_per_frame) {
             accumulator -= fixed_dt;
+            ++substeps;
             scene_fader.tick(fixed_dt);
 
             const char* requested_next = scene_mgr.fixed_update(fixed_dt, input);
@@ -167,7 +168,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
                 : "";
 
             if (!next_id.empty()) {
-                if (next_id == "__quit__") {
+                if (next_id == mion::SceneId::kQuit) {
                     running = false;
                     scene_mgr.clear_pending_transition();
                 } else if (scene_fader.is_clear() && pending_scene_id.empty()) {

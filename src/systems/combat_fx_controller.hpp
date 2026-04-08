@@ -6,6 +6,7 @@
 
 #include "../core/audio.hpp"
 #include "../core/camera.hpp"
+#include "../core/scene_ids.hpp"
 #include "../entities/actor.hpp"
 #include "floating_text.hpp"
 #include "melee_combat.hpp"
@@ -83,30 +84,34 @@ inline void apply_melee_hit_fx(const MeleeCombatSystem&   combat,
     }
 }
 
-template <typename SnapshotLastRun>
-inline void update_death_flow(bool player_alive,
-                              float dt,
-                              bool& death_snapshot_done,
-                              float& death_fade_remaining,
-                              float death_fade_seconds,
-                              std::string& pending_next_scene,
-                              SnapshotLastRun snapshot_last_run) {
-    if (!player_alive && !death_snapshot_done) {
-        death_snapshot_done = true;
-        snapshot_last_run();
-        death_fade_remaining = death_fade_seconds;
-    }
-
-    if (death_fade_remaining > 0.0f) {
-        death_fade_remaining -= dt;
-        if (death_fade_remaining <= 0.0f) {
-            death_fade_remaining = 0.0f;
-            if (pending_next_scene.empty())
-                pending_next_scene = "game_over";
-        }
-    }
-}
-
 } // namespace CombatFxController
+
+// Player death state: triggers snapshot on first dead tick, then fades out.
+// tick() returns SceneId::kGameOver when fade completes, empty string otherwise.
+struct PlayerDeathFlow {
+    static constexpr float kFadeDuration = 1.5f;
+
+    bool  snapshot_done  = false;
+    float fade_remaining = 0.f;
+
+    void reset() { snapshot_done = false; fade_remaining = 0.f; }
+
+    template <typename SnapshotFn>
+    std::string tick(bool player_alive, float dt, SnapshotFn on_snapshot) {
+        if (!player_alive && !snapshot_done) {
+            snapshot_done  = true;
+            on_snapshot();
+            fade_remaining = kFadeDuration;
+        }
+        if (fade_remaining > 0.f) {
+            fade_remaining -= dt;
+            if (fade_remaining <= 0.f) {
+                fade_remaining = 0.f;
+                return SceneId::kGameOver;
+            }
+        }
+        return {};
+    }
+};
 
 } // namespace mion

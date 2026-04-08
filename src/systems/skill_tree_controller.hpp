@@ -3,17 +3,17 @@
 #include <SDL3/SDL.h>
 #include <vector>
 
+#include "../core/locale.hpp"
 #include "../entities/actor.hpp"
 #include "../components/talent_tree.hpp"
 #include "overlay_input.hpp"
 #include "skill_tree_ui.hpp"
+#include "ui_controller_contract.hpp"
 
 namespace mion {
 
-struct SkillTreeResult {
-    bool screen_open  = false;
-    bool world_paused = false;
-    bool should_save  = false;
+struct SkillTreeResult : UiControllerResult {
+    bool screen_open = false;
 };
 
 inline bool skill_tree_selection_pending(const Actor& player) {
@@ -66,6 +66,10 @@ inline bool skill_tree_try_spend_talent(Actor& player, TalentId id) {
 
 class SkillTreeController {
 public:
+    void set_locale(LocaleSystem* locale) {
+        _locale = locale;
+    }
+
     void rebuild_columns() {
         skill_tree_build_columns(_col_indices);
         skill_tree_clamp_cursor(_selected_col, _selected_row, _col_indices);
@@ -148,7 +152,8 @@ public:
                                   player.talents,
                                   _selected_col,
                                   _selected_row,
-                                  _col_indices);
+                                  _col_indices,
+                                  _locale);
     }
 
     bool is_open() const { return _screen_open; }
@@ -165,6 +170,7 @@ private:
     int              _selected_col = 0;
     int              _selected_row = 0;
     std::vector<int> _col_indices[3];
+    LocaleSystem*    _locale = nullptr;
 };
 
 } // namespace mion

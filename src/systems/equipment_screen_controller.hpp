@@ -1,19 +1,20 @@
 #pragma once
 #include <SDL3/SDL.h>
 
+#include "../core/locale.hpp"
 #include "../entities/actor.hpp"
 #include "../systems/overlay_input.hpp"
 #include "../systems/equipment_screen_ui.hpp"
+#include "ui_controller_contract.hpp"
 
 namespace mion {
 
-struct EquipmentResult {
-    bool world_paused = false;
-    bool should_save  = false;
-};
+using EquipmentResult = UiControllerResult;
 
 class EquipmentScreenController {
 public:
+    void set_locale(LocaleSystem* locale) { _locale = locale; }
+
     void open() {
         _screen_open  = true;
         _open_alpha   = 0.0f;
@@ -81,7 +82,7 @@ public:
         state.ctx_open     = _ctx_open;
         state.ctx_selected = _ctx_selected;
         state.open_alpha   = _open_alpha;
-        render_equipment_screen(r, vw, vh, player, state);
+        render_equipment_screen(r, vw, vh, player, state, _locale);
     }
 
 private:
@@ -92,6 +93,7 @@ private:
     int   _bag_cursor   = 0; // 0..kBagSize-1
     bool  _ctx_open     = false;
     int   _ctx_selected = 0; // 0=action, 1=cancel
+    LocaleSystem* _locale = nullptr;
 
     void _update_slots(Actor& player, const OverlayInputEdges& input, EquipmentResult& out) {
         if (input.up)

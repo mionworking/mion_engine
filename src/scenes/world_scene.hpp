@@ -14,9 +14,9 @@
 #include "../core/bitmap_font.hpp"
 #include "../core/sprite.hpp"
 #include "../core/audio.hpp"
-#include "../core/save_system.hpp"
 #include "../core/quest_state.hpp"
 #include "../core/run_stats.hpp"
+#include "../core/locale.hpp"
 #include "../core/engine_paths.hpp"
 #include "../core/dungeon_dialogue.hpp"
 #include "../core/ini_loader.hpp"
@@ -73,6 +73,7 @@
 #include "../systems/dialogue_render.hpp"
 #include "../systems/boss_state_controller.hpp"
 #include "../systems/combat_fx_controller.hpp"
+#include "../systems/run_stats_tracker.hpp"
 #include "../systems/enemy_death_controller.hpp"
 #include "../systems/dungeon_config_loader.hpp"
 #include "../systems/town_config_loader.hpp"
@@ -88,6 +89,7 @@
 #include "../systems/world_save_controller.hpp"
 #include "../systems/world_audio_system.hpp"
 #include "../systems/overlay_input.hpp"
+#include "../core/scene_ids.hpp"
 
 namespace mion {
 
@@ -104,6 +106,7 @@ public:
     void set_show_autosave_indicator(bool v) { _show_autosave_indicator = v; }
     void set_run_stats(RunStats* p) { _run_stats = p; }
     void set_difficulty(DifficultyLevel* p) { _difficulty = p; }
+    void set_locale(LocaleSystem* l) { _locale = l; }
     void set_enemy_spawn_count(int count) { _requested_enemy_count = std::max(0, count); }
     void set_rng(std::mt19937* r) { _rng = r; }
 
@@ -140,9 +143,10 @@ public:
             _tex_cache.emplace(_renderer);
 
         // 1. Load configs
+        // DungeonConfigLoader already calls CommonPlayerProgressionLoader —
+        // no need to call TownConfigLoader::load_town_player_and_progression_config separately.
         DungeonConfigLoader::load_dungeon_static_data(
             _enemy_defs, _drop_config, _rooms_ini, _enemy_sprite_paths);
-        TownConfigLoader::load_town_player_and_progression_config();
 
         // 2. Register dialogues
         register_dungeon_dialogue(_dialogue);
@@ -154,75 +158,10 @@ public:
         _world_map = WorldMapBuilder::build(
             _rooms_ini, tc, _npcs, _shop_forge, _player, _tile_renderer);
 
-        // 4. Load save → position player
         SaveData sd;
-        bool has_save = SaveSystem::load_default(sd);
-        if (has_save) {
-            WorldContext wctx = _make_context();
-            WorldSaveController::apply_world_save(wctx, sd);
-            if (sd.player_world_x == 0.f && sd.player_world_y == 0.f) {
-                _player.transform.set_position(400.f, 800.f);
-            }
-        } else {
-            _fresh_run();
-        }
-
-        // 5. Configure player (textures, stats)
-        {
-            PlayerConfigureOptions opts;
-            opts.reset_health_to_max = !has_save;
-            opts.stress_mode         = _stress_mode;
-            configure_player(_player, tc, opts);
-        }
-
-        if (has_save) {
-            int hp = sd.player_hp;
-            if (hp > _player.health.max_hp) hp = _player.health.max_hp;
-            if (hp < 1) hp = 1;
-            _player.health.current_hp = hp;
-            _player.mana    = sd.mana;
-            _player.stamina = sd.stamina;
-            if (_player.mana.current > _player.mana.max)
-                _player.mana.current = _player.mana.max;
-            if (_player.stamina.current > _player.stamina.max)
-                _player.stamina.current = _player.stamina.max;
-        }
-
-        _player.spell_book = SpellBookState{};
-        _player.spell_book.sync_from_talents(_player.talents);
-
-        // 6. Build actor list
-        _rebuild_all_actors();
-
-        // 7. Initial ZoneManager
-        _zone_mgr.update(_player.transform.x, _player.transform.y, _world_map);
-
-        // 8. Initial audio
-        if (_audio)
-            WorldAudioSystem::init_for_zone(*_audio, _zone_mgr.current);
-
-        // 9. Lighting + UI
-        if (_renderer) _lighting.init(_renderer, viewport_w, viewport_h);
-        _pause_controller = {};
-        _pause_controller.init();
-        _skill_tree_controller = {};
-        _skill_tree_controller.rebuild_columns();
-        _attr_controller = {};
-        _camera.viewport_w = static_cast<float>(viewport_w);
-        _camera.viewport_h = static_cast<float>(viewport_h);
-
-        _death_snapshot_done  = false;
-        _death_fade_remaining = 0.f;
-        _floating_texts.texts.clear();
-        _screen_flash  = {};
-        _hitstop       = 0;
-        _pending_next_scene.clear();
-        _scene_exit_pending = false;
-        _scene_exit_timer   = 0.f;
-        _scene_exit_target.clear();
-        _prev_level_choice_pending = false;
-
-        _sync_footstep_anchors();
+        const bool has_save = _load_save_or_start_fresh(sd);
+        _configure_player_for_session(tc, has_save);
+        _initialize_runtime_after_enter();
 
         if (_run_stats)
             _run_stats->max_level_reached =
@@ -247,7 +186,7 @@ public:
     // ------------------------------------------------------------------
     void fixed_update(float dt, const InputState& input) override {
         _pending_next_scene.clear();
-        const OverlayInputEdges overlay_input = _overlay_input.capture(input, _pause_controller.menu());
+        const OverlayInputEdges overlay_input = _overlay_input.capture(input, _pause_controller);
 
         if (_autosave_flash > 0.f) {
             _autosave_flash -= dt;
@@ -264,6 +203,7 @@ public:
         // --- Hitstop ---
         if (_hitstop > 0) {
             --_hitstop;
+            _sync_gameplay_input_history(input);
             _flush_overlay_input(input);
             return;
         }
@@ -271,12 +211,14 @@ public:
         // --- Dialogue ---
         if (_dialogue.is_active()) {
             _dialogue.fixed_update(input);
+            _sync_gameplay_input_history(input);
             _flush_overlay_input(input);
             return;
         }
 
         // --- Pause ---
-        if (_handle_pause_ui(input)) {
+        if (_handle_pause_ui(overlay_input)) {
+            _sync_gameplay_input_history(input);
             _flush_overlay_input(input);
             return;
         }
@@ -297,6 +239,7 @@ public:
                 _persist_save();
             }
             if (r.world_paused) {
+                _sync_gameplay_input_history(input);
                 _flush_overlay_input(input);
                 return;
             }
@@ -308,6 +251,7 @@ public:
             if (r.should_save)
                 _persist_save();
             if (r.world_paused) {
+                _sync_gameplay_input_history(input);
                 _flush_overlay_input(input);
                 return;
             }
@@ -319,6 +263,7 @@ public:
             if (er.should_save)
                 _persist_save();
             if (er.world_paused) {
+                _sync_gameplay_input_history(input);
                 _flush_overlay_input(input);
                 return;
             }
@@ -326,11 +271,14 @@ public:
 
         // --- Shop (town) ---
         if (_shop_open && _zone_mgr.in_town()) {
-            _update_shop(input);
+            const ShopInputResult shop_result = _update_shop(overlay_input);
+            if (shop_result.should_save)
+                _persist_save();
             _resource_sys.fixed_update(_actors, dt);
             _camera.follow(_player.transform.x, _player.transform.y, _world_map.total_bounds());
             if (_rng) _camera.step_shake(*_rng);
             if (_audio) _audio->tick_music();
+            _sync_gameplay_input_history(input);
             _flush_overlay_input(input);
             return;
         }
@@ -338,17 +286,9 @@ public:
         // Potion use (edge: pressed this frame, not last)
         if (input.potion_pressed && !_prev_potion)
             _player.potion.use(_player.health);
-        _prev_potion = input.potion_pressed;
 
-        _prev_upgrade_1 = input.upgrade_1;
-        _prev_upgrade_2 = input.upgrade_2;
-        _prev_upgrade_3 = input.upgrade_3;
-        _prev_talent_1 = input.talent_1_pressed;
-        _prev_talent_2 = input.talent_2_pressed;
-        _prev_talent_3 = input.talent_3_pressed;
-
-        const int hp0   = _player.health.current_hp;
         const int gold0 = _player.gold;
+        int       damage_taken_frame = 0;
 
         // 1. Movement
         _movement_sys.fixed_update(_actors, dt);
@@ -396,12 +336,15 @@ public:
                 _actors, dt,
                 cur_area ? const_cast<Pathfinder*>(&cur_area->pathfinder) : nullptr,
                 &_projectiles, nav_ox, nav_oy);
-            _boss_state.update(_all_enemies(), _camera, _dialogue, _screen_flash, dt, _stress_mode);
+            _boss_state.update(_all_enemies(), _enemy_defs, _camera, _dialogue, _screen_flash,
+                               dt, _stress_mode);
 
             if (cur_area) {
                 _projectile_sys.fixed_update(
                     _projectiles, _actors, cur_area->room,
                     cur_area->offset_x, cur_area->offset_y, dt);
+            } else {
+                _projectile_sys.last_hit_events.clear();
             }
 
             const float cam_aud_x = _camera.x + _camera.viewport_w * 0.5f;
@@ -412,6 +355,8 @@ public:
                 _screen_flash, _audio, cam_aud_x, cam_aud_y, _rng);
 
             _combat_sys.fixed_update(_actors, dt);
+            damage_taken_frame += RunStatsTracker::damage_taken_for_actor(
+                _player.name, _combat_sys.last_events, _projectile_sys.last_hit_events);
             CombatFxController::apply_combat_feedback(_combat_sys, _camera, _audio, _hitstop);
             CombatFxController::apply_melee_hit_fx(
                 _combat_sys, _actors, _particles, _floating_texts,
@@ -424,7 +369,7 @@ public:
             if (dr.xp_gained > 0)
                 debug_log("XP gained=%d", dr.xp_gained);
             if (!dr.post_mortem_dialogue_id.empty())
-                _post_mortem_dialogue_id = dr.post_mortem_dialogue_id;
+                _scene_transition.queue_post_mortem_dialogue(dr.post_mortem_dialogue_id);
             if (dr.quest_completed || dr.boss_defeated)
                 _persist_save();
         }
@@ -439,32 +384,38 @@ public:
         }
 
         if (_zone_mgr.in_dungeon()) {
-            if (DropSystem::pickup_near_player(_player, _ground_items, _drop_config)
-                && !_stress_mode && !_dialogue.is_active())
-                _dialogue.start("dungeon_rare_relic");
+            if (DropSystem::pickup_near_player(_player, _ground_items, _drop_config))
+                _rare_relic_dialogue_pending = true;
+        }
+
+        if (_zone_mgr.in_dungeon()
+            && _rare_relic_dialogue_pending
+            && !_rare_relic_dialogue_shown
+            && !_stress_mode
+            && !_dialogue.is_active()) {
+            _dialogue.start(DungeonDialogueId::kRareRelic);
+            _rare_relic_dialogue_pending = false;
+            _rare_relic_dialogue_shown = true;
         }
 
         // 5. NPCs (town only)
         if (_zone_mgr.in_town()) {
             TownNpcWanderSystem::update_town_npcs(_npcs, dt, _npc_rng_state);
 
-            int near = TownNpcInteractionController::find_nearest_npc(_player, _npcs);
-            _interacting_npc_hint =
-                (near >= 0 && _dist_sq(_player.transform.x, _player.transform.y,
-                                       _npcs[static_cast<size_t>(near)].x,
-                                       _npcs[static_cast<size_t>(near)].y)
-                     <= _npcs[static_cast<size_t>(near)].interact_radius
-                         * _npcs[static_cast<size_t>(near)].interact_radius);
+            const std::optional<TownNpcInteractionController::NearbyNpcResult> near =
+                TownNpcInteractionController::find_nearest_npc_for_interaction(_player, _npcs);
+            _interacting_npc_hint = near.has_value() && near->in_interaction_range;
 
             const bool confirm_edge = input.confirm_pressed && !_prev_confirm;
-            if (confirm_edge && near >= 0 && _interacting_npc_hint) {
+            if (confirm_edge && near.has_value() && near->in_interaction_range) {
                 TownNpcInteractionController::handle_npc_interaction(
-                    near, _make_context(), _shop_open, kQuestRewardGold);
+                    near->index, _make_context(), _shop_open, kQuestRewardGold, [this]() {
+                        _persist_save();
+                    });
             }
         } else {
             _interacting_npc_hint = false;
         }
-        _prev_confirm = input.confirm_pressed;
 
         // 6. Broadphase collision — always
         {
@@ -483,9 +434,9 @@ public:
 
             // Dialogue on first entry
             const char* dlg_id = nullptr;
-            if      (area.zone == ZoneId::DungeonRoom0) dlg_id = "dungeon_prologue";
-            else if (area.zone == ZoneId::DungeonRoom1) dlg_id = "dungeon_room2";
-            else if (area.zone == ZoneId::DungeonRoom2) dlg_id = "dungeon_deeper";
+            if      (area.zone == ZoneId::DungeonRoom0) dlg_id = DungeonDialogueId::kPrologue;
+            else if (area.zone == ZoneId::DungeonRoom1) dlg_id = DungeonDialogueId::kRoom2;
+            else if (area.zone == ZoneId::DungeonRoom2) dlg_id = DungeonDialogueId::kDeeper;
             debug_log("[AreaEntry] zone=%d dlg=%s ctx.dialogue=%p active=%d",
                       (int)area.zone, dlg_id ? dlg_id : "none",
                       (void*)ctx.dialogue,
@@ -513,35 +464,27 @@ public:
             _rebuild_all_actors();
 
         // Post-mortem dialogue (boss death → victory after lines finish)
-        if (!_post_mortem_dialogue_id.empty() && !_dialogue.is_active()
-            && _pending_next_scene.empty()) {
-            std::string id = _post_mortem_dialogue_id;
-            _post_mortem_dialogue_id.clear();
+        if (auto id = _scene_transition.take_post_mortem_dialogue_to_start(
+                _dialogue, !_pending_next_scene.empty());
+            !id.empty()) {
             _dialogue.start(id, [this]() {
-                _scene_exit_pending = true;
-                _scene_exit_timer   = 0.8f;
-                _scene_exit_target  = "victory";
+                _scene_transition.schedule_scene_exit(SceneId::kVictory, 0.8f);
             });
         }
 
         // 8. Audio + animations + camera
         if (_audio && !_stress_mode)
-            WorldAudioSystem::update(*_audio, _zone_mgr, _player, _all_enemies());
+            WorldAudioSystem::update(*_audio, _zone_mgr, _player, _all_enemies(), _enemy_defs);
 
-        if (_run_stats) {
-            if (hp0 > _player.health.current_hp)
-                _run_stats->damage_taken += hp0 - _player.health.current_hp;
-            if (_player.gold > gold0)
-                _run_stats->gold_collected += _player.gold - gold0;
-            _run_stats->time_seconds += dt;
-            _run_stats->spells_cast += spell_casts_frame;
-        }
+        RunStatsTracker::FrameStatsDelta frame_stats{};
+        frame_stats.damage_taken = damage_taken_frame;
+        frame_stats.gold_collected = (_player.gold > gold0) ? (_player.gold - gold0) : 0;
+        frame_stats.spells_cast = spell_casts_frame;
+        frame_stats.time_seconds = dt;
+        RunStatsTracker::apply_frame_delta(_run_stats, frame_stats);
 
-        CombatFxController::update_death_flow(
-            _player.is_alive, dt,
-            _death_snapshot_done, _death_fade_remaining, kDeathFadeSeconds,
-            _pending_next_scene,
-            [this]() { _snapshot_last_run(); });
+        if (auto next = _death_flow.tick(_player.is_alive, dt, [this]() { _snapshot_last_run(); }); !next.empty())
+            _pending_next_scene = std::move(next);
 
         _particles.update(dt);
 
@@ -570,15 +513,10 @@ public:
                 e.hit_flash_timer = std::max(0.f, e.hit_flash_timer - dt);
 
         // Scene exit handling
-        if (_scene_exit_pending) {
-            _scene_exit_timer -= dt;
-            if (_scene_exit_timer <= 0.0f) {
-                _scene_exit_pending = false;
-                _pending_next_scene = std::move(_scene_exit_target);
-                _scene_exit_target.clear();
-            }
-        }
+        if (auto next = _scene_transition.tick_scene_exit(dt); !next.empty())
+            _pending_next_scene = std::move(next);
 
+        _sync_gameplay_input_history(input);
         _flush_overlay_input(input);
     }
 
@@ -677,19 +615,20 @@ public:
 
         // HUD
         if (_zone_mgr.in_dungeon()) {
-            render_dungeon_hud(r, viewport_w, viewport_h, _player, _zone_mgr.room_index_equiv());
+            render_dungeon_hud(
+                r, viewport_w, viewport_h, _player, _zone_mgr.room_index_equiv(), _locale);
         } else if (_zone_mgr.in_town()) {
             if (_interacting_npc_hint && !_dialogue.is_active()) {
-                const char* hint = "ENTER - falar";
+                const char* hint = tr("town_npc_interact_hint");
                 draw_text(r, 16.0f, static_cast<float>(viewport_h) - 80.0f, hint, 2, 255, 220, 120, 255);
             }
             char gold_buf[48];
-            snprintf(gold_buf, sizeof(gold_buf), "Gold: %d", _player.gold);
+            SDL_snprintf(gold_buf, sizeof(gold_buf), tr("town_gold_label"), _player.gold);
             draw_text(r, 16.0f, 16.0f, gold_buf, 2, 255, 210, 100, 255);
         }
 
         if (_show_autosave_indicator && _autosave_flash > 0.f) {
-            const char* tag = "Saved";
+            const char* tag = tr("ui_saved");
             float tx = static_cast<float>(viewport_w) - text_width(tag, 1) - 12.f;
             float ty = static_cast<float>(viewport_h) - 22.f;
             Uint8 al = static_cast<Uint8>(std::min(220.f, 90.f + 200.f * (_autosave_flash / 1.35f)));
@@ -702,20 +641,21 @@ public:
         ScreenFx::render_boss_intro(
             r, viewport_w, viewport_h,
             !_stress_mode && _zone_mgr.current == ZoneId::Boss && _boss_state.intro_pending,
-            _boss_state.intro_timer, BossState::kIntroDuration);
+            _boss_state.intro_timer, BossState::kIntroDuration, _locale);
         ScreenFx::render_death_fade(
             r, viewport_w, viewport_h, _player.is_alive,
-            _death_fade_remaining, kDeathFadeSeconds);
+            _death_flow.fade_remaining, PlayerDeathFlow::kFadeDuration);
         ScreenFx::render_screen_flash(r, viewport_w, viewport_h, _screen_flash);
 
         _skill_tree_controller.render(_player, r, viewport_w, viewport_h);
         _equipment_controller.render(_player, r, viewport_w, viewport_h);
 
         if (_dialogue.is_active())
-            render_dialogue_ui(r, viewport_w, viewport_h, _dialogue);
+            render_dialogue_ui(r, viewport_w, viewport_h, _dialogue, _locale);
 
         if (_shop_open)
-            ShopSystem::render_shop_ui(r, _shop_forge, _player.gold, viewport_w, viewport_h);
+            ShopSystem::render_shop_ui(
+                r, _shop_forge, _player.gold, viewport_w, viewport_h, _locale);
 
         _pause_controller.render(r, viewport_w, viewport_h);
     }
@@ -729,8 +669,47 @@ public:
     }
 
 private:
-    static constexpr float kDeathFadeSeconds = 1.5f;
-    static constexpr int   kQuestRewardGold  = 120;
+    static constexpr int kQuestRewardGold = 120;
+
+    // Owns transition state for post-mortem dialogue -> delayed scene exit.
+    struct SceneTransitionFlow {
+        std::string pending_post_mortem_dialogue_id;
+        bool        scene_exit_pending = false;
+        float       scene_exit_timer   = 0.f;
+        std::string scene_exit_target;
+
+        void reset() {
+            pending_post_mortem_dialogue_id.clear();
+            scene_exit_pending = false;
+            scene_exit_timer   = 0.f;
+            scene_exit_target.clear();
+        }
+
+        void queue_post_mortem_dialogue(std::string id) {
+            pending_post_mortem_dialogue_id = std::move(id);
+        }
+
+        std::string take_post_mortem_dialogue_to_start(const DialogueSystem& dialogue,
+                                                       bool scene_transition_pending) {
+            if (pending_post_mortem_dialogue_id.empty() || dialogue.is_active() || scene_transition_pending)
+                return {};
+            return std::move(pending_post_mortem_dialogue_id);
+        }
+
+        void schedule_scene_exit(std::string t, float delay) {
+            scene_exit_pending = true;
+            scene_exit_timer   = delay;
+            scene_exit_target  = std::move(t);
+        }
+
+        std::string tick_scene_exit(float dt) {
+            if (!scene_exit_pending) return {};
+            scene_exit_timer -= dt;
+            if (scene_exit_timer > 0.f) return {};
+            scene_exit_pending = false;
+            return std::move(scene_exit_target);
+        }
+    };
 
     // === World ===
     WorldMap            _world_map;
@@ -787,25 +766,19 @@ private:
     bool    _stress_mode = false;
     int     _requested_enemy_count = 3;
     float   _player_cast_timer = 0.0f;
-    bool    _prev_upgrade_1 = false, _prev_upgrade_2 = false, _prev_upgrade_3 = false;
-    bool    _prev_talent_1  = false, _prev_talent_2  = false, _prev_talent_3  = false;
     bool    _prev_potion    = false;
     bool    _prev_confirm   = false;
-    bool    _death_snapshot_done = false;
-    float   _death_fade_remaining = 0.f;
+    PlayerDeathFlow _death_flow;
     bool    _prev_level_choice_pending = false;
     float   _autosave_flash = 0.f;
     int     _hitstop = 0;
-    std::string _pending_next_scene;
-    std::string _post_mortem_dialogue_id;
-    bool    _show_autosave_indicator = false;
-    bool    _scene_exit_pending = false;
-    float   _scene_exit_timer   = 0.f;
-    std::string _scene_exit_target;
+    bool    _rare_relic_dialogue_pending = false;
+    bool    _rare_relic_dialogue_shown = false;
+    std::string            _pending_next_scene;
+    SceneTransitionFlow    _scene_transition;
+    bool                   _show_autosave_indicator = false;
     unsigned    _npc_rng_state = 0x12345678u;
-    float       _prev_shop_move_y = 0.f;
-    bool        _shop_prev_confirm = false;
-    bool        _shop_prev_cancel  = false;
+    ShopInputController _shop_input;
 
     // === Non-owning ===
     SDL_Renderer*    _renderer   = nullptr;
@@ -813,6 +786,7 @@ private:
     RunStats*        _run_stats  = nullptr;
     DifficultyLevel* _difficulty = nullptr;
     std::mt19937*    _rng        = nullptr;
+    LocaleSystem*    _locale     = nullptr;
     std::optional<TextureCache> _tex_cache;
     std::vector<SDL_Texture*> _tiled_textures;
 
@@ -853,14 +827,14 @@ private:
         return ctx;
     }
 
-    std::vector<Actor>& _all_enemies() {
+    std::vector<Actor*>& _all_enemies() {
         _cached_all_enemies.clear();
         for (auto& area : _world_map.areas)
             for (auto& e : area.enemies)
-                _cached_all_enemies.push_back(e);
+                _cached_all_enemies.push_back(&e);
         return _cached_all_enemies;
     }
-    std::vector<Actor> _cached_all_enemies;
+    std::vector<Actor*> _cached_all_enemies;
 
     void _rebuild_all_actors() {
         _actors.clear();
@@ -880,12 +854,77 @@ private:
         _player.transform.set_position(400.f, 800.f);
     }
 
+    bool _load_save_or_start_fresh(SaveData& sd) {
+        const bool has_save = WorldSaveController::load_default_save(sd);
+        if (!has_save) {
+            _fresh_run();
+            return false;
+        }
+
+        WorldContext wctx = _make_context();
+        WorldSaveController::apply_world_save(wctx, sd);
+        if (sd.player_world_x == 0.f && sd.player_world_y == 0.f)
+            _player.transform.set_position(400.f, 800.f);
+        return true;
+    }
+
+    void _configure_player_for_session(TextureCache* tc, bool has_save) {
+        PlayerConfigureOptions opts;
+        opts.reset_health_to_max = !has_save;
+        opts.preserve_resources  = has_save;
+        opts.stress_mode         = _stress_mode;
+        configure_player(_player, tc, opts);
+
+        if (has_save) {
+            if (_player.health.current_hp > _player.health.max_hp) _player.health.current_hp = _player.health.max_hp;
+            if (_player.health.current_hp < 1)                     _player.health.current_hp = 1;
+        }
+
+        _player.spell_book = SpellBookState{};
+        _player.spell_book.sync_from_talents(_player.talents);
+    }
+
+    void _initialize_runtime_after_enter() {
+        _rebuild_all_actors();
+
+        _zone_mgr.update(_player.transform.x, _player.transform.y, _world_map);
+        if (_audio)
+            WorldAudioSystem::init_for_zone(*_audio, _zone_mgr.current);
+
+        if (_renderer) _lighting.init(_renderer, viewport_w, viewport_h);
+        _pause_controller = {};
+        _pause_controller.set_locale(_locale);
+        _pause_controller.init();
+        _skill_tree_controller = {};
+        _skill_tree_controller.set_locale(_locale);
+        _skill_tree_controller.rebuild_columns();
+        _attr_controller = {};
+        _attr_controller.set_locale(_locale);
+        _equipment_controller = {};
+        _equipment_controller.set_locale(_locale);
+        _camera.viewport_w = static_cast<float>(viewport_w);
+        _camera.viewport_h = static_cast<float>(viewport_h);
+
+        _death_flow.reset();
+        _floating_texts.texts.clear();
+        _screen_flash  = {};
+        _hitstop       = 0;
+        _pending_next_scene.clear();
+        _scene_transition.reset();
+        _prev_level_choice_pending = false;
+        _rare_relic_dialogue_pending = false;
+        _rare_relic_dialogue_shown = false;
+        _sync_footstep_anchors();
+    }
+
     void _persist_save() {
-        WorldSaveController::persist(_make_context(), _show_autosave_indicator, _autosave_flash);
+        if (!WorldSaveController::persist(_make_context(), _show_autosave_indicator, _autosave_flash))
+            debug_log("WorldScene: failed to persist save");
     }
 
     void _snapshot_last_run() {
-        WorldSaveController::snapshot_last_run(_make_context());
+        if (!WorldSaveController::snapshot_last_run(_make_context()))
+            debug_log("WorldScene: failed to snapshot last run");
     }
 
     void _handle_zone_transition() {
@@ -897,27 +936,36 @@ private:
             for (const auto& area : _world_map.areas) {
                 if (area.zone != ZoneId::Boss) continue;
                 for (const auto& e : area.enemies)
-                    if (e.is_alive && e.name == "Grimjaw") { boss_exists = true; break; }
+                    if (e.is_alive
+                        && _enemy_defs[static_cast<int>(e.enemy_type)].is_zone_boss) {
+                        boss_exists = true;
+                        break;
+                    }
             }
             if (!boss_exists)
                 _boss_state = {};
         }
     }
 
-    bool _handle_pause_ui(const InputState& input) {
-        PauseMenuResult r = _pause_controller.update(input);
+    bool _handle_pause_ui(const OverlayInputEdges& edges) {
+        PauseMenuResult r = _pause_controller.update(edges);
         if (r.should_open_skill_tree)
             _skill_tree_controller.open();
         if (r.should_quit_to_title) {
             _persist_save();
-            _pending_next_scene = "title";
+            _pending_next_scene = SceneId::kTitle;
             if (_audio) _audio->fade_music(400);
         }
         return r.world_paused;
     }
 
     void _flush_overlay_input(const InputState& in) {
-        _overlay_input.flush(in, _pause_controller.menu());
+        _overlay_input.flush(in, _pause_controller);
+    }
+
+    void _sync_gameplay_input_history(const InputState& in) {
+        _prev_potion    = in.potion_pressed;
+        _prev_confirm   = in.confirm_pressed;
     }
 
     void _sync_footstep_anchors() {
@@ -932,15 +980,12 @@ private:
             }
     }
 
-    static float _dist_sq(float ax, float ay, float bx, float by) {
-        float dx = ax - bx, dy = ay - by;
-        return dx * dx + dy * dy;
+    ShopInputResult _update_shop(const OverlayInputEdges& input) {
+        return _shop_input.update(_shop_forge, _player, input, _audio, _shop_open);
     }
 
-    void _update_shop(const InputState& input) {
-        ShopInputController::update_shop_input(
-            _shop_forge, _player, input, _audio, _shop_open,
-            _prev_shop_move_y, _shop_prev_confirm, _shop_prev_cancel);
+    const char* tr(const std::string& key) const {
+        return _locale ? _locale->get(key) : key.c_str();
     }
 };
 

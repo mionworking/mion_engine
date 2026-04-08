@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 
 #include "../core/bitmap_font.hpp"
+#include "../core/locale.hpp"
 
 namespace mion {
 
@@ -30,7 +31,11 @@ struct ScreenFx {
                                   int viewport_h,
                                   bool enabled,
                                   float intro_timer,
-                                  float intro_duration) {
+                                  float intro_duration,
+                                  const LocaleSystem* locale = nullptr) {
+        const auto tr = [locale](const std::string& key) -> const char* {
+            return locale ? locale->get(key) : key.c_str();
+        };
         if (!enabled)
             return;
 
@@ -49,13 +54,13 @@ struct ScreenFx {
         SDL_FRect full{0, 0, static_cast<float>(viewport_w), static_cast<float>(viewport_h)};
         SDL_RenderFillRect(r, &full);
 
-        const char* boss_name = "GRIMJAW";
+        const char* boss_name = tr("boss_intro_name");
         const int   boss_scale = 5;
         const float boss_x = viewport_w * 0.5f - text_width(boss_name, boss_scale) * 0.5f;
         const float boss_y = viewport_h * 0.42f;
         draw_text(r, boss_x, boss_y, boss_name, boss_scale, 220, 60, 40, text_alpha);
 
-        const char* sub = "Guardian of the Third Depth";
+        const char* sub = tr("boss_intro_subtitle");
         const int   sub_scale = 2;
         const float sub_x = viewport_w * 0.5f - text_width(sub, sub_scale) * 0.5f;
         draw_text(r, sub_x, boss_y + boss_scale * 12 + 8, sub, sub_scale,

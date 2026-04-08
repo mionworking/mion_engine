@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "../../src/core/world_layout_ids.hpp"
 #include "../../src/systems/dungeon_config_loader.hpp"
 #include "../../src/world/world_map_builder.hpp"
 
@@ -33,8 +34,14 @@ static void world_map_builder_creates_six_non_overlapping_areas_with_nav() {
 
     EXPECT_EQ(static_cast<int>(map.areas.size()), 6);
 
-    for (const auto& a : map.areas)
-        EXPECT_EQ(static_cast<int>(a.room.doors.size()), 0);
+    for (const auto& a : map.areas) {
+        if (a.zone == ZoneId::Town) {
+            EXPECT_EQ(static_cast<int>(a.room.doors.size()), 1);
+            EXPECT_EQ(a.room.doors[0].target_scene_id, WorldLayoutId::kDungeon);
+        } else {
+            EXPECT_EQ(static_cast<int>(a.room.doors.size()), 0);
+        }
+    }
 
     for (size_t i = 0; i < map.areas.size(); ++i) {
         EXPECT_TRUE(map.areas[i].pathfinder.nav.cols > 0);
@@ -73,6 +80,7 @@ static void world_map_builder_creates_six_non_overlapping_areas_with_nav() {
     }
     EXPECT_TRUE(corridor != nullptr);
     if (corridor) {
+        EXPECT_EQ(corridor->room.name, WorldLayoutId::kCorridor);
         EXPECT_NEAR(corridor->room.bounds.max_y, 900.f, 0.01f);
         AABB gb = corridor->global_bounds();
         EXPECT_NEAR(gb.max_y - gb.min_y, 900.f, 0.01f);

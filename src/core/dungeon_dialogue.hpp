@@ -4,10 +4,19 @@
 
 namespace mion {
 
+namespace DungeonDialogueId {
+    inline constexpr const char* kPrologue      = "dungeon_prologue";
+    inline constexpr const char* kRoom2         = "dungeon_room2";
+    inline constexpr const char* kDeeper        = "dungeon_deeper";
+    inline constexpr const char* kRareRelic     = "dungeon_rare_relic";
+    inline constexpr const char* kMinibossDeath = "miniboss_grimjaw_death";
+    inline constexpr const char* kBossPhase2    = "boss_grimjaw_phase2";
+} // namespace DungeonDialogueId
+
 inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     {
         DialogueSequence prologue;
-        prologue.id = "dungeon_prologue";
+        prologue.id = DungeonDialogueId::kPrologue;
         prologue.lines = {
             {"Voice", "Few have braved these steps in years.", {180, 200, 255, 255}},
             {"Voice", "Torchlight on wet stone. Something stirs below.", {170, 210, 240, 255}},
@@ -17,7 +26,7 @@ inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     }
     {
         DialogueSequence deeper;
-        deeper.id = "dungeon_room2";
+        deeper.id = DungeonDialogueId::kRoom2;
         deeper.lines = {
             {"Voice", "Deeper now. The walls grow older here.", {160, 180, 220, 255}},
             {"Voice", "Whatever lurks ahead has not seen daylight in years.", {200, 160, 120, 255}},
@@ -26,7 +35,7 @@ inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     }
     {
         DialogueSequence deeper2;
-        deeper2.id = "dungeon_deeper";
+        deeper2.id = DungeonDialogueId::kDeeper;
         deeper2.lines = {
             {"Voice", "Another span of carved darkness. Keep the rhythm.", {140, 190, 230, 255}},
         };
@@ -34,7 +43,7 @@ inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     }
     {
         DialogueSequence relic;
-        relic.id = "dungeon_rare_relic";
+        relic.id = DungeonDialogueId::kRareRelic;
         relic.lines = {
             {"Voice", "A relic hums in your palm — old magic, thin but sharp.", {220, 200, 120, 255}},
         };
@@ -42,7 +51,7 @@ inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     }
     {
         DialogueSequence miniboss;
-        miniboss.id = "miniboss_grimjaw_death";
+        miniboss.id = DungeonDialogueId::kMinibossDeath;
         miniboss.lines = {
             {"Grimjaw", "Hrk… the depths… were meant… to keep you…", {200, 80, 70, 255}},
             {"Voice", "The named brute falls. What waits past him listens closer now.", {160, 200, 240, 255}},
@@ -51,7 +60,7 @@ inline void register_dungeon_dialogue(DialogueSystem& dialogue) {
     }
     {
         DialogueSequence phase2;
-        phase2.id = "boss_grimjaw_phase2";
+        phase2.id = DungeonDialogueId::kBossPhase2;
         phase2.lines = {
             {"Grimjaw", "RAAAAGH! You dare…!!", {255, 80, 40, 255}},
         };

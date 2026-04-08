@@ -37,9 +37,8 @@ struct SaveData {
     AttributesState  attributes{};         // v4: all five base attributes
     int              attr_points_available = 0; // v5: unspent attribute points
     unsigned int     scene_flags = 0;      // v5: persistent scene flag bitmask
-    // bit 0 = boss_dungeon1_defeated, bit 1 = dungeon2_unlocked,
-    // bit 2 = blessing_altar_used, bit 3 = grimjaw_intro_played
-    // bits 4-31 = reserved
+    // bit 0 = set by v4→v5 migration when victory_reached (legacy artefact)
+    // bits 1-31 = reserved (bits 2-3 were planned but never implemented)
 
     // v6: open world
     float        player_world_x    = 0.f;

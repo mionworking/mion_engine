@@ -4,7 +4,9 @@
 
 #include "../core/audio.hpp"
 #include "../core/camera.hpp"
+#include "../core/dungeon_dialogue.hpp"
 #include "../entities/actor.hpp"
+#include "../entities/enemy_type.hpp"
 #include "dialogue_system.hpp"
 #include "screen_fx.hpp"
 
@@ -19,7 +21,8 @@ struct BossState {
 
     // Chamado uma vez por fixed_update após EnemyAI.
     // Detecta transição para fase2 do Grimjaw e tick do timer de intro.
-    void update(const std::vector<Actor>& enemies,
+    void update(const std::vector<Actor*>& enemies,
+                const EnemyDef*             enemy_defs,
                 Camera2D&                 camera,
                 DialogueSystem&           dialogue,
                 ScreenFlashState&         flash,
@@ -33,12 +36,13 @@ struct BossState {
 
         if (stress_mode || phase2_triggered) return;
 
-        for (const auto& e : enemies) {
-            if (e.name != "Grimjaw") continue;
-            if (e.boss_phase != 2)   continue;
+        for (const auto* e : enemies) {
+            if (!e) continue;
+            if (!enemy_defs[static_cast<int>(e->enemy_type)].is_zone_boss) continue;
+            if (e->boss_phase != 2) continue;
             phase2_triggered = true;
             camera.trigger_shake(18.0f, 30);
-            dialogue.start("boss_grimjaw_phase2");
+            dialogue.start(DungeonDialogueId::kBossPhase2);
             flash.trigger({255, 200, 50, 180}, 0.3f);
             break;
         }

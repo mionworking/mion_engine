@@ -13,7 +13,7 @@ namespace FootstepAudioSystem {
 
 inline void update_footsteps(AudioSystem& audio,
                              Actor& player,
-                             std::vector<Actor>& enemies,
+                             const std::vector<Actor*>& enemies,
                              const Camera2D& camera,
                              float player_step_dist,
                              float enemy_step_dist) {
@@ -34,28 +34,28 @@ inline void update_footsteps(AudioSystem& audio,
     player.footstep_prev_x = player.transform.x;
     player.footstep_prev_y = player.transform.y;
 
-    for (auto& enemy : enemies) {
-        if (!enemy.is_alive)
+    for (auto* enemy : enemies) {
+        if (!enemy || !enemy->is_alive)
             continue;
-        const float dx = enemy.transform.x - enemy.footstep_prev_x;
-        const float dy = enemy.transform.y - enemy.footstep_prev_y;
-        if (enemy.is_moving) {
-            enemy.footstep_accum_dist += std::sqrt(dx * dx + dy * dy);
-            while (enemy.footstep_accum_dist >= enemy_step_dist) {
-                enemy.footstep_accum_dist -= enemy_step_dist;
+        const float dx = enemy->transform.x - enemy->footstep_prev_x;
+        const float dy = enemy->transform.y - enemy->footstep_prev_y;
+        if (enemy->is_moving) {
+            enemy->footstep_accum_dist += std::sqrt(dx * dx + dy * dy);
+            while (enemy->footstep_accum_dist >= enemy_step_dist) {
+                enemy->footstep_accum_dist -= enemy_step_dist;
                 audio.play_sfx_at(SoundId::FootstepEnemy,
-                                  enemy.transform.x,
-                                  enemy.transform.y,
+                                  enemy->transform.x,
+                                  enemy->transform.y,
                                   cam_x,
                                   cam_y,
                                   480.0f,
                                   0.2f);
             }
         } else {
-            enemy.footstep_accum_dist = 0.0f;
+            enemy->footstep_accum_dist = 0.0f;
         }
-        enemy.footstep_prev_x = enemy.transform.x;
-        enemy.footstep_prev_y = enemy.transform.y;
+        enemy->footstep_prev_x = enemy->transform.x;
+        enemy->footstep_prev_y = enemy->transform.y;
     }
 }
 

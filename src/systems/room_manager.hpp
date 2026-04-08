@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include "../core/run_stats.hpp"
+#include "../core/world_layout_ids.hpp"
 #include "../entities/actor.hpp"
 #include "../entities/ground_item.hpp"
 #include "../entities/projectile.hpp"
@@ -46,10 +47,10 @@ struct RoomManager {
             room.add_door(bounds.max_x - 72.0f, midy - 56.0f,
                           bounds.max_x - 20.0f, midy + 56.0f, true);
             room.add_door(bounds.min_x + 20.0f, midy - 56.0f,
-                          bounds.min_x + 72.0f, midy + 56.0f, false, "town");
+                          bounds.min_x + 72.0f, midy + 56.0f, false, WorldLayoutId::kTown);
         } else {
             room.add_door(bounds.max_x - 72.0f, midy - 56.0f,
-                          bounds.max_x - 20.0f, midy + 56.0f, true, "town");
+                          bounds.max_x - 20.0f, midy + 56.0f, true, WorldLayoutId::kTown);
         }
 
         const int         tmpl = dungeon_rules::room_template(room_index);

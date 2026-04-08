@@ -4,6 +4,7 @@
 #include "../world/world_area.hpp"
 #include "../world/zone_manager.hpp"
 #include "../entities/actor.hpp"
+#include "../entities/enemy_type.hpp"
 
 namespace mion {
 
@@ -26,20 +27,26 @@ inline void init_for_zone(AudioSystem& audio, ZoneId zone) {
 }
 
 inline void update(AudioSystem& audio, const ZoneManager& zone,
-                   const Actor& player, const std::vector<Actor>& enemies) {
+                   const Actor& player, const std::vector<Actor*>& enemies,
+                   const EnemyDef* enemy_defs) {
     if (!zone.in_dungeon()) return;
 
     MusicState target = MusicState::DungeonCalm;
 
     if (zone.current == ZoneId::Boss) {
-        for (const auto& e : enemies)
-            if (e.is_alive && e.name == "Grimjaw") { target = MusicState::DungeonBoss; break; }
+        for (const auto* e : enemies)
+            if (e
+                && e->is_alive
+                && enemy_defs[static_cast<int>(e->enemy_type)].is_zone_boss) {
+                target = MusicState::DungeonBoss;
+                break;
+            }
     } else {
-        for (const auto& e : enemies) {
-            if (!e.is_alive) continue;
-            const float dx = player.transform.x - e.transform.x;
-            const float dy = player.transform.y - e.transform.y;
-            if (dx * dx + dy * dy < e.aggro_range * e.aggro_range)
+        for (const auto* e : enemies) {
+            if (!e || !e->is_alive) continue;
+            const float dx = player.transform.x - e->transform.x;
+            const float dy = player.transform.y - e->transform.y;
+            if (dx * dx + dy * dy < e->aggro_range * e->aggro_range)
                 { target = MusicState::DungeonCombat; break; }
         }
     }

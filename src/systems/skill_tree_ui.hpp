@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 
 #include "../core/bitmap_font.hpp"
+#include "../core/locale.hpp"
 #include "../core/ui.hpp"
 #include "../components/talent_tree.hpp"
 
@@ -10,15 +11,19 @@ namespace mion {
 inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
                                        const TalentState& talents,
                                        int selected_col, int selected_row,
-                                       const std::vector<int> col_indices[3])
+                                       const std::vector<int> col_indices[3],
+                                       const LocaleSystem* locale = nullptr)
 {
+    const auto tr = [locale](const std::string& key) -> const char* {
+        return locale ? locale->get(key) : key.c_str();
+    };
     ui::draw_dim(r, vw, vh);
 
     char pts[48];
-    SDL_snprintf(pts, sizeof(pts), "Pontos: %d", talents.pending_points);
+    SDL_snprintf(pts, sizeof(pts), tr("skill_points_label"), talents.pending_points);
     draw_text(r, (float)vw - text_width(pts, 2) - 16.0f, 16.0f, pts, 2, 200, 220, 255, 255);
 
-    const char* titles[3] = {"MELEE", "RANGED", "MAGIC"};
+    const char* titles[3] = {tr("skill_tree_col_melee"), tr("skill_tree_col_ranged"), tr("skill_tree_col_magic")};
     const float gap    = 12.0f;
     const float colw   = (vw - gap * 4.0f) / 3.0f;
     const float top    = 56.0f;
@@ -66,7 +71,7 @@ inline void render_skill_tree_overlay(SDL_Renderer* r, int vw, int vh,
         }
     }
 
-    const char* hint = "SETAS  ENTER - gastar ponto  TAB/ESC - fechar";
+    const char* hint = tr("skill_tree_hint");
     draw_text(r, 16.0f, (float)vh - 28.0f, hint, 2,
               ui::g_theme.text_hint.r, ui::g_theme.text_hint.g,
               ui::g_theme.text_hint.b, ui::g_theme.text_hint.a);

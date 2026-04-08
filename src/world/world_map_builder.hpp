@@ -2,6 +2,7 @@
 
 #include "world_map.hpp"
 #include "../core/sprite.hpp"
+#include "../core/world_layout_ids.hpp"
 #include "../core/ini_loader.hpp"
 #include "../systems/town_builder.hpp"
 #include "../systems/room_manager.hpp"
@@ -30,7 +31,8 @@ inline WorldMap build(const IniData& rooms_ini,
         TownBuilder::build_town_world(
             town.room, town.tilemap, town_tile_renderer,
             npcs, shop_forge, player, tex_cache);
-        town.room.doors.clear();
+        // Keep `TownBuilder` door zones (town→dungeon): used by town render and matches
+        // `DoorZone` / `WorldLayoutId` contract; unlike dungeon areas, we do not strip doors here.
         town.pathfinder.build_nav(town.tilemap, town.room);
         map.areas.push_back(std::move(town));
     }
@@ -44,7 +46,7 @@ inline WorldMap build(const IniData& rooms_ini,
         corridor.offset_x = town_width;
         corridor.offset_y = 300.f;
 
-        corridor.room.name   = "corridor";
+        corridor.room.name   = WorldLayoutId::kCorridor;
         // Match dungeon room vertical span (900) so there is no "void" strip beside the corridor.
         corridor.room.bounds = { 0.f, 192.f, 0.f, 900.f };
         corridor.room.obstacles.clear();

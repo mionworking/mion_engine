@@ -1,7 +1,10 @@
 #include <cstdio>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <algorithm>
+#include <filesystem>
+#include <system_error>
 #include <vector>
 #include <cassert>
 #include <memory>
@@ -19,6 +22,9 @@
 #include "components/talent_tree.hpp"
 #include "components/talent_state.hpp"
 #include "core/input.hpp"
+#include "core/player_actor_id.hpp"
+#include "core/scene_ids.hpp"
+#include "core/world_layout_ids.hpp"
 #include "world/room.hpp"
 #include "world/tilemap.hpp"
 #include "entities/actor.hpp"
@@ -458,7 +464,9 @@ static void test_room_collision_obstacle() {
 static void test_melee_hit_lands() {
     mion::Actor attacker, target;
 
-    attacker.name = "player"; attacker.team = mion::Team::Player; attacker.is_alive = true;
+    attacker.name = mion::PlayerActorId::kName;
+    attacker.team = mion::Team::Player;
+    attacker.is_alive = true;
     attacker.transform.set_position(0.0f, 0.0f);
     attacker.facing_x = 1.0f; attacker.facing_y = 0.0f;
     attacker.melee_hit_box = { 22.0f, 14.0f, 28.0f };
@@ -489,7 +497,9 @@ static void test_melee_hit_lands() {
 static void test_melee_no_hit_outside_range() {
     mion::Actor attacker, target;
 
-    attacker.name = "player"; attacker.team = mion::Team::Player; attacker.is_alive = true;
+    attacker.name = mion::PlayerActorId::kName;
+    attacker.team = mion::Team::Player;
+    attacker.is_alive = true;
     attacker.transform.set_position(0.0f, 0.0f);
     attacker.facing_x = 1.0f; attacker.facing_y = 0.0f;
     attacker.melee_hit_box = { 22.0f, 14.0f, 28.0f };
@@ -538,7 +548,9 @@ static void test_melee_no_friendly_fire() {
 
 static void test_melee_no_hit_during_startup() {
     mion::Actor attacker, target;
-    attacker.name = "player"; attacker.team = mion::Team::Player; attacker.is_alive = true;
+    attacker.name = mion::PlayerActorId::kName;
+    attacker.team = mion::Team::Player;
+    attacker.is_alive = true;
     attacker.transform.set_position(0.0f, 0.0f);
     attacker.facing_x = 1.0f; attacker.facing_y = 0.0f;
     attacker.melee_hit_box = { 22.0f, 14.0f, 28.0f };
@@ -937,7 +949,7 @@ static void test_room_flow_door_with_target_scene() {
     mion::RoomFlowSystem flow;
     mion::RoomDefinition room;
     room.bounds = { 0, 800, 0, 600 };
-    room.add_door(10.0f, 200.0f, 70.0f, 300.0f, false, "title");
+    room.add_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::SceneId::kTitle);
 
     mion::Actor player;
     player.team      = mion::Team::Player;
@@ -947,11 +959,31 @@ static void test_room_flow_door_with_target_scene() {
 
     std::vector<mion::Actor*> actors; // sala “limpa”
     flow.fixed_update(actors, player, room);
-    EXPECT_EQ(flow.scene_exit_to, "title");
+    EXPECT_EQ(flow.scene_exit_to, mion::SceneId::kTitle);
     EXPECT_FALSE(flow.transition_requested);
 
     flow.fixed_update(actors, player, room);
-    EXPECT_EQ(flow.scene_exit_to, "title");
+    EXPECT_EQ(flow.scene_exit_to, mion::SceneId::kTitle);
+}
+
+
+static void test_room_flow_door_passthrough_world_layout_target() {
+    mion::RoomFlowSystem flow;
+    mion::RoomDefinition room;
+    room.bounds = { 0, 800, 0, 600 };
+    room.add_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::WorldLayoutId::kTown);
+
+    mion::Actor player;
+    player.team      = mion::Team::Player;
+    player.is_alive  = true;
+    player.collision = { 16.0f, 16.0f };
+    player.transform.set_position(40.0f, 250.0f);
+
+    std::vector<mion::Actor*> actors;
+    flow.fixed_update(actors, player, room);
+
+    EXPECT_EQ(flow.scene_exit_to, mion::WorldLayoutId::kTown);
+    EXPECT_FALSE(flow.transition_requested);
 }
 
 static void test_room_flow_inner_door_advance_room() {
@@ -1155,6 +1187,17 @@ static void test_save_load_candidates_prefers_primary() {
     mion::SaveData legacy_data;
     legacy_data.room_index = 2;
     EXPECT_TRUE(mion::SaveSystem::save(legacy, legacy_data));
+
+    // Deterministic preference: when both files exist, newer mtime wins.
+    // Force primary newer to avoid filesystem timestamp granularity flakes.
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const auto now = fs::file_time_type::clock::now();
+    fs::last_write_time(legacy, now - std::chrono::seconds(2), ec);
+    EXPECT_TRUE(!ec);
+    ec.clear();
+    fs::last_write_time(primary, now, ec);
+    EXPECT_TRUE(!ec);
 
     mion::SaveData out{};
     EXPECT_TRUE(mion::SaveSystem::load_candidates(primary, legacy, out));
@@ -1794,6 +1837,7 @@ void run_legacy_tests() {
     run("TitleScene.MainQuit",       test_title_scene_main_menu_quit_requests_quit);
     run("TitleScene.SettingsBack",   test_title_scene_settings_backspace_returns_to_main);
     run("RoomFlow.TargetScene",      test_room_flow_door_with_target_scene);
+    run("RoomFlow.PassthroughTag",   test_room_flow_door_passthrough_world_layout_target);
     run("RoomFlow.AdvanceRoom",      test_room_flow_inner_door_advance_room);
     run("Save.Roundtrip",            test_save_roundtrip);
     run("Save.V3TalentInt",          test_save_v3_loads_talent_int_levels_from_disk);

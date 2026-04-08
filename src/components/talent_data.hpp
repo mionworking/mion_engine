@@ -47,8 +47,7 @@ struct TalentNode {
     int         max_level        = 3;
 };
 
-// Global talent node table — mutated by apply_talents_ini(), reset by reset_talent_tree_defaults().
-inline std::array<TalentNode, kTalentCount> g_talent_nodes = {{
+inline constexpr std::array<TalentNode, kTalentCount> kDefaultTalentNodes = {{
     { TalentId::MeleeForce, Discipline::Melee, SkillType::Passive, false, TalentId::MeleeForce, 1, 1,
       3 },
     { TalentId::IronBody, Discipline::Melee, SkillType::Passive, true, TalentId::MeleeForce, 1, 1,
@@ -82,7 +81,7 @@ inline std::array<TalentNode, kTalentCount> g_talent_nodes = {{
 }};
 
 // Display names shown in the talent tree UI.
-inline std::array<std::string, kTalentCount> g_talent_display_names = {
+inline const std::array<std::string, kTalentCount> kDefaultTalentDisplayNames = {
     "Melee Force",     "Iron Body",     "Crushing Blow",    "Cleave",
     "Whirlwind",       "Battle Cry",    "Sharp Arrow",      "Multi Shot",
     "Poison Arrow",    "Piercing Shot", "Strafe",           "Arcane Reservoir",
@@ -90,51 +89,14 @@ inline std::array<std::string, kTalentCount> g_talent_display_names = {
     "Chain Lightning",
 };
 
+// Global talent node table — mutated by apply_talents_ini(), reset by reset_talent_tree_defaults().
+inline std::array<TalentNode, kTalentCount> g_talent_nodes = kDefaultTalentNodes;
+inline std::array<std::string, kTalentCount> g_talent_display_names = kDefaultTalentDisplayNames;
+
 // Restores both global tables to their compiled-in defaults.
 inline void reset_talent_tree_defaults() {
-    g_talent_nodes = {{
-        { TalentId::MeleeForce, Discipline::Melee, SkillType::Passive, false, TalentId::MeleeForce,
-          1, 1, 3 },
-        { TalentId::IronBody, Discipline::Melee, SkillType::Passive, true, TalentId::MeleeForce, 1,
-          1, 3 },
-        { TalentId::CrushingBlow, Discipline::Melee, SkillType::Passive, true, TalentId::MeleeForce,
-          1, 1, 3 },
-        { TalentId::Cleave, Discipline::Melee, SkillType::Active, true, TalentId::MeleeForce, 1, 1,
-          3 },
-        { TalentId::Whirlwind, Discipline::Melee, SkillType::Active, true, TalentId::Cleave, 1, 1,
-          3 },
-        { TalentId::BattleCry, Discipline::Melee, SkillType::Active, true, TalentId::IronBody, 2, 1,
-          3 },
-        { TalentId::SharpArrow, Discipline::Ranged, SkillType::Passive, false, TalentId::SharpArrow,
-          1, 1, 3 },
-        { TalentId::MultiShot, Discipline::Ranged, SkillType::Active, true, TalentId::SharpArrow, 1,
-          1, 3 },
-        { TalentId::PoisonArrow, Discipline::Ranged, SkillType::Active, true, TalentId::SharpArrow,
-          1, 1, 3 },
-        { TalentId::PiercingShot, Discipline::Ranged, SkillType::Passive, true, TalentId::MultiShot,
-          1, 1, 3 },
-        { TalentId::Strafe, Discipline::Ranged, SkillType::Active, true, TalentId::MultiShot, 2, 1,
-          3 },
-        { TalentId::ArcaneReservoir, Discipline::Magic, SkillType::Passive, false,
-          TalentId::ArcaneReservoir, 1, 1, 3 },
-        { TalentId::ManaFlow, Discipline::Magic, SkillType::Passive, true, TalentId::ArcaneReservoir,
-          1, 1, 3 },
-        { TalentId::SpellPower, Discipline::Magic, SkillType::Passive, true,
-          TalentId::ArcaneReservoir, 1, 1, 3 },
-        { TalentId::FrostBolt, Discipline::Magic, SkillType::Active, true, TalentId::SpellPower, 1,
-          1, 3 },
-        { TalentId::Nova, Discipline::Magic, SkillType::Active, true, TalentId::ArcaneReservoir, 2,
-          1, 3 },
-        { TalentId::ChainLightning, Discipline::Magic, SkillType::Active, true, TalentId::SpellPower,
-          2, 1, 3 },
-    }};
-    g_talent_display_names = {
-        "Melee Force",     "Iron Body",     "Crushing Blow",    "Cleave",
-        "Whirlwind",       "Battle Cry",    "Sharp Arrow",      "Multi Shot",
-        "Poison Arrow",    "Piercing Shot", "Strafe",           "Arcane Reservoir",
-        "Mana Flow",       "Spell Power",   "Frost Bolt",       "Nova",
-        "Chain Lightning",
-    };
+    g_talent_nodes = kDefaultTalentNodes;
+    g_talent_display_names = kDefaultTalentDisplayNames;
 }
 
 // Accessor helpers — prefer these over direct array indexing.

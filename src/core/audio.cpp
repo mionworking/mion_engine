@@ -1,4 +1,5 @@
 #include "audio.hpp"
+#include "audio_asset_paths.hpp"
 #include <SDL3/SDL.h>
 #include <cmath>
 #include <cstring>
@@ -23,49 +24,10 @@ float rand_pitch_factor(std::mt19937& rng) {
 
 } // namespace
 
-const char* AudioSystem::_music_paths[(int)MusicState::MUSIC_STATE_COUNT] = {
-    nullptr,
-    "assets/audio/music_town.wav",
-    "assets/audio/music_dungeon_calm.wav",
-    "assets/audio/music_dungeon_combat.wav",
-    "assets/audio/music_boss.wav",
-    "assets/audio/music_victory.wav",
-};
-
-const char* AudioSystem::_ambient_paths[(int)AmbientId::AMBIENT_COUNT] = {
-    "assets/audio/ambient_dungeon_drips.wav",
-    "assets/audio/ambient_dungeon_torch.wav",
-    "assets/audio/ambient_town_wind.wav",
-    "assets/audio/ambient_town_birds.wav",
-    "assets/audio/ambient_transition_wind.wav",
-};
-
-const char* AudioSystem::_sfx_paths[(int)SoundId::COUNT] = {
-    "assets/audio/hit.wav",
-    "assets/audio/player_attack.wav",
-    "assets/audio/enemy_death.wav",
-    "assets/audio/player_death.wav",
-    "assets/audio/dash.wav",
-    "assets/audio/ranged_attack.wav",
-    "assets/audio/spell_bolt.wav",
-    "assets/audio/spell_nova.wav",
-    "assets/audio/sfx_spell_frost.wav",
-    "assets/audio/sfx_spell_chain.wav",
-    "assets/audio/sfx_skill_cleave.wav",
-    "assets/audio/sfx_skill_multishot.wav",
-    "assets/audio/sfx_skill_poison_arrow.wav",
-    "assets/audio/sfx_skill_battle_cry.wav",
-    "assets/audio/parry.wav",
-    "assets/audio/ui_confirm.wav",
-    "assets/audio/ui_delete.wav",
-    "assets/audio/sfx_footstep_player.wav",
-    "assets/audio/sfx_footstep_enemy.wav",
-};
-
 void AudioSystem::_apply_music_state_after_fade(MusicState state) {
     _music_state = state;
     stop_music();
-    const char* path = _music_paths[(int)state];
+    const char* path = audio_assets::kMusicPaths[(int)state];
     if (!path || !path[0]) return;
     float v = 0.52f;
     if (state == MusicState::Town) v = 0.42f;
@@ -82,7 +44,7 @@ bool AudioSystem::init() {
     }
 
     for (int i = 0; i < (int)SoundId::COUNT; ++i) {
-        if (!_load_sfx((SoundId)i, _sfx_paths[i])) continue;
+        if (!_load_sfx((SoundId)i, audio_assets::kSfxPaths[i])) continue;
 
         _sfx_streams[i] = SDL_CreateAudioStream(&_sfx_wavs[i].spec, nullptr);
         if (!_sfx_streams[i]) {
@@ -95,7 +57,7 @@ bool AudioSystem::init() {
     }
 
     for (int a = 0; a < (int)AmbientId::AMBIENT_COUNT; ++a) {
-        if (!_load_ambient((AmbientId)a, _ambient_paths[a])) continue;
+        if (!_load_ambient((AmbientId)a, audio_assets::kAmbientPaths[a])) continue;
         AmbientTrack& t = _ambient[a];
         t.stream = SDL_CreateAudioStream(&t.wav.spec, nullptr);
         if (!t.stream) {

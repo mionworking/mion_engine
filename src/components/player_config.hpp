@@ -24,9 +24,10 @@ struct PlayerConfig {
     float dash_iframes        = 0.20f;
 };
 
-inline PlayerConfig g_player_config{};
+inline constexpr PlayerConfig kDefaultPlayerConfig{};
+inline PlayerConfig g_player_config = kDefaultPlayerConfig;
 
-inline void reset_player_config_defaults() { g_player_config = PlayerConfig{}; }
+inline void reset_player_config_defaults() { g_player_config = kDefaultPlayerConfig; }
 
 inline void apply_player_ini(const IniData& d) {
     const std::string sec = "player";

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "../core/data_section_names.hpp"
 #include "../entities/enemy_type.hpp"
 #include "room.hpp"
 
@@ -32,16 +33,10 @@ inline EnemyType enemy_type_for_spawn_index(int idx) {
 }
 
 inline const char* enemy_type_name(EnemyType type) {
-    switch (type) {
-        case EnemyType::Skeleton: return "skeleton";
-        case EnemyType::Orc: return "orc";
-        case EnemyType::Ghost: return "ghost";
-        case EnemyType::Archer: return "archer";
-        case EnemyType::PatrolGuard: return "patrol_guard";
-        case EnemyType::EliteSkeleton: return "elite_skeleton";
-        case EnemyType::BossGrimjaw: return "boss_grimjaw";
-        default: return "enemy";
-    }
+    const int idx = static_cast<int>(type);
+    if (idx >= 0 && idx < static_cast<int>(data_sections::kEnemyIniSections.size()))
+        return data_sections::kEnemyIniSections[idx];
+    return "enemy";
 }
 
 // Playable area of the room (origin at 0,0 — aligned to the tilemap).

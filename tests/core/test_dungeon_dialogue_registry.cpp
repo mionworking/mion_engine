@@ -9,9 +9,9 @@ static void dungeon_dialogue_registry_registers_expected_sequences() {
 
     register_dungeon_dialogue(dialogue);
 
-    EXPECT_TRUE(dialogue._sequences.find("dungeon_prologue") != dialogue._sequences.end());
-    EXPECT_TRUE(dialogue._sequences.find("dungeon_room2") != dialogue._sequences.end());
-    EXPECT_TRUE(dialogue._sequences.find("boss_grimjaw_phase2") != dialogue._sequences.end());
+    EXPECT_TRUE(dialogue.has_sequence("dungeon_prologue"));
+    EXPECT_TRUE(dialogue.has_sequence("dungeon_room2"));
+    EXPECT_TRUE(dialogue.has_sequence("boss_grimjaw_phase2"));
 }
 
 REGISTER_TEST(dungeon_dialogue_registry_registers_expected_sequences);

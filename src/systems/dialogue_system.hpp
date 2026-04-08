@@ -59,9 +59,15 @@ public:
     }
 
     bool is_active() const { return _is_active; }
-    const std::vector<DialogueLine>& active_lines() const { return _active_lines; }
-    int  current_line_index() const { return _line_index; }
+    const DialogueLine* current_line() const {
+        if (!_is_active) return nullptr;
+        if (_line_index < 0 || _line_index >= static_cast<int>(_active_lines.size()))
+            return nullptr;
+        return &_active_lines[static_cast<size_t>(_line_index)];
+    }
+    bool has_sequence(const std::string& id) const { return _sequences.find(id) != _sequences.end(); }
 
+private:
     std::unordered_map<std::string, DialogueSequence> _sequences;
     std::vector<DialogueLine>                         _active_lines;
     int                                               _line_index   = 0;
