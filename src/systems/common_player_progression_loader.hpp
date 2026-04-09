@@ -9,20 +9,11 @@
 namespace mion::CommonPlayerProgressionLoader {
 
 inline void load_defaults_and_ini_overrides() {
-    reset_player_config_defaults();
-    reset_progression_config_defaults();
     reset_talent_tree_defaults();
 
-    {
-        IniData d = load_data_ini(data_files::kPlayer);
-        if (!d.sections.empty())
-            apply_player_ini(d);
-    }
-    {
-        IniData d = load_data_ini(data_files::kProgression);
-        if (!d.sections.empty())
-            apply_progression_ini(d);
-    }
+    g_player_config     = make_player_config_from_ini(load_data_ini(data_files::kPlayer));
+    g_progression_config = make_progression_config_from_ini(load_data_ini(data_files::kProgression));
+
     {
         IniData d = load_data_ini(data_files::kTalents);
         if (!d.sections.empty())

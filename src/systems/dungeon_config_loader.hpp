@@ -20,7 +20,7 @@ inline void load_dungeon_static_data(
     IniData& rooms_ini,
     std::array<std::string, kEnemyTypeCount>& enemy_sprite_paths) {
     CommonPlayerProgressionLoader::load_defaults_and_ini_overrides();
-    reset_spell_defs_defaults();
+    g_spell_defs = make_spell_defs_from_ini(load_data_ini(data_files::kSpells));
 
     for (int i = 0; i < kEnemyTypeCount; ++i)
         enemy_defs[i] = get_enemy_def(static_cast<EnemyType>(i));
@@ -30,11 +30,6 @@ inline void load_dungeon_static_data(
     {
         IniData d = load_data_ini(data_files::kEnemies);
         apply_enemies_ini_overrides(d, enemy_defs, enemy_sprite_paths);
-    }
-
-    {
-        IniData d = load_data_ini(data_files::kSpells);
-        apply_spells_ini_overrides(d);
     }
 
     {

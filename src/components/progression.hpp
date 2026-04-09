@@ -16,25 +16,28 @@ struct ProgressionConfig {
 };
 
 inline constexpr ProgressionConfig kDefaultProgressionConfig{};
+
+// Builds a ProgressionConfig from INI overrides applied on top of `base`.
+// Pure factory — does not touch any global. Missing INI keys keep the base value.
+inline ProgressionConfig make_progression_config_from_ini(
+    const IniData& d,
+    const ProgressionConfig& base = kDefaultProgressionConfig) {
+    ProgressionConfig cfg = base;
+    cfg.xp_base         = d.get_int("xp",       "xp_base",          cfg.xp_base);
+    cfg.xp_level_scale  = d.get_int("xp",       "xp_level_scale",   cfg.xp_level_scale);
+    cfg.damage_bonus    = d.get_int("level_up",  "damage_bonus",     cfg.damage_bonus);
+    cfg.hp_bonus        = d.get_int("level_up",  "hp_bonus",         cfg.hp_bonus);
+    cfg.speed_bonus     = d.get_float("level_up","speed_bonus",      cfg.speed_bonus);
+    cfg.spell_mult_bonus= d.get_float("level_up","spell_mult_bonus", cfg.spell_mult_bonus);
+    return cfg;
+}
+
+// Global config — assigned once during bootstrap via make_progression_config_from_ini.
+// Treat as read-only after CommonPlayerProgressionLoader::load_defaults_and_ini_overrides().
 inline ProgressionConfig g_progression_config = kDefaultProgressionConfig;
 
 inline void reset_progression_config_defaults() {
     g_progression_config = kDefaultProgressionConfig;
-}
-
-inline void apply_progression_ini(const IniData& d) {
-    g_progression_config.xp_base =
-        d.get_int("xp", "xp_base", g_progression_config.xp_base);
-    g_progression_config.xp_level_scale =
-        d.get_int("xp", "xp_level_scale", g_progression_config.xp_level_scale);
-    g_progression_config.damage_bonus =
-        d.get_int("level_up", "damage_bonus", g_progression_config.damage_bonus);
-    g_progression_config.hp_bonus =
-        d.get_int("level_up", "hp_bonus", g_progression_config.hp_bonus);
-    g_progression_config.speed_bonus =
-        d.get_float("level_up", "speed_bonus", g_progression_config.speed_bonus);
-    g_progression_config.spell_mult_bonus =
-        d.get_float("level_up", "spell_mult_bonus", g_progression_config.spell_mult_bonus);
 }
 
 inline int progression_xp_threshold_for_level(int level) {

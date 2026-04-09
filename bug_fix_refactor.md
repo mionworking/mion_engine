@@ -1132,7 +1132,7 @@ Todos os itens concretos e incrementais do plano foram executados ou auditados. 
 
 | Item | Pré-requisito antes de atacar |
 |------|-------------------------------|
-| **12.4 (SceneId enum)** | Split de `DoorZone::target_scene_id` em `exit_to_scene` + `exit_to_zone` |
+| **12.4 (SceneId enum)** | ~~Split de `DoorZone::target_scene_id` em `exit_to_scene` + `exit_to_zone`~~ **Concluído (EZ)** |
 | **12.1 (globais mutáveis)** | Decisão de escopo: qual subsistema migrar primeiro para contexto injetado |
 | **12.4 (diálogo/item IDs)** | Enum/handles para `DialogueId`, `ItemId` — requer refactor de `DialogueSystem` e `ItemBag` |
 | **12.5 (Actor monolítico)** | Separação de dados específicos de player vs enemy — requer redesign |
@@ -1141,6 +1141,19 @@ Todos os itens concretos e incrementais do plano foram executados ou auditados. 
 ### Estado de testes no ambiente atual
 
 - `./build/mion_tests_v2_core` está **verde** no ambiente atual (**867 passed, 0 failed**).
+
+### 2026-04-08 — Tarefa EZ (`DoorZone::target_scene_id`: split em `exit_to_zone` + `exit_to_scene`) — **Concluída (versão incremental)**
+
+- **Escopo aplicado:** `src/world/room.hpp`, `src/systems/room_flow_system.hpp`, `src/systems/room_manager.hpp`, `src/systems/town_builder.hpp`, `tests/legacy/test_legacy.cpp`, `tests/world/test_room_manager_doors.cpp`, `tests/world/test_town_layout.cpp`, `tests/world/test_world_map_builder.cpp`.
+- **Mudança:** `DoorZone::target_scene_id` (`std::string` de namespace misto) foi substituído por dois campos explícitos:
+  - `exit_to_zone: std::string` — tokens `WorldLayoutId::k*` (handoff intra-world);
+  - `exit_to_scene: std::string` — tokens `SceneId::k*` (saída para cena do registry).
+  - `add_door(…, target)` com argumento extra foi removido; adicionados `add_zone_door(…, zone_id)` e `add_scene_door(…, scene_id)` com semântica clara.
+  - `RoomFlowSystem::fixed_update` passou a checar `exit_to_zone` antes de `exit_to_scene`, copiando o valor não vazio para `scene_exit_to` como antes.
+  - Callsites atualizados: `RoomManager::build_room` usa `add_zone_door`; `TownBuilder::build_town_world` usa `add_zone_door`.
+  - Testes atualizados: `test_legacy` usa `add_scene_door`/`add_zone_door`; testes de layout usam `exit_to_zone` nas assertions.
+- **Efeito esperado:** elimina namespace misto no campo de transição de porta; prepara migração `SceneId → enum class` (o único bloqueador restante era esse campo misto).
+- **Validação:** build completo OK; ctest 100% (4/4 suítes passam, 867 core passed, 0 failed).
 
 ---
 

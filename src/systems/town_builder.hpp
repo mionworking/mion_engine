@@ -49,7 +49,7 @@ inline void build_town_world(RoomDefinition& room,
     room.add_obstacle("building_elder", 300.0f, 900.0f, 600.0f, 1200.0f);
     room.add_obstacle("fountain", 1100.0f, 700.0f, 1300.0f, 900.0f);
 
-    room.add_door(2350.0f, 700.0f, 2390.0f, 900.0f, false, WorldLayoutId::kDungeon);
+    room.add_zone_door(2350.0f, 700.0f, 2390.0f, 900.0f, false, WorldLayoutId::kDungeon);
 
     npcs.clear();
     {

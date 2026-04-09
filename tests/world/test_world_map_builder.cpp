@@ -37,7 +37,7 @@ static void world_map_builder_creates_six_non_overlapping_areas_with_nav() {
     for (const auto& a : map.areas) {
         if (a.zone == ZoneId::Town) {
             EXPECT_EQ(static_cast<int>(a.room.doors.size()), 1);
-            EXPECT_EQ(a.room.doors[0].target_scene_id, WorldLayoutId::kDungeon);
+            EXPECT_EQ(a.room.doors[0].exit_to_zone, WorldLayoutId::kDungeon);
         } else {
             EXPECT_EQ(static_cast<int>(a.room.doors.size()), 0);
         }

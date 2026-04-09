@@ -48,18 +48,12 @@ static void test_data_repo_inis_parse_if_present() {
             continue;
 
         if (std::strcmp(rel, "progression.ini") == 0) {
-            mion::ProgressionConfig stash = mion::g_progression_config;
-            mion::reset_progression_config_defaults();
-            mion::apply_progression_ini(data);
-            EXPECT_TRUE(mion::g_progression_config.xp_base > 0);
-            mion::g_progression_config = stash;
+            const mion::ProgressionConfig cfg = mion::make_progression_config_from_ini(data);
+            EXPECT_TRUE(cfg.xp_base > 0);
         } else if (std::strcmp(rel, "player.ini") == 0) {
-            mion::PlayerConfig stash = mion::g_player_config;
-            mion::reset_player_config_defaults();
-            mion::apply_player_ini(data);
-            EXPECT_TRUE(mion::g_player_config.base_hp > 0);
-            EXPECT_TRUE(mion::g_player_config.melee_damage > 0);
-            mion::g_player_config = stash;
+            const mion::PlayerConfig cfg = mion::make_player_config_from_ini(data);
+            EXPECT_TRUE(cfg.base_hp > 0);
+            EXPECT_TRUE(cfg.melee_damage > 0);
         } else if (std::strcmp(rel, "talents.ini") == 0) {
             mion::reset_talent_tree_defaults();
             mion::apply_talents_ini(data);

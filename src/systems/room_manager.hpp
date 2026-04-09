@@ -46,11 +46,11 @@ struct RoomManager {
         if (room_index < 3) {
             room.add_door(bounds.max_x - 72.0f, midy - 56.0f,
                           bounds.max_x - 20.0f, midy + 56.0f, true);
-            room.add_door(bounds.min_x + 20.0f, midy - 56.0f,
-                          bounds.min_x + 72.0f, midy + 56.0f, false, WorldLayoutId::kTown);
+            room.add_zone_door(bounds.min_x + 20.0f, midy - 56.0f,
+                               bounds.min_x + 72.0f, midy + 56.0f, false, WorldLayoutId::kTown);
         } else {
-            room.add_door(bounds.max_x - 72.0f, midy - 56.0f,
-                          bounds.max_x - 20.0f, midy + 56.0f, true, WorldLayoutId::kTown);
+            room.add_zone_door(bounds.max_x - 72.0f, midy - 56.0f,
+                               bounds.max_x - 20.0f, midy + 56.0f, true, WorldLayoutId::kTown);
         }
 
         const int         tmpl = dungeon_rules::room_template(room_index);

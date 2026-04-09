@@ -30,8 +30,12 @@ struct RoomFlowSystem {
         for (const auto& door : room.doors) {
             if (!pb.intersects(door.bounds)) continue;
             if (door.requires_room_cleared && !room_cleared) continue;
-            if (!door.target_scene_id.empty()) {
-                scene_exit_to = door.target_scene_id;
+            if (!door.exit_to_zone.empty()) {
+                scene_exit_to = door.exit_to_zone;
+                return;
+            }
+            if (!door.exit_to_scene.empty()) {
+                scene_exit_to = door.exit_to_scene;
                 return;
             }
             transition_requested = true;

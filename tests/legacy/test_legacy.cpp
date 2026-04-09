@@ -949,7 +949,7 @@ static void test_room_flow_door_with_target_scene() {
     mion::RoomFlowSystem flow;
     mion::RoomDefinition room;
     room.bounds = { 0, 800, 0, 600 };
-    room.add_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::SceneId::kTitle);
+    room.add_scene_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::SceneId::kTitle);
 
     mion::Actor player;
     player.team      = mion::Team::Player;
@@ -971,7 +971,7 @@ static void test_room_flow_door_passthrough_world_layout_target() {
     mion::RoomFlowSystem flow;
     mion::RoomDefinition room;
     room.bounds = { 0, 800, 0, 600 };
-    room.add_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::WorldLayoutId::kTown);
+    room.add_zone_door(10.0f, 200.0f, 70.0f, 300.0f, false, mion::WorldLayoutId::kTown);
 
     mion::Actor player;
     player.team      = mion::Team::Player;

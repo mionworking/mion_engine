@@ -32,22 +32,23 @@ struct WorldBounds {
     }
 };
 
-// Trigger zone that moves the player to the next room or requests a handoff target.
+// Trigger zone that moves the player to the next room or requests a handoff.
 //
-// Contract for `target_scene_id`:
-// - empty: advance to next room (`RoomFlowSystem::transition_requested = true`)
-// - non-empty: copied to `RoomFlowSystem::scene_exit_to` as-is
+// Exactly one of `exit_to_zone` / `exit_to_scene` is non-empty, or both are empty:
 //
-// The value can be either:
-// - a SceneRegistry id (e.g. `SceneId::kTitle`)
-// - a world-layout handoff tag (e.g. `WorldLayoutId::kTown`, `WorldLayoutId::kDungeon`)
+//  - both empty       → advance to next dungeon room
+//                       (`RoomFlowSystem::transition_requested = true`)
+//  - exit_to_zone set → in-world zone routing token (`WorldLayoutId::k*`);
+//                       copied to `RoomFlowSystem::scene_exit_to` as-is
+//  - exit_to_scene set → scene-registry handoff (`SceneId::k*`);
+//                        copied to `RoomFlowSystem::scene_exit_to` as-is
 //
-// `DoorZone` stays transport-only: it does not interpret the string. The owner scene
-// decides how each token is resolved.
+// `DoorZone` is transport-only: it does not interpret either token.
 struct DoorZone {
     AABB        bounds;
     bool        requires_room_cleared = true;
-    std::string target_scene_id;
+    std::string exit_to_zone;   // WorldLayoutId::k* — in-world handoff; empty if unused
+    std::string exit_to_scene;  // SceneId::k*       — scene registry exit; empty if unused
 };
 
 // Full runtime description of a single dungeon room.
@@ -57,9 +58,21 @@ struct RoomDefinition {
     std::vector<Obstacle> obstacles;
     std::vector<DoorZone> doors;
 
-    void add_door(float x1, float y1, float x2, float y2, bool requires_clear = true,
-                  std::string target_scene = {}) {
-        doors.push_back({ { x1, x2, y1, y2 }, requires_clear, std::move(target_scene) });
+    // Advance to next dungeon room (no external target).
+    void add_door(float x1, float y1, float x2, float y2, bool requires_clear = true) {
+        doors.push_back({ { x1, x2, y1, y2 }, requires_clear, {}, {} });
+    }
+
+    // Exit to an in-world zone (WorldLayoutId::k* token).
+    void add_zone_door(float x1, float y1, float x2, float y2, bool requires_clear,
+                       std::string zone_id) {
+        doors.push_back({ { x1, x2, y1, y2 }, requires_clear, std::move(zone_id), {} });
+    }
+
+    // Exit to a scene-registry scene (SceneId::k* token).
+    void add_scene_door(float x1, float y1, float x2, float y2, bool requires_clear,
+                        std::string scene_id) {
+        doors.push_back({ { x1, x2, y1, y2 }, requires_clear, {}, std::move(scene_id) });
     }
 
     void add_obstacle(std::string n, float x1, float y1, float x2, float y2,
