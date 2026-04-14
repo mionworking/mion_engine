@@ -53,12 +53,12 @@ inline bool skill_tree_try_spend_talent(Actor& player, TalentId id) {
     if (!player.player->talents.try_unlock(id))
         return false;
     if (id == TalentId::ArcaneReservoir) {
-        player.mana.max += 30.0f;
-        player.mana.current += 30.0f;
-        if (player.mana.current > player.mana.max)
-            player.mana.current = player.mana.max;
+        player.player->mana.max += 30.0f;
+        player.player->mana.current += 30.0f;
+        if (player.player->mana.current > player.player->mana.max)
+            player.player->mana.current = player.player->mana.max;
     } else if (id == TalentId::ManaFlow) {
-        player.mana.regen_rate += 8.0f;
+        player.player->mana.regen_rate += 8.0f;
     }
     player.player->spell_book.sync_from_talents(player.player->talents);
     return true;

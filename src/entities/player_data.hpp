@@ -2,9 +2,11 @@
 #include "../components/attributes.hpp"
 #include "../components/equipment.hpp"
 #include "../components/item_bag.hpp"
+#include "../components/mana.hpp"
 #include "../components/potion_quickslot.hpp"
 #include "../components/progression.hpp"
 #include "../components/spell_book.hpp"
+#include "../components/stamina.hpp"
 #include "../components/talent_state.hpp"
 
 namespace mion {
@@ -20,6 +22,8 @@ struct PlayerData {
     TalentState     talents;    // árvore de talentos
     ProgressionState progression; // XP/nível — só player
     AttributesState  attributes;  // cinco atributos base
+    StaminaState     stamina;   // pool de stamina
+    ManaState        mana;      // pool de mana
     int              gold = 0;
 };
 

@@ -8,31 +8,33 @@
 
 static void test_resource_system_ticks_mana_and_stamina() {
     mion::Actor a;
+    a.player = mion::PlayerData{};
     a.is_alive = true;
-    a.mana.current = 10.0f;
-    a.mana.max = 100.0f;
-    a.mana.regen_rate = 20.0f;
-    a.mana.regen_delay = 0.0f;
-    a.stamina.current = 10.0f;
-    a.stamina.max = 100.0f;
-    a.stamina.regen_rate = 30.0f;
-    a.stamina.regen_delay = 0.0f;
+    a.player->mana.current = 10.0f;
+    a.player->mana.max = 100.0f;
+    a.player->mana.regen_rate = 20.0f;
+    a.player->mana.regen_delay = 0.0f;
+    a.player->stamina.current = 10.0f;
+    a.player->stamina.max = 100.0f;
+    a.player->stamina.regen_rate = 30.0f;
+    a.player->stamina.regen_delay = 0.0f;
     mion::ResourceSystem sys;
     std::vector<mion::Actor*> actors = { &a };
     sys.fixed_update(actors, 1.0f);
-    EXPECT_NEAR(a.mana.current, 30.0f, 0.01f);
-    EXPECT_NEAR(a.stamina.current, 40.0f, 0.01f);
+    EXPECT_NEAR(a.player->mana.current, 30.0f, 0.01f);
+    EXPECT_NEAR(a.player->stamina.current, 40.0f, 0.01f);
 }
 REGISTER_TEST(test_resource_system_ticks_mana_and_stamina);
 
 static void test_resource_system_skips_dead() {
     mion::Actor a;
+    a.player = mion::PlayerData{};
     a.is_alive = false;
-    a.mana.current = 10.0f;
+    a.player->mana.current = 10.0f;
     mion::ResourceSystem sys;
     std::vector<mion::Actor*> actors = { &a };
     sys.fixed_update(actors, 1.0f);
-    EXPECT_NEAR(a.mana.current, 10.0f, 0.001f);
+    EXPECT_NEAR(a.player->mana.current, 10.0f, 0.001f);
 }
 REGISTER_TEST(test_resource_system_skips_dead);
 

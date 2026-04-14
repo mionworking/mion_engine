@@ -20,10 +20,10 @@ static void test_attr_controller_spends_point_and_recomputes_stats() {
     player.derived   = {};
     player.player->talents   = {};
     player.health    = { g_player_config.base_hp, g_player_config.base_hp };
-    player.mana.max     = g_player_config.base_mana_max;
-    player.stamina.max  = g_player_config.base_stamina_max;
-    player.mana.current = player.mana.max;
-    player.stamina.current = player.stamina.max;
+    player.player->mana.max     = g_player_config.base_mana_max;
+    player.player->stamina.max  = g_player_config.base_stamina_max;
+    player.player->mana.current = player.player->mana.max;
+    player.player->stamina.current = player.player->stamina.max;
 
     AttributeLevelUpController controller;
     controller.sync_open_from_progression(player);
@@ -161,8 +161,8 @@ static void test_skill_tree_controller_spends_arcane_reservoir() {
     Actor player;
     player.player = PlayerData{};
     player.player->talents.pending_points = 1;
-    player.mana.max = 100.0f;
-    player.mana.current = 80.0f;
+    player.player->mana.max = 100.0f;
+    player.player->mana.current = 80.0f;
     SkillTreeController controller;
     controller.rebuild_columns();
     controller.open();
@@ -178,8 +178,8 @@ static void test_skill_tree_controller_spends_arcane_reservoir() {
     EXPECT_TRUE(r.should_save);
     EXPECT_EQ(player.player->talents.level_of(TalentId::ArcaneReservoir), 1);
     EXPECT_EQ(player.player->talents.pending_points, 0);
-    EXPECT_NEAR(player.mana.max, 130.0f, 0.001f);
-    EXPECT_NEAR(player.mana.current, 110.0f, 0.001f);
+    EXPECT_NEAR(player.player->mana.max, 130.0f, 0.001f);
+    EXPECT_NEAR(player.player->mana.current, 110.0f, 0.001f);
 }
 
 static void test_skill_tree_controller_tab_toggles_manual_open() {

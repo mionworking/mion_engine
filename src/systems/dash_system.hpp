@@ -37,10 +37,10 @@ struct DashSystem {
             || !player.combat.is_attack_idle()) {
             return false;
         }
-        if (!player.stamina.can_afford(kDashStaminaCost))
+        if (!player.player->stamina.can_afford(kDashStaminaCost))
             return false;
 
-        player.stamina.consume(kDashStaminaCost);
+        player.player->stamina.consume(kDashStaminaCost);
 
         float nx = 0.0f;
         float ny = 0.0f;

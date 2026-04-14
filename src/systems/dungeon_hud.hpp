@@ -54,8 +54,8 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     draw_text(r, x + w + 5.0f, y_xp + 1.0f, tr("hud_xp_short"), 1, 150, 180, 230);
 
     // Stamina
-    float st_ratio = (player.stamina.max > 0.0f)
-        ? player.stamina.current / player.stamina.max : 0.0f;
+    float st_ratio = (player.player->stamina.max > 0.0f)
+        ? player.player->stamina.current / player.player->stamina.max : 0.0f;
     SDL_SetRenderDrawColor(r, 20, 40, 25, 220);
     SDL_FRect st_bg = { x, y_st, w, h };
     SDL_RenderFillRect(r, &st_bg);
@@ -65,8 +65,8 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     draw_text(r, x + w + 5.0f, y_st + 1.0f, tr("hud_st_short"), 1, 130, 210, 150);
 
     // Mana
-    float mp_ratio = (player.mana.max > 0.0f)
-        ? player.mana.current / player.mana.max : 0.0f;
+    float mp_ratio = (player.player->mana.max > 0.0f)
+        ? player.player->mana.current / player.player->mana.max : 0.0f;
     SDL_SetRenderDrawColor(r, 15, 25, 55, 220);
     SDL_FRect mp_bg = { x, y_mp, w, h };
     SDL_RenderFillRect(r, &mp_bg);

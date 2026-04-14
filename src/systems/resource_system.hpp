@@ -10,8 +10,10 @@ struct ResourceSystem {
     void fixed_update(std::vector<Actor*>& actors, float dt) {
         for (auto* a : actors) {
             if (!a->is_alive) continue;
-            a->stamina.tick(dt);
-            a->mana.tick(dt);
+            if (a->player) {
+                a->player->stamina.tick(dt);
+                a->player->mana.tick(dt);
+            }
             if (a->empowered_remaining_seconds > 0.0f) {
                 a->empowered_remaining_seconds -= dt;
                 if (a->empowered_remaining_seconds <= 0.0f) {

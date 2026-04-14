@@ -25,18 +25,18 @@ struct ShopSystem {
                          player.health.current_hp + it.value);
             break;
         case ShopItemType::StaminaPotion:
-            player.stamina.current =
-                std::min(player.stamina.max,
-                         player.stamina.current + (float)it.value);
+            player.player->stamina.current =
+                std::min(player.player->stamina.max,
+                         player.player->stamina.current + (float)it.value);
             break;
         case ShopItemType::AttackUpgrade:
             player.player->progression.bonus_attack_damage += it.value;
             break;
         case ShopItemType::ManaUpgrade:
-            player.mana.max += (float)it.value;
-            player.mana.current += (float)it.value;
-            if (player.mana.current > player.mana.max)
-                player.mana.current = player.mana.max;
+            player.player->mana.max += (float)it.value;
+            player.player->mana.current += (float)it.value;
+            if (player.player->mana.current > player.player->mana.max)
+                player.player->mana.current = player.player->mana.max;
             break;
         }
         recompute_player_derived_stats(

@@ -12,8 +12,8 @@ static void setup_player(mion::Actor& p) {
     p.is_alive = true;
     p.team = mion::Team::Player;
     p.combat.reset_for_spawn();
-    p.stamina.current = 100.0f;
-    p.mana.current = 200.0f;
+    p.player->stamina.current = 100.0f;
+    p.player->mana.current = 200.0f;
     p.facing_x = 1.0f;
     p.facing_y = 0.0f;
     p.transform.set_position(0.0f, 0.0f);
@@ -110,7 +110,7 @@ static void test_player_action_melee_requires_stamina() {
     mion::PlayerActionSystem pas;
     mion::Actor player;
     setup_player(player);
-    player.stamina.current = 0.0f;
+    player.player->stamina.current = 0.0f;
     mion::InputState in;
     in.attack_pressed = true;
     pas.fixed_update(player, in, 1.0f / 60.0f, nullptr, nullptr, nullptr);
@@ -154,9 +154,9 @@ static void test_player_action_bolt_consumes_mana() {
     std::vector<mion::Projectile> prs;
     mion::InputState in;
     in.spell_1_pressed = true;
-    float mana_before = player.mana.current;
+    float mana_before = player.player->mana.current;
     pas.fixed_update(player, in, 1.0f / 60.0f, nullptr, &prs, nullptr);
-    EXPECT_TRUE(player.mana.current < mana_before);
+    EXPECT_TRUE(player.player->mana.current < mana_before);
     EXPECT_EQ((int)prs.size(), 1);
 }
 REGISTER_TEST(test_player_action_bolt_consumes_mana);
@@ -189,7 +189,7 @@ static void test_player_action_dash_consumes_stamina() {
     in.move_x = 1.0f;
     in.move_y = 0.0f;
     pas.fixed_update(player, in, 1.0f / 60.0f, nullptr, nullptr, nullptr);
-    EXPECT_NEAR(player.stamina.current, 72.0f, 1.0f);
+    EXPECT_NEAR(player.player->stamina.current, 72.0f, 1.0f);
     EXPECT_TRUE(player.is_dashing());
 }
 REGISTER_TEST(test_player_action_dash_consumes_stamina);

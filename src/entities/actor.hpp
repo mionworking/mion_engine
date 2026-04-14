@@ -6,8 +6,6 @@
 #include "../components/collision.hpp"
 #include "../components/combat.hpp"
 #include "../components/health.hpp"
-#include "../components/stamina.hpp"
-#include "../components/mana.hpp"
 #include "../components/status_effect.hpp"
 #include "../components/attributes.hpp"
 #include "../core/animation.hpp"
@@ -96,8 +94,6 @@ struct Actor {
     float        base_move_speed_at_spawn = 0.0f;
 
     // Gameplay components
-    StaminaState      stamina;           // used by player; default empty for enemies
-    ManaState         mana;              // player mana pool
     StatusEffectState status_effects;    // Poison/Slow/Stun
     DerivedStats      derived;           // final stats — player e inimigos usam
 

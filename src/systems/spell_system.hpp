@@ -73,10 +73,10 @@ struct SpellSystem {
             || player.combat.is_hurt_stunned()) {
             return;
         }
-        if (!player.stamina.can_afford(kRangedStaminaCost))
+        if (!player.player->stamina.can_afford(kRangedStaminaCost))
             return;
 
-        player.stamina.consume(kRangedStaminaCost);
+        player.player->stamina.consume(kRangedStaminaCost);
         player.ranged_cooldown_remaining_seconds = player.ranged_cooldown_seconds;
 
         const int base_damage = player.derived.ranged_damage_final;
@@ -118,9 +118,9 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::FrostBolt;
-            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.player->mana)) {
                 const SpellDef& def = spell_def(spell_id);
-                player.mana.consume(def.mana_cost);
+                player.player->mana.consume(def.mana_cost);
                 player.player->spell_book.start_cooldown(spell_id, player.player->talents);
                 const int rank = spell_damage_rank(spell_id, player.player->talents);
                 const int base = def.effective_damage(rank)
@@ -150,9 +150,9 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::Nova;
-            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.player->mana)) {
                 const SpellDef& def = spell_def(spell_id);
-                player.mana.consume(def.mana_cost);
+                player.player->mana.consume(def.mana_cost);
                 player.player->spell_book.start_cooldown(spell_id, player.player->talents);
                 const int rank = spell_damage_rank(spell_id, player.player->talents);
                 const int base = def.effective_damage(rank);
@@ -168,12 +168,12 @@ struct SpellSystem {
         if (spawn_projectiles && input.spell_3_pressed
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
-            const bool can_chain = player.player->spell_book.can_cast(SpellId::ChainLightning, player.mana);
-            const bool can_strafe = player.player->spell_book.can_cast(SpellId::Strafe, player.mana);
+            const bool can_chain = player.player->spell_book.can_cast(SpellId::ChainLightning, player.player->mana);
+            const bool can_strafe = player.player->spell_book.can_cast(SpellId::Strafe, player.player->mana);
 
             if (can_chain && actors) {
                 const SpellDef& def = spell_def(SpellId::ChainLightning);
-                player.mana.consume(def.mana_cost);
+                player.player->mana.consume(def.mana_cost);
                 player.player->spell_book.start_cooldown(SpellId::ChainLightning, player.player->talents);
                 const int rank = spell_damage_rank(SpellId::ChainLightning, player.player->talents);
                 const int base = def.effective_damage(rank)
@@ -187,7 +187,7 @@ struct SpellSystem {
                     audio->play_sfx_pitched(SoundId::SpellChain);
             } else if (can_strafe) {
                 const SpellDef& def = spell_def(SpellId::Strafe);
-                player.mana.consume(def.mana_cost);
+                player.player->mana.consume(def.mana_cost);
                 player.player->spell_book.start_cooldown(SpellId::Strafe, player.player->talents);
                 const int damage = apply_outgoing_physical_damage(
                     player,
@@ -214,9 +214,9 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::BattleCry;
-            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.player->mana)) {
                 const SpellDef& def = spell_def(spell_id);
-                player.mana.consume(def.mana_cost);
+                player.player->mana.consume(def.mana_cost);
                 player.player->spell_book.start_cooldown(spell_id, player.player->talents);
                 apply_battle_cry(player,
                                  std::max(1, player.player->talents.level_of(TalentId::BattleCry)));

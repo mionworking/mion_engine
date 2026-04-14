@@ -104,8 +104,8 @@ public:
             player.health.max_hp = base_hp + player.derived.hp_max_bonus;
             if (player.health.current_hp > player.health.max_hp)
                 player.health.current_hp = player.health.max_hp;
-            player.mana.max    = g_player_config.base_mana_max    + player.derived.mana_max_bonus;
-            player.stamina.max = g_player_config.base_stamina_max + player.derived.stamina_max_bonus;
+            player.player->mana.max    = g_player_config.base_mana_max    + player.derived.mana_max_bonus;
+            player.player->stamina.max = g_player_config.base_stamina_max + player.derived.stamina_max_bonus;
 
             out.should_save = true;
         }
