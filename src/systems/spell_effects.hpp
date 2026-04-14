@@ -121,9 +121,9 @@ inline void apply_frost_slow(Actor& target, int frost_bolt_rank) {
 
 inline void apply_battle_cry(Actor& player, int battle_cry_level) {
     const int lv = std::max(1, std::min(battle_cry_level, 3));
-    player.empowered_damage_multiplier = 1.18f + 0.07f * (float)(lv - 1);
-    player.empowered_remaining_seconds =
-        std::max(player.empowered_remaining_seconds, 4.0f + 0.6f * (float)lv);
+    player.player->empowered_damage_multiplier = 1.18f + 0.07f * (float)(lv - 1);
+    player.player->empowered_remaining_seconds =
+        std::max(player.player->empowered_remaining_seconds, 4.0f + 0.6f * (float)lv);
 }
 
 } // namespace mion

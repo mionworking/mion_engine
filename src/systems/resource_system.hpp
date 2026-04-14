@@ -14,11 +14,11 @@ struct ResourceSystem {
                 a->player->stamina.tick(dt);
                 a->player->mana.tick(dt);
             }
-            if (a->empowered_remaining_seconds > 0.0f) {
-                a->empowered_remaining_seconds -= dt;
-                if (a->empowered_remaining_seconds <= 0.0f) {
-                    a->empowered_remaining_seconds = 0.0f;
-                    a->empowered_damage_multiplier = 1.0f;
+            if (a->player && a->player->empowered_remaining_seconds > 0.0f) {
+                a->player->empowered_remaining_seconds -= dt;
+                if (a->player->empowered_remaining_seconds <= 0.0f) {
+                    a->player->empowered_remaining_seconds = 0.0f;
+                    a->player->empowered_damage_multiplier = 1.0f;
                 }
             }
         }

@@ -25,6 +25,24 @@ struct PlayerData {
     StaminaState     stamina;   // pool de stamina
     ManaState        mana;      // pool de mana
     int              gold = 0;
+
+    // Dash / roll
+    float dash_active_remaining_seconds  = 0.0f;
+    float dash_cooldown_remaining_seconds = 0.0f;
+    float dash_dir_x                     = 1.0f;
+    float dash_dir_y                     = 0.0f;
+    float dash_speed                     = 520.0f;
+    float dash_duration_seconds          = 0.18f;
+    float dash_iframes_seconds           = 0.20f;
+    float dash_cooldown_seconds          = 0.55f;
+
+    // Battle Cry e outros buffs temporários
+    float empowered_damage_multiplier   = 1.0f;
+    float empowered_remaining_seconds   = 0.0f;
+
+    // Ranged cooldown
+    float ranged_cooldown_remaining_seconds = 0.0f;
+    float ranged_cooldown_seconds           = 0.35f;
 };
 
 } // namespace mion

@@ -71,8 +71,8 @@ static void test_player_action_spell_and_ranged_respect_empowered_multiplier() {
     setup_player(player);
     player.derived.ranged_damage_final = 10;
     player.derived.spell_damage_mult = 1.0f;
-    player.empowered_damage_multiplier = 1.5f;
-    player.empowered_remaining_seconds = 3.0f;
+    player.player->empowered_damage_multiplier = 1.5f;
+    player.player->empowered_remaining_seconds = 3.0f;
     std::vector<mion::Projectile> pr;
     mion::InputState in_ranged;
     in_ranged.ranged_pressed = true;
@@ -80,7 +80,7 @@ static void test_player_action_spell_and_ranged_respect_empowered_multiplier() {
     EXPECT_EQ((int)pr.size(), 1);
     EXPECT_EQ(pr[0].damage, 15);
     player.combat.reset_for_spawn();
-    player.ranged_cooldown_remaining_seconds = 0.0f;
+    player.player->ranged_cooldown_remaining_seconds = 0.0f;
     player.player->spell_book.unlock(mion::SpellId::FrostBolt);
     mion::InputState in_spell;
     in_spell.spell_1_pressed = true;

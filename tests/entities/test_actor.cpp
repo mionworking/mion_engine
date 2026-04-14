@@ -15,9 +15,10 @@ REGISTER_TEST(test_actor_effective_move_speed_player_bonus_and_slow);
 
 static void test_actor_is_dashing() {
     mion::Actor a;
-    a.dash_active_remaining_seconds = 0.0f;
+    a.player = mion::PlayerData{};
+    a.player->dash_active_remaining_seconds = 0.0f;
     EXPECT_FALSE(a.is_dashing());
-    a.dash_active_remaining_seconds = 0.01f;
+    a.player->dash_active_remaining_seconds = 0.01f;
     EXPECT_TRUE(a.is_dashing());
 }
 REGISTER_TEST(test_actor_is_dashing);

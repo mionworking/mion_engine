@@ -44,16 +44,16 @@ inline void configure_player(Actor& player, TextureCache* tex_cache,
     player.collision       = { 16.0f, 16.0f };
 
     // Dash
-    player.dash_speed               = g_player_config.dash_speed;
-    player.dash_duration_seconds     = g_player_config.dash_duration;
-    player.dash_cooldown_seconds     = g_player_config.dash_cooldown;
-    player.dash_iframes_seconds      = g_player_config.dash_iframes;
-    player.dash_active_remaining_seconds   = 0.0f;
-    player.dash_cooldown_remaining_seconds = 0.0f;
+    player.player->dash_speed               = g_player_config.dash_speed;
+    player.player->dash_duration_seconds     = g_player_config.dash_duration;
+    player.player->dash_cooldown_seconds     = g_player_config.dash_cooldown;
+    player.player->dash_iframes_seconds      = g_player_config.dash_iframes;
+    player.player->dash_active_remaining_seconds   = 0.0f;
+    player.player->dash_cooldown_remaining_seconds = 0.0f;
 
     // Ranged
-    player.ranged_cooldown_seconds           = g_player_config.ranged_cooldown;
-    player.ranged_cooldown_remaining_seconds = 0.0f;
+    player.player->ranged_cooldown_seconds           = g_player_config.ranged_cooldown;
+    player.player->ranged_cooldown_remaining_seconds = 0.0f;
 
     // Knockback
     player.knockback_vx = 0.0f;

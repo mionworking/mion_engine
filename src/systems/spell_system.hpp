@@ -20,8 +20,8 @@ struct SpellSystem {
 
     static void tick_cooldowns(Actor& player, float dt) {
         player.player->spell_book.tick(dt);
-        if (player.ranged_cooldown_remaining_seconds > 0.0f)
-            player.ranged_cooldown_remaining_seconds -= dt;
+        if (player.player->ranged_cooldown_remaining_seconds > 0.0f)
+            player.player->ranged_cooldown_remaining_seconds -= dt;
     }
 
     static int apply_outgoing_spell_damage(Actor& player, int base_damage) {
@@ -68,7 +68,7 @@ struct SpellSystem {
     static void try_ranged_attack(Actor& player, const InputState& input, AudioSystem* audio,
                                   std::vector<Projectile>* spawn_projectiles) {
         if (!spawn_projectiles || !input.ranged_pressed
-            || player.ranged_cooldown_remaining_seconds > 0.0f
+            || player.player->ranged_cooldown_remaining_seconds > 0.0f
             || !player.combat.is_attack_idle()
             || player.combat.is_hurt_stunned()) {
             return;
@@ -77,7 +77,7 @@ struct SpellSystem {
             return;
 
         player.player->stamina.consume(kRangedStaminaCost);
-        player.ranged_cooldown_remaining_seconds = player.ranged_cooldown_seconds;
+        player.player->ranged_cooldown_remaining_seconds = player.player->ranged_cooldown_seconds;
 
         const int base_damage = player.derived.ranged_damage_final;
         int shot_count = 1;

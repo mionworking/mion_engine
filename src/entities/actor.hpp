@@ -111,28 +111,11 @@ struct Actor {
     float footstep_prev_y       = 0.0f;
     float footstep_accum_dist   = 0.0f;
 
-    // Dash / roll (primarily player)
-    float dash_active_remaining_seconds  = 0.0f;
-    float dash_cooldown_remaining_seconds = 0.0f;
-    float dash_dir_x                     = 1.0f;
-    float dash_dir_y                     = 0.0f;
-    float dash_speed                     = 520.0f;
-    float dash_duration_seconds          = 0.18f;
-    float dash_iframes_seconds           = 0.20f;
-    float dash_cooldown_seconds          = 0.55f;
-
-    // Battle Cry (and other temporary damage buffs)
-    float empowered_damage_multiplier   = 1.0f;
-    float empowered_remaining_seconds   = 0.0f;
-
     // Outgoing damage multiplier (melee, spells, arrows) while buff is active.
     float outgoing_damage_multiplier() const {
-        return empowered_remaining_seconds > 0.0f ? empowered_damage_multiplier : 1.0f;
+        return (player && player->empowered_remaining_seconds > 0.0f)
+            ? player->empowered_damage_multiplier : 1.0f;
     }
-
-    // Ranged
-    float ranged_cooldown_remaining_seconds = 0.0f;
-    float ranged_cooldown_seconds           = 0.35f;
 
     // --- Methods ---
 
@@ -159,7 +142,7 @@ struct Actor {
         }
     }
 
-    bool is_dashing() const { return dash_active_remaining_seconds > 0.0f; }
+    bool is_dashing() const { return player && player->dash_active_remaining_seconds > 0.0f; }
 
     float effective_move_speed() const {
         float s = move_speed;
