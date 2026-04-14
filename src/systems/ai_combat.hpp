@@ -66,14 +66,14 @@ inline void replan_chase_path(Actor* enemy, Actor* player, Pathfinder* pathfinde
     if (!pathfinder)
         return;
 
-    enemy->path_replan_timer -= dt;
-    if (enemy->path_replan_timer <= 0.0f) {
+    enemy->enemy_ai->path_replan_timer -= dt;
+    if (enemy->enemy_ai->path_replan_timer <= 0.0f) {
         const float ex = enemy->transform.x - nav_ox;
         const float ey = enemy->transform.y - nav_oy;
         const float px = player->transform.x - nav_ox;
         const float py = player->transform.y - nav_oy;
-        enemy->nav_path = pathfinder->find_path(ex, ey, px, py);
-        enemy->path_replan_timer = kPathReplanSec;
+        enemy->enemy_ai->nav_path = pathfinder->find_path(ex, ey, px, py);
+        enemy->enemy_ai->path_replan_timer = kPathReplanSec;
     }
 }
 
@@ -90,23 +90,23 @@ inline void move_along_path_toward(Actor* enemy, Actor* player, float& move_nx,
     if (!pathfinder)
         return;
 
-    if (enemy->nav_path.valid && !enemy->nav_path.done()) {
-        auto  wp  = enemy->nav_path.next_wp();
+    if (enemy->enemy_ai->nav_path.valid && !enemy->enemy_ai->nav_path.done()) {
+        auto  wp  = enemy->enemy_ai->nav_path.next_wp();
         float wdx = (wp.x + nav_ox) - enemy->transform.x;
         float wdy = (wp.y + nav_oy) - enemy->transform.y;
         float wd  = sqrtf(wdx * wdx + wdy * wdy);
 
         if (wd < kPathAdvancePx) {
-            enemy->nav_path.advance();
-            if (!enemy->nav_path.done()) {
-                wp  = enemy->nav_path.next_wp();
+            enemy->enemy_ai->nav_path.advance();
+            if (!enemy->enemy_ai->nav_path.done()) {
+                wp  = enemy->enemy_ai->nav_path.next_wp();
                 wdx = (wp.x + nav_ox) - enemy->transform.x;
                 wdy = (wp.y + nav_oy) - enemy->transform.y;
                 wd  = sqrtf(wdx * wdx + wdy * wdy);
             }
         }
 
-        if (!enemy->nav_path.done() && wd > 0.0f) {
+        if (!enemy->enemy_ai->nav_path.done() && wd > 0.0f) {
             move_nx = wdx / wd;
             move_ny = wdy / wd;
         }
@@ -116,12 +116,12 @@ inline void move_along_path_toward(Actor* enemy, Actor* player, float& move_nx,
 inline void chase_and_melee_attack(Actor* enemy, Actor* player, float dx, float dy,
                                    float dist, float dt, Pathfinder* pathfinder,
                                    float nav_ox, float nav_oy) {
-    if (enemy->boss_charging)
+    if (enemy->enemy_ai->boss_charging)
         return;
 
     replan_chase_path(enemy, player, pathfinder, dt, nav_ox, nav_oy);
 
-    if (dist > enemy->stop_range_ai && enemy->combat.is_attack_idle()) {
+    if (dist > enemy->enemy_ai->stop_range_ai && enemy->combat.is_attack_idle()) {
         float move_nx = 0.0f;
         float move_ny = 0.0f;
         move_along_path_toward(enemy, player, move_nx, move_ny, pathfinder, nav_ox, nav_oy);
@@ -131,7 +131,7 @@ inline void chase_and_melee_attack(Actor* enemy, Actor* player, float dx, float 
         enemy->is_moving = true;
     }
 
-    if (dist <= enemy->attack_range_ai && enemy->combat.is_attack_idle()) {
+    if (dist <= enemy->enemy_ai->attack_range_ai && enemy->combat.is_attack_idle()) {
         if (dist > kDistanceEpsilon)
             enemy->set_facing(dx / dist, dy / dist);
         enemy->combat.begin_attack();
@@ -144,7 +144,7 @@ inline void update_ranged(Actor* enemy, Actor* player, float dx, float dy, float
                           float nav_ox, float nav_oy) {
     replan_chase_path(enemy, player, pathfinder, dt, nav_ox, nav_oy);
 
-    const float keep = std::max(80.0f, enemy->ranged_keep_dist);
+    const float keep = std::max(80.0f, enemy->enemy_ai->ranged_keep_dist);
     float move_nx = 0.0f;
     float move_ny = 0.0f;
 
@@ -168,11 +168,11 @@ inline void update_ranged(Actor* enemy, Actor* player, float dx, float dy, float
         enemy->is_moving = (move_nx != 0.0f || move_ny != 0.0f);
     }
 
-    enemy->ranged_fire_cd -= dt;
-    if (enemy->ranged_fire_cd <= 0.0f && projectiles && enemy->combat.is_attack_idle()
-        && dist <= enemy->aggro_range) {
-        push_enemy_projectile(*projectiles, *enemy, *player, enemy->ranged_proj_damage);
-        enemy->ranged_fire_cd = std::max(0.2f, enemy->ranged_fire_rate);
+    enemy->enemy_ai->ranged_fire_cd -= dt;
+    if (enemy->enemy_ai->ranged_fire_cd <= 0.0f && projectiles && enemy->combat.is_attack_idle()
+        && dist <= enemy->enemy_ai->aggro_range) {
+        push_enemy_projectile(*projectiles, *enemy, *player, enemy->enemy_ai->ranged_proj_damage);
+        enemy->enemy_ai->ranged_fire_cd = std::max(0.2f, enemy->enemy_ai->ranged_fire_rate);
     }
 }
 

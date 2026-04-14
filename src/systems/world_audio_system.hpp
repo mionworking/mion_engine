@@ -43,10 +43,10 @@ inline void update(AudioSystem& audio, const ZoneManager& zone,
             }
     } else {
         for (const auto* e : enemies) {
-            if (!e || !e->is_alive) continue;
+            if (!e || !e->is_alive || !e->enemy_ai) continue;
             const float dx = player.transform.x - e->transform.x;
             const float dy = player.transform.y - e->transform.y;
-            if (dx * dx + dy * dy < e->aggro_range * e->aggro_range)
+            if (dx * dx + dy * dy < e->enemy_ai->aggro_range * e->enemy_ai->aggro_range)
                 { target = MusicState::DungeonCombat; break; }
         }
     }

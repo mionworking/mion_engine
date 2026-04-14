@@ -15,9 +15,10 @@ static void test_enemy_ai_chases_player_without_pathfinder() {
     enemy.team = mion::Team::Enemy;
     enemy.is_alive = true;
     enemy.move_speed = 120.0f;
-    enemy.aggro_range = 500.0f;
-    enemy.attack_range_ai = 40.0f;
-    enemy.stop_range_ai = 25.0f;
+    enemy.enemy_ai = mion::EnemyAIData{};
+    enemy.enemy_ai->aggro_range = 500.0f;
+    enemy.enemy_ai->attack_range_ai = 40.0f;
+    enemy.enemy_ai->stop_range_ai = 25.0f;
     enemy.transform.set_position(100.0f, 100.0f);
     enemy.combat.reset_for_spawn();
     std::vector<mion::Actor*> actors = { &player, &enemy };
@@ -36,9 +37,10 @@ static void test_enemy_ai_respects_stop_range_no_move() {
     enemy.team = mion::Team::Enemy;
     enemy.is_alive = true;
     enemy.move_speed = 100.0f;
-    enemy.aggro_range = 500.0f;
-    enemy.attack_range_ai = 50.0f;
-    enemy.stop_range_ai = 30.0f;
+    enemy.enemy_ai = mion::EnemyAIData{};
+    enemy.enemy_ai->aggro_range = 500.0f;
+    enemy.enemy_ai->attack_range_ai = 50.0f;
+    enemy.enemy_ai->stop_range_ai = 30.0f;
     enemy.transform.set_position(0.0f, 0.0f);
     enemy.combat.reset_for_spawn();
     float x0 = enemy.transform.x;
@@ -58,9 +60,10 @@ static void test_enemy_ai_begins_attack_when_in_range() {
     enemy.team = mion::Team::Enemy;
     enemy.is_alive = true;
     enemy.move_speed = 0.0f;
-    enemy.aggro_range = 500.0f;
-    enemy.attack_range_ai = 50.0f;
-    enemy.stop_range_ai = 10.0f;
+    enemy.enemy_ai = mion::EnemyAIData{};
+    enemy.enemy_ai->aggro_range = 500.0f;
+    enemy.enemy_ai->attack_range_ai = 50.0f;
+    enemy.enemy_ai->stop_range_ai = 10.0f;
     enemy.transform.set_position(0.0f, 0.0f);
     enemy.combat.reset_for_spawn();
     std::vector<mion::Actor*> actors = { &player, &enemy };
@@ -92,21 +95,21 @@ static void test_enemy_ai_patrol_alert_neighbor_chase() {
     player.transform.set_position(100.0f, 0.0f);
     guard_a.team         = mion::Team::Enemy;
     guard_a.is_alive     = true;
-    guard_a.ai_behavior    = mion::AiBehavior::Patrol;
-    guard_a.aggro_range  = 280.0f;
-    guard_a.move_speed   = 60.0f;
-    guard_a.patrol_state = mion::PatrolState::Patrol;
-    guard_a.patrol_waypoints = {{0.0f, 0.0f}, {20.0f, 0.0f}};
+    guard_a.enemy_ai     = mion::EnemyAIData{};
+    guard_a.enemy_ai->ai_behavior   = mion::AiBehavior::Patrol;
+    guard_a.enemy_ai->aggro_range   = 280.0f;
+    guard_a.move_speed              = 60.0f;
+    guard_a.enemy_ai->patrol_state  = mion::PatrolState::Patrol;
+    guard_a.enemy_ai->patrol_waypoints = {{0.0f, 0.0f}, {20.0f, 0.0f}};
     guard_a.transform.set_position(0.0f, 0.0f);
     guard_a.combat.reset_for_spawn();
     guard_b = guard_a;
     guard_b.transform.set_position(40.0f, 0.0f);
     std::vector<mion::Actor*> actors = {&player, &guard_a, &guard_b};
-    // Note: old tests might have passed nullptr, nullptr. EnemyAISystem takes (actors, dt, pathfinder, projectiles).
     sys.fixed_update(actors, 1.0f / 60.0f, nullptr, nullptr);
-    EXPECT_TRUE(guard_a.patrol_state == mion::PatrolState::Alert
-                || guard_a.patrol_state == mion::PatrolState::Chase);
-    EXPECT_TRUE(guard_b.patrol_state == mion::PatrolState::Chase);
+    EXPECT_TRUE(guard_a.enemy_ai->patrol_state == mion::PatrolState::Alert
+                || guard_a.enemy_ai->patrol_state == mion::PatrolState::Chase);
+    EXPECT_TRUE(guard_b.enemy_ai->patrol_state == mion::PatrolState::Chase);
 }
 REGISTER_TEST(test_enemy_ai_patrol_alert_neighbor_chase);
 
@@ -118,20 +121,21 @@ static void test_enemy_ai_boss_phase2_on_low_hp() {
     player.transform.set_position(200.0f, 100.0f);
     boss.team       = mion::Team::Enemy;
     boss.is_alive   = true;
-    boss.ai_behavior = mion::AiBehavior::BossPhased;
-    boss.aggro_range = 800.0f;
-    boss.attack_range_ai = 40.0f;
-    boss.stop_range_ai   = 20.0f;
-    boss.move_speed      = 50.0f;
-    boss.base_move_speed_at_spawn = 50.0f;
+    boss.enemy_ai   = mion::EnemyAIData{};
+    boss.enemy_ai->ai_behavior             = mion::AiBehavior::BossPhased;
+    boss.enemy_ai->aggro_range             = 800.0f;
+    boss.enemy_ai->attack_range_ai         = 40.0f;
+    boss.enemy_ai->stop_range_ai           = 20.0f;
+    boss.move_speed                        = 50.0f;
+    boss.enemy_ai->base_move_speed_at_spawn = 50.0f;
     boss.health.max_hp     = 200;
     boss.health.current_hp = 80;
-    boss.boss_phase      = 1;
+    boss.enemy_ai->boss_phase = 1;
     boss.combat.reset_for_spawn();
     boss.transform.set_position(100.0f, 100.0f);
     std::vector<mion::Actor*> actors = {&player, &boss};
     sys.fixed_update(actors, 1.0f / 60.0f, nullptr, nullptr);
-    EXPECT_EQ(boss.boss_phase, 2);
+    EXPECT_EQ(boss.enemy_ai->boss_phase, 2);
     EXPECT_GT(boss.move_speed, 60.0f);
 }
 REGISTER_TEST(test_enemy_ai_boss_phase2_on_low_hp);
@@ -144,14 +148,15 @@ static void test_enemy_ai_ranged_fires_projectile_when_cd_ready() {
     player.transform.set_position(220.0f, 100.0f);
     enemy.team = mion::Team::Enemy;
     enemy.is_alive = true;
-    enemy.ai_behavior = mion::AiBehavior::Ranged;
-    enemy.aggro_range = 500.0f;
-    enemy.ranged_fire_rate = 0.2f;
-    enemy.ranged_fire_cd = 0.0f;
-    enemy.ranged_proj_damage = 7;
-    enemy.move_speed = 0.0f;
-    enemy.stop_range_ai = 10.0f;
-    enemy.attack_range_ai = 40.0f;
+    enemy.enemy_ai = mion::EnemyAIData{};
+    enemy.enemy_ai->ai_behavior        = mion::AiBehavior::Ranged;
+    enemy.enemy_ai->aggro_range        = 500.0f;
+    enemy.enemy_ai->ranged_fire_rate   = 0.2f;
+    enemy.enemy_ai->ranged_fire_cd     = 0.0f;
+    enemy.enemy_ai->ranged_proj_damage = 7;
+    enemy.move_speed                   = 0.0f;
+    enemy.enemy_ai->stop_range_ai      = 10.0f;
+    enemy.enemy_ai->attack_range_ai    = 40.0f;
     enemy.transform.set_position(100.0f, 100.0f);
     enemy.combat.reset_for_spawn();
     std::vector<mion::Projectile> pr;
@@ -174,9 +179,10 @@ static void test_enemy_ai_overlap_preserves_finite_facing() {
     enemy.transform.set_position(100.0f, 100.0f);  // mesma posição do player
     enemy.facing_x = 0.0f;
     enemy.facing_y = -1.0f;
-    enemy.aggro_range = 400.0f;
-    enemy.attack_range_ai = 45.0f;
-    enemy.stop_range_ai = 30.0f;
+    enemy.enemy_ai = mion::EnemyAIData{};
+    enemy.enemy_ai->aggro_range     = 400.0f;
+    enemy.enemy_ai->attack_range_ai = 45.0f;
+    enemy.enemy_ai->stop_range_ai   = 30.0f;
     enemy.combat.reset_for_spawn();
 
     mion::EnemyAISystem sys;

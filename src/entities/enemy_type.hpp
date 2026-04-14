@@ -9,6 +9,8 @@
 
 namespace mion {
 
+enum class PatrolState { Patrol, Alert, Chase };
+
 // AI decision style assigned to each enemy type.
 enum class AiBehavior {
     Melee,

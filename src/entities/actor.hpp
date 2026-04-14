@@ -10,6 +10,7 @@
 #include "../components/attributes.hpp"
 #include "../core/animation.hpp"
 #include "enemy_type.hpp"
+#include "nav_path.hpp"
 #include "player_data.hpp"
 #include "enemy_ai_data.hpp"
 
@@ -19,21 +20,6 @@ namespace mion {
 
 enum class Team { Player, Enemy };
 
-enum class PatrolState { Patrol, Alert, Chase };
-
-// Waypoint path — defined here to avoid a circular dependency with pathfinder.hpp.
-// Pathfinder fills this struct; EnemyAISystem consumes it.
-struct Path {
-    struct Point { float x, y; };
-    std::vector<Point> waypoints;
-    int  current = 0;
-    bool valid   = false;
-
-    bool  done()    const { return !valid || current >= (int)waypoints.size(); }
-    Point next_wp() const { return done() ? Point{0,0} : waypoints[current]; }
-    void  advance()       { if (!done()) ++current; }
-    void  reset()         { waypoints.clear(); current = 0; valid = false; }
-};
 
 struct Actor {
     std::string  name;
@@ -61,37 +47,10 @@ struct Actor {
     SDL_Texture* sprite_sheet = nullptr;
     float        sprite_scale = 1.0f;
 
-    // Enemy type + per-actor stats
+    // Enemy type + per-actor stats (usados por inimigos e sistema de drop/render)
     EnemyType    enemy_type      = EnemyType::Skeleton;
     int          attack_damage   = 10;
     int          ranged_damage   = 8;
-    float        aggro_range     = 400.0f;
-    float        attack_range_ai = 45.0f;
-    float        stop_range_ai   = 30.0f;
-
-    // Pathfinding
-    Path         nav_path;
-    float        path_replan_timer = 0.0f;
-
-    // Behavior-based AI (copied from EnemyDef at spawn)
-    AiBehavior   ai_behavior = AiBehavior::Melee;
-    float        ranged_fire_cd        = 0.0f;
-    float        ranged_fire_rate      = 1.5f;
-    float        ranged_keep_dist      = 200.0f;
-    int          ranged_proj_damage    = 8;
-    struct PatrolWaypoint { float x, y; };
-    std::vector<PatrolWaypoint> patrol_waypoints;
-    int          patrol_wp_index   = 0;
-    PatrolState  patrol_state      = PatrolState::Patrol;
-    float        alert_timer       = 0.0f;
-    bool         is_elite          = false;
-    int          boss_phase        = 1;
-    float        boss_charge_cd    = 0.0f;
-    bool         boss_charging     = false;
-    float        boss_charge_remaining = 0.0f;
-    float        boss_charge_dir_x     = 0.0f;
-    float        boss_charge_dir_y     = 0.0f;
-    float        base_move_speed_at_spawn = 0.0f;
 
     // Gameplay components
     StatusEffectState status_effects;    // Poison/Slow/Stun

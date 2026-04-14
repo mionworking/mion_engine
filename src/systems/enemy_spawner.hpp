@@ -91,11 +91,7 @@ private:
         actor.team               = Team::Enemy;
         actor.enemy_type         = type;
         actor.attack_damage      = def.damage;
-        actor.aggro_range        = def.aggro_range;
-        actor.attack_range_ai    = def.attack_range;
-        actor.stop_range_ai      = def.stop_range;
         actor.move_speed         = def.move_speed;
-        actor.base_move_speed_at_spawn = def.move_speed;
         actor.knockback_friction = def.knockback_friction;
         actor.collision          = def.collision;
         actor.hurt_box           = def.hurt_box;
@@ -121,7 +117,6 @@ private:
         actor.knockback_vx       = 0.0f;
         actor.knockback_vy       = 0.0f;
         actor.sprite_scale       = def.sprite_scale;
-        actor.path_replan_timer  = static_cast<float>(enemies.size()) * 0.1f;
         actor.sprite_sheet = (tex_cache && def.sprite_sheet_path && def.sprite_sheet_path[0])
             ? tex_cache->load(def.sprite_sheet_path)
             : nullptr;
@@ -131,28 +126,34 @@ private:
         const float wx = x + world_origin_x;
         const float wy = y + world_origin_y;
 
-        actor.ai_behavior        = def.ai_behavior;
-        actor.ranged_fire_rate   = def.ranged_fire_rate;
-        actor.ranged_keep_dist   = def.ranged_keep_dist;
-        actor.ranged_proj_damage = def.ranged_proj_damage;
-        actor.ranged_fire_cd     = def.ranged_fire_rate * 0.35f;
-        actor.is_elite           = def.is_elite_base;
-        actor.boss_phase         = 1;
-        actor.boss_charging      = false;
-        actor.boss_charge_cd     = 1.2f;
-        actor.patrol_state       = PatrolState::Patrol;
-        actor.alert_timer        = 0.0f;
-        actor.patrol_wp_index    = 0;
-        actor.patrol_waypoints.clear();
+        actor.enemy_ai = EnemyAIData{};
+        actor.enemy_ai->aggro_range        = def.aggro_range;
+        actor.enemy_ai->attack_range_ai    = def.attack_range;
+        actor.enemy_ai->stop_range_ai      = def.stop_range;
+        actor.enemy_ai->base_move_speed_at_spawn = def.move_speed;
+        actor.enemy_ai->path_replan_timer  = static_cast<float>(enemies.size()) * 0.1f;
+        actor.enemy_ai->ai_behavior        = def.ai_behavior;
+        actor.enemy_ai->ranged_fire_rate   = def.ranged_fire_rate;
+        actor.enemy_ai->ranged_keep_dist   = def.ranged_keep_dist;
+        actor.enemy_ai->ranged_proj_damage = def.ranged_proj_damage;
+        actor.enemy_ai->ranged_fire_cd     = def.ranged_fire_rate * 0.35f;
+        actor.enemy_ai->is_elite           = def.is_elite_base;
+        actor.enemy_ai->boss_phase         = 1;
+        actor.enemy_ai->boss_charging      = false;
+        actor.enemy_ai->boss_charge_cd     = 1.2f;
+        actor.enemy_ai->patrol_state       = PatrolState::Patrol;
+        actor.enemy_ai->alert_timer        = 0.0f;
+        actor.enemy_ai->patrol_wp_index    = 0;
+        actor.enemy_ai->patrol_waypoints.clear();
 
         if (type == EnemyType::PatrolGuard)
-            actor.patrol_waypoints = {{wx - 90.0f, wy}, {wx + 90.0f, wy},
-                                      {wx, wy - 70.0f}, {wx, wy + 70.0f}};
+            actor.enemy_ai->patrol_waypoints = {{wx - 90.0f, wy}, {wx + 90.0f, wy},
+                                                {wx, wy - 70.0f}, {wx, wy + 70.0f}};
         if (type == EnemyType::BossGrimjaw)
-            actor.patrol_waypoints = {{wx - 180.0f, wy - 130.0f},
-                                      {wx + 180.0f, wy - 130.0f},
-                                      {wx + 180.0f, wy + 130.0f},
-                                      {wx - 180.0f, wy + 130.0f}};
+            actor.enemy_ai->patrol_waypoints = {{wx - 180.0f, wy - 130.0f},
+                                                {wx + 180.0f, wy - 130.0f},
+                                                {wx + 180.0f, wy + 130.0f},
+                                                {wx - 180.0f, wy + 130.0f}};
 
         actor.footstep_prev_x     = wx;
         actor.footstep_prev_y     = wy;

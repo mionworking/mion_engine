@@ -39,7 +39,7 @@ struct BossState {
         for (const auto* e : enemies) {
             if (!e) continue;
             if (!enemy_defs[static_cast<int>(e->enemy_type)].is_zone_boss) continue;
-            if (e->boss_phase != 2) continue;
+            if (!e->enemy_ai || e->enemy_ai->boss_phase != 2) continue;
             phase2_triggered = true;
             camera.trigger_shake(18.0f, 30);
             dialogue.start(to_string(DungeonDialogueId::BossPhase2));

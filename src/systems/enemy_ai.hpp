@@ -36,15 +36,15 @@ struct EnemyAISystem {
                 dist = sqrtf(dx * dx + dy * dy);
             }
 
-            switch (enemy->ai_behavior) {
+            switch (enemy->enemy_ai->ai_behavior) {
             case AiBehavior::Melee:
             case AiBehavior::Elite:
-                if (!player || dist > enemy->aggro_range) continue;
+                if (!player || dist > enemy->enemy_ai->aggro_range) continue;
                 enemy_ai::chase_and_melee_attack(
                     enemy, player, dx, dy, dist, dt, pathfinder, nav_area_ox, nav_area_oy);
                 break;
             case AiBehavior::Ranged:
-                if (!player || dist > enemy->aggro_range) continue;
+                if (!player || dist > enemy->enemy_ai->aggro_range) continue;
                 enemy_ai::update_ranged(enemy, player, dx, dy, dist, dt, pathfinder, projectiles,
                                         nav_area_ox, nav_area_oy);
                 break;
@@ -55,7 +55,7 @@ struct EnemyAISystem {
                 break;
             case AiBehavior::BossPhased:
                 if (!player) continue;
-                if (dist > enemy->aggro_range) {
+                if (dist > enemy->enemy_ai->aggro_range) {
                     enemy_ai::patrol_along_waypoints(
                         enemy, dt, pathfinder, nav_area_ox, nav_area_oy);
                     break;
