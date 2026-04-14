@@ -103,7 +103,7 @@ private:
 
         if (input.confirm) {
             const EquipSlot s = static_cast<EquipSlot>(_slot_cursor);
-            if (player.equipment.is_equipped(s)) {
+            if (player.player->equipment.is_equipped(s)) {
                 _ctx_open     = true;
                 _ctx_selected = 0;
             }
@@ -121,7 +121,7 @@ private:
         if (input.right)
             _bag_cursor = (_bag_cursor + 1) % kBagSize;
 
-        if (input.confirm && !player.bag.is_empty(_bag_cursor)) {
+        if (input.confirm && !player.player->bag.is_empty(_bag_cursor)) {
             _ctx_open     = true;
             _ctx_selected = 0;
         }
@@ -146,31 +146,31 @@ private:
         // Action selected
         if (_focus_bag) {
             // Equip from bag
-            const BagSlot& bs = player.bag.slots[_bag_cursor];
+            const BagSlot& bs = player.player->bag.slots[_bag_cursor];
             if (!bs.is_empty()) {
                 const EquipSlot target = bs.slot;
                 // If slot already occupied, move old item back to bag
-                if (player.equipment.is_equipped(target)) {
-                    const ItemDef& old = player.equipment.slots[static_cast<int>(target)];
-                    player.bag.add(old.name, target);
+                if (player.player->equipment.is_equipped(target)) {
+                    const ItemDef& old = player.player->equipment.slots[static_cast<int>(target)];
+                    player.player->bag.add(old.name, target);
                 }
                 // Equip new item
                 ItemDef def;
                 def.name  = bs.name;
                 def.slot  = target;
                 def.valid = true;
-                player.equipment.equip(target, def);
-                player.bag.remove(_bag_cursor);
+                player.player->equipment.equip(target, def);
+                player.player->bag.remove(_bag_cursor);
                 out.should_save = true;
             }
         } else {
             // Unequip to bag
             const EquipSlot s = static_cast<EquipSlot>(_slot_cursor);
-            if (player.equipment.is_equipped(s)) {
-                const ItemDef& item = player.equipment.slots[static_cast<int>(s)];
-                if (!player.bag.is_full()) {
-                    player.bag.add(item.name, s);
-                    player.equipment.unequip(s);
+            if (player.player->equipment.is_equipped(s)) {
+                const ItemDef& item = player.player->equipment.slots[static_cast<int>(s)];
+                if (!player.player->bag.is_full()) {
+                    player.player->bag.add(item.name, s);
+                    player.player->equipment.unequip(s);
                     out.should_save = true;
                 }
                 // If bag full: não faz nada (item permanece equipado)

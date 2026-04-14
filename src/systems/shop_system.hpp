@@ -15,9 +15,9 @@ struct ShopSystem {
         if (item_index < 0 || item_index >= static_cast<int>(shop.items.size()))
             return false;
         const ShopItem& it = shop.items[static_cast<size_t>(item_index)];
-        if (player.gold < it.gold_cost)
+        if (player.player->gold < it.gold_cost)
             return false;
-        player.gold -= it.gold_cost;
+        player.player->gold -= it.gold_cost;
         switch (it.type) {
         case ShopItemType::HpPotion:
             player.health.current_hp =
@@ -30,7 +30,7 @@ struct ShopSystem {
                          player.stamina.current + (float)it.value);
             break;
         case ShopItemType::AttackUpgrade:
-            player.progression.bonus_attack_damage += it.value;
+            player.player->progression.bonus_attack_damage += it.value;
             break;
         case ShopItemType::ManaUpgrade:
             player.mana.max += (float)it.value;
@@ -41,10 +41,10 @@ struct ShopSystem {
         }
         recompute_player_derived_stats(
             player.derived,
-            player.attributes,
-            player.progression,
-            player.talents,
-            player.equipment,
+            player.player->attributes,
+            player.player->progression,
+            player.player->talents,
+            player.player->equipment,
             player.attack_damage,
             player.ranged_damage);
         return true;

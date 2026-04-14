@@ -166,7 +166,7 @@ public:
 
         if (_run_stats)
             _run_stats->max_level_reached =
-                std::max(_run_stats->max_level_reached, _player.progression.level);
+                std::max(_run_stats->max_level_reached, _player.player->progression.level);
     }
 
     // ------------------------------------------------------------------
@@ -195,7 +195,7 @@ public:
         }
 
         _screen_flash.tick(dt);
-        _player.potion.update(dt);
+        _player.player->potion.update(dt);
         _zone_mgr.update(_player.transform.x, _player.transform.y, _world_map);
 
         if (_zone_mgr.just_changed)
@@ -286,9 +286,9 @@ public:
 
         // Potion use (edge: pressed this frame, not last)
         if (input.potion_pressed && !_prev_potion)
-            _player.potion.use(_player.health);
+            _player.player->potion.use(_player.health);
 
-        const int gold0 = _player.gold;
+        const int gold0 = _player.player->gold;
         int       damage_taken_frame = 0;
 
         // 1. Movement
@@ -377,9 +377,9 @@ public:
         for (auto* a : _actors) a->was_alive = a->is_alive;
 
         {
-            const bool lcp = _player.progression.level_choice_pending();
+            const bool lcp = _player.player->progression.level_choice_pending();
             if (lcp && !_prev_level_choice_pending) {
-                debug_log("Level choice pending: level=%d", _player.progression.level);
+                debug_log("Level choice pending: level=%d", _player.player->progression.level);
             }
             _prev_level_choice_pending = lcp;
         }
@@ -479,7 +479,7 @@ public:
 
         RunStatsTracker::FrameStatsDelta frame_stats{};
         frame_stats.damage_taken = damage_taken_frame;
-        frame_stats.gold_collected = (_player.gold > gold0) ? (_player.gold - gold0) : 0;
+        frame_stats.gold_collected = (_player.player->gold > gold0) ? (_player.player->gold - gold0) : 0;
         frame_stats.spells_cast = spell_casts_frame;
         frame_stats.time_seconds = dt;
         RunStatsTracker::apply_frame_delta(_run_stats, frame_stats);
@@ -624,7 +624,7 @@ public:
                 draw_text(r, 16.0f, static_cast<float>(viewport_h) - 80.0f, hint, 2, 255, 220, 120, 255);
             }
             char gold_buf[48];
-            SDL_snprintf(gold_buf, sizeof(gold_buf), tr("town_gold_label"), _player.gold);
+            SDL_snprintf(gold_buf, sizeof(gold_buf), tr("town_gold_label"), _player.player->gold);
             draw_text(r, 16.0f, 16.0f, gold_buf, 2, 255, 210, 100, 255);
         }
 
@@ -656,7 +656,7 @@ public:
 
         if (_shop_open)
             ShopSystem::render_shop_ui(
-                r, _shop_forge, _player.gold, viewport_w, viewport_h, _locale);
+                r, _shop_forge, _player.player->gold, viewport_w, viewport_h, _locale);
 
         _pause_controller.render(r, viewport_w, viewport_h);
     }
@@ -850,9 +850,9 @@ private:
     void _fresh_run() {
         _quest_state        = {};
         _scene_flags        = 0;
-        _player.gold        = 0;
-        _player.progression = ProgressionState{};
-        _player.talents     = TalentState{};
+        _player.player->gold        = 0;
+        _player.player->progression = ProgressionState{};
+        _player.player->talents     = TalentState{};
         _player.transform.set_position(400.f, 800.f);
         _area_entry         = {};   // reset visited areas so dialogues/spawns fire on new run
     }
@@ -883,8 +883,8 @@ private:
             if (_player.health.current_hp < 1)                     _player.health.current_hp = 1;
         }
 
-        _player.spell_book = SpellBookState{};
-        _player.spell_book.sync_from_talents(_player.talents);
+        _player.player->spell_book = SpellBookState{};
+        _player.player->spell_book.sync_from_talents(_player.player->talents);
     }
 
     void _initialize_runtime_after_enter() {

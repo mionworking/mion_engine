@@ -46,21 +46,21 @@ struct PlayerActionSystem {
 
         if (input.attack_pressed && player.combat.is_attack_idle()) {
             const bool cleave_ready =
-                player.spell_book.is_unlocked(SpellId::Cleave)
-                && player.spell_book.can_cast(SpellId::Cleave, player.mana);
+                player.player->spell_book.is_unlocked(SpellId::Cleave)
+                && player.player->spell_book.can_cast(SpellId::Cleave, player.mana);
             if (cleave_ready && player.stamina.can_afford(kMelee_stamina_cost) && actors) {
                 player.stamina.consume(kMelee_stamina_cost);
                 const SpellDef& cdef = spell_def(SpellId::Cleave);
                 player.mana.consume(cdef.mana_cost);
                 const int rank =
-                    spell_damage_rank(SpellId::Cleave, player.talents);
+                    spell_damage_rank(SpellId::Cleave, player.player->talents);
                 int base = cdef.effective_damage(rank);
                 const float mm =
-                    1.0f + 0.5f * (float)player.talents.level_of(TalentId::MeleeForce);
+                    1.0f + 0.5f * (float)player.player->talents.level_of(TalentId::MeleeForce);
                 const int dmg =
                     (int)((float)SpellSystem::apply_outgoing_spell_damage(player, base) * mm);
                 apply_cleave(player, *actors, cdef.radius, dmg);
-                player.spell_book.start_cooldown(SpellId::Cleave, player.talents);
+                player.player->spell_book.start_cooldown(SpellId::Cleave, player.player->talents);
                 if (audio) audio->play_sfx_pitched(SoundId::SkillCleave);
             } else if (player.stamina.can_afford(kMelee_stamina_cost)) {
                 player.stamina.consume(kMelee_stamina_cost);

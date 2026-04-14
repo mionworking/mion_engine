@@ -124,7 +124,8 @@ static void shop_input_controller_navigates_and_buys_items() {
     };
 
     Actor player;
-    player.gold = 50;
+    player.player = PlayerData{};
+    player.player->gold = 50;
     player.health.current_hp = 50;
     player.health.max_hp = 100;
     bool shop_open = true;
@@ -140,7 +141,7 @@ static void shop_input_controller_navigates_and_buys_items() {
     OverlayInputEdges confirm{};
     confirm.confirm = true;
     auto r1 = ctrl.update(shop, player, confirm, nullptr, shop_open);
-    EXPECT_EQ(player.gold, 38);
+    EXPECT_EQ(player.player->gold, 38);
     EXPECT_TRUE(r1.should_save);
 
     OverlayInputEdges cancel{};

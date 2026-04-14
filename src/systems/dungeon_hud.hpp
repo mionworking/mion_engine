@@ -29,8 +29,8 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     const float w = 160.0f, h = 10.0f;
 
     // XP / level
-    float xp_ratio = (player.progression.xp_to_next > 0)
-        ? (float)player.progression.xp / player.progression.xp_to_next : 0.0f;
+    float xp_ratio = (player.player->progression.xp_to_next > 0)
+        ? (float)player.player->progression.xp / player.player->progression.xp_to_next : 0.0f;
     SDL_SetRenderDrawColor(r, 30, 30, 50, 220);
     SDL_FRect xp_bg = { x, y_xp, w, h };
     SDL_RenderFillRect(r, &xp_bg);
@@ -41,14 +41,14 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     SDL_snprintf(xb, sizeof(xb), tr("hud_room_label"), room_index + 1);
     draw_text(r, x, 2.0f, xb, 1, 200, 200, 220);
     char lb[16];
-    SDL_snprintf(lb, sizeof(lb), tr("hud_level_label"), player.progression.level);
+    SDL_snprintf(lb, sizeof(lb), tr("hud_level_label"), player.player->progression.level);
     draw_text(r, 8.0f, 48.0f, lb, 2, 200, 200, 180, 255);
     char gb[32];
-    SDL_snprintf(gb, sizeof(gb), tr("hud_gold_short_label"), player.gold);
+    SDL_snprintf(gb, sizeof(gb), tr("hud_gold_short_label"), player.player->gold);
     draw_text(r, (float)vw - text_width(gb, 2) - 12.0f, 12.0f, gb, 2, 255, 215, 0, 255);
-    if (player.talents.pending_points > 0) {
+    if (player.player->talents.pending_points > 0) {
         char tb[24];
-        SDL_snprintf(tb, sizeof(tb), tr("hud_talent_points_short_label"), player.talents.pending_points);
+        SDL_snprintf(tb, sizeof(tb), tr("hud_talent_points_short_label"), player.player->talents.pending_points);
         draw_text(r, x + 120.0f, 2.0f, tb, 1, 150, 220, 255);
     }
     draw_text(r, x + w + 5.0f, y_xp + 1.0f, tr("hud_xp_short"), 1, 150, 180, 230);
@@ -105,8 +105,8 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
 
     // XP footer bar
     {
-        float xp_r = (player.progression.xp_to_next > 0)
-            ? (float)player.progression.xp / (float)player.progression.xp_to_next : 0.0f;
+        float xp_r = (player.player->progression.xp_to_next > 0)
+            ? (float)player.player->progression.xp / (float)player.player->progression.xp_to_next : 0.0f;
         ui::ProgressBar xp_footer;
         xp_footer.rect       = {0.0f, (float)vh - 6.0f, (float)vw, 6.0f};
         xp_footer.value      = xp_r;
@@ -122,7 +122,7 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     auto draw_slot = [&](int idx, const char* key, SpellId sid, const char* abbrev) {
         const float sx   = cx - slot_w * 2.0f - 24.0f + (slot_w + 10.0f) * (float)idx;
         const int   si   = static_cast<int>(sid);
-        const bool  unlk = player.spell_book.is_unlocked(sid);
+        const bool  unlk = player.player->spell_book.is_unlocked(sid);
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(r, 20, 18, 35, 230);
         SDL_FRect box{sx, hot_y, slot_w, 40.0f};
@@ -133,11 +133,11 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         const char* tag = unlk ? abbrev : "--";
         draw_text(r, sx + 4.0f, hot_y + 16.0f, tag, 1, unlk ? 200 : 90, unlk ? 220 : 80,
                   unlk ? 200 : 80, 255);
-        if (unlk && player.spell_book.cooldown_remaining[si] > 0.0f) {
+        if (unlk && player.player->spell_book.cooldown_remaining[si] > 0.0f) {
             const SpellDef& def = spell_def(sid);
             const float     cd  = def.effective_cooldown(
-                spell_damage_rank(sid, player.talents));
-            const float t  = player.spell_book.cooldown_remaining[si];
+                spell_damage_rank(sid, player.player->talents));
+            const float t  = player.player->spell_book.cooldown_remaining[si];
             const float p  = cd > 0.001f ? std::clamp(t / cd, 0.0f, 1.0f) : 1.0f;
             SDL_SetRenderDrawColor(r, 0, 0, 0, 140);
             SDL_FRect dim{sx, hot_y, slot_w, 40.0f * p};
@@ -149,11 +149,11 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     {
         SpellId rid = SpellId::ChainLightning;
         const char* lab = tr("hud_spell_chain_short");
-        if (!player.spell_book.is_unlocked(SpellId::ChainLightning)
-            && player.spell_book.is_unlocked(SpellId::Strafe)) {
+        if (!player.player->spell_book.is_unlocked(SpellId::ChainLightning)
+            && player.player->spell_book.is_unlocked(SpellId::Strafe)) {
             rid = SpellId::Strafe;
             lab = tr("hud_spell_strafe_short");
-        } else if (!player.spell_book.is_unlocked(SpellId::ChainLightning)) {
+        } else if (!player.player->spell_book.is_unlocked(SpellId::ChainLightning)) {
             lab = "--";
         }
         draw_slot(2, "R", rid, lab);
@@ -170,7 +170,7 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
         // fundo do slot
-        const bool ready = player.potion.can_use();
+        const bool ready = player.player->potion.can_use();
         SDL_SetRenderDrawColor(r, 30, 15, 15, 230);
         SDL_FRect pot_box{pot_x, pot_y, pot_w, pot_h};
         SDL_RenderFillRect(r, &pot_box);
@@ -183,8 +183,8 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         SDL_RenderRect(r, &pot_box);
 
         // overlay de cooldown (escurece proporcionalmente)
-        if (!ready && player.potion.max_cooldown > 0.0f) {
-            const float ratio = player.potion.cooldown_ratio();
+        if (!ready && player.player->potion.max_cooldown > 0.0f) {
+            const float ratio = player.player->potion.cooldown_ratio();
             SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(160 * ratio));
             SDL_FRect dim{pot_x, pot_y, pot_w, pot_h * ratio};
             SDL_RenderFillRect(r, &dim);
@@ -194,9 +194,9 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         draw_text(r, pot_x + 3.0f, pot_y + 2.0f, tr("hud_potion_key"), 1, 160, 160, 200, 220);
 
         // stack count
-        if (player.potion.stack > 0) {
+        if (player.player->potion.stack > 0) {
             char sc[8];
-            SDL_snprintf(sc, sizeof(sc), "x%d", player.potion.stack);
+            SDL_snprintf(sc, sizeof(sc), "x%d", player.player->potion.stack);
             draw_text(r, pot_x + 3.0f, pot_y + pot_h - 14.0f, sc, 1,
                       ready ? 220 : 140,
                       ready ? 200 : 130,
@@ -206,13 +206,13 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
         }
 
         // qualidade
-        const char* qual_label = (player.potion.quality == PotionQuality::Greater)
+        const char* qual_label = (player.player->potion.quality == PotionQuality::Greater)
             ? tr("hud_potion_quality_greater_short")
-            : (player.potion.quality == PotionQuality::Normal)
+            : (player.player->potion.quality == PotionQuality::Normal)
                 ? tr("hud_potion_quality_normal_short")
                 : tr("hud_potion_quality_minor_short");
         draw_text(r, pot_x + 3.0f, pot_y + 16.0f, qual_label, 1,
-                  180, 140, 80, player.potion.stack > 0 ? 220 : 100);
+                  180, 140, 80, player.player->potion.stack > 0 ? 220 : 100);
     }
 }
 

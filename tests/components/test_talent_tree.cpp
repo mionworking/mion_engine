@@ -65,10 +65,11 @@ REGISTER_TEST(test_talent_no_unlockable_options_when_no_pending_points);
 
 static void test_talent_applies_spell_power_multiplier() {
     mion::Actor player;
-    player.progression.spell_damage_multiplier = 1.0f;
-    player.progression.spell_damage_multiplier *= 1.25f;
+    player.player = mion::PlayerData{};
+    player.player->progression.spell_damage_multiplier = 1.0f;
+    player.player->progression.spell_damage_multiplier *= 1.25f;
 
     const mion::SpellDef& bolt = mion::spell_def(mion::SpellId::FrostBolt);
-    EXPECT_EQ(player.progression.scaled_spell_damage(bolt.damage), 20);
+    EXPECT_EQ(player.player->progression.scaled_spell_damage(bolt.damage), 20);
 }
 REGISTER_TEST(test_talent_applies_spell_power_multiplier);

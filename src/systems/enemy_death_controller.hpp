@@ -56,15 +56,15 @@ inline DeathResult process_deaths(const std::vector<Actor*>& actors,
                 DropSystem::on_enemy_died(ground_items, a->transform.x, a->transform.y,
                                           def, drop_config, *rng, -1, -1);
 
-            const int gained = player.progression.add_xp(
+            const int gained = player.player->progression.add_xp(
                 dungeon_rules::xp_per_enemy_kill(room_index));
-            player.talents.pending_points += gained;
+            player.player->talents.pending_points += gained;
             result.xp_gained += gained;
 
             if (run_stats) {
                 run_stats->enemies_killed++;
                 run_stats->max_level_reached =
-                    std::max(run_stats->max_level_reached, player.progression.level);
+                    std::max(run_stats->max_level_reached, player.player->progression.level);
             }
 
             if (!stress_mode && def.is_zone_boss) {

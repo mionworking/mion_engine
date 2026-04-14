@@ -73,7 +73,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
         for (int i = 0; i < kEquipSlotCount; ++i) {
             const float ry  = list_y + (float)i * row_h;
             const bool  sel = (!state.focus_bag && i == state.slot_cursor);
-            const bool  has = player.equipment.is_equipped(static_cast<EquipSlot>(i));
+            const bool  has = player.player->equipment.is_equipped(static_cast<EquipSlot>(i));
 
             if (sel) {
                 SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
@@ -89,7 +89,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
                       label_c.r, label_c.g, label_c.b, (Uint8)(label_c.a * alpha));
 
             const char* item_str = has
-                ? player.equipment.slots[i].name.c_str()
+                ? player.player->equipment.slots[i].name.c_str()
                 : "--";
             const SDL_Color& item_c = has
                 ? (sel ? ui::g_theme.text_selected : ui::g_theme.text_normal)
@@ -121,7 +121,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
             const float cx    = bag_x + 8.0f + (float)col * cell_w;
             const float cy    = grid_y + (float)row * cell_h;
             const bool  sel   = (state.focus_bag && i == state.bag_cursor);
-            const bool  empty = player.bag.is_empty(i);
+            const bool  empty = player.player->bag.is_empty(i);
 
             // cell background
             SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
@@ -142,7 +142,7 @@ inline void render_equipment_screen(SDL_Renderer* r, int vw, int vh,
             if (!empty) {
                 const SDL_Color& tc = sel ? ui::g_theme.text_selected : ui::g_theme.text_normal;
                 // Truncate long names to fit cell
-                const std::string& name = player.bag.slots[i].name;
+                const std::string& name = player.player->bag.slots[i].name;
                 char buf[16];
                 SDL_snprintf(buf, sizeof(buf), "%.12s", name.c_str());
                 draw_text(r, cx + 3.0f, cy + 8.0f, buf, 1,

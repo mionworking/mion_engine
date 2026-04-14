@@ -19,7 +19,7 @@ struct SpellSystem {
     static constexpr float kArrowSpeed        = 420.0f;
 
     static void tick_cooldowns(Actor& player, float dt) {
-        player.spell_book.tick(dt);
+        player.player->spell_book.tick(dt);
         if (player.ranged_cooldown_remaining_seconds > 0.0f)
             player.ranged_cooldown_remaining_seconds -= dt;
     }
@@ -81,12 +81,12 @@ struct SpellSystem {
 
         const int base_damage = player.derived.ranged_damage_final;
         int shot_count = 1;
-        if (player.spell_book.is_unlocked(SpellId::MultiShot))
-            shot_count += std::min(2, player.talents.level_of(TalentId::MultiShot));
+        if (player.player->spell_book.is_unlocked(SpellId::MultiShot))
+            shot_count += std::min(2, player.player->talents.level_of(TalentId::MultiShot));
 
-        const bool poison = player.spell_book.is_unlocked(SpellId::PoisonArrow)
-                         && player.talents.level_of(TalentId::PoisonArrow) > 0;
-        const int poison_rank = player.talents.level_of(TalentId::PoisonArrow);
+        const bool poison = player.player->spell_book.is_unlocked(SpellId::PoisonArrow)
+                         && player.player->talents.level_of(TalentId::PoisonArrow) > 0;
+        const int poison_rank = player.player->talents.level_of(TalentId::PoisonArrow);
         const int damage = apply_outgoing_physical_damage(player, base_damage);
         const float base_angle = std::atan2(player.facing_y, player.facing_x);
         const float dtheta = (shot_count <= 1) ? 0.0f : 24.0f * (3.14159265f / 180.0f);
@@ -118,13 +118,13 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::FrostBolt;
-            if (player.spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
                 const SpellDef& def = spell_def(spell_id);
                 player.mana.consume(def.mana_cost);
-                player.spell_book.start_cooldown(spell_id, player.talents);
-                const int rank = spell_damage_rank(spell_id, player.talents);
+                player.player->spell_book.start_cooldown(spell_id, player.player->talents);
+                const int rank = spell_damage_rank(spell_id, player.player->talents);
                 const int base = def.effective_damage(rank)
-                               + 2 * player.talents.level_of(TalentId::SpellPower);
+                               + 2 * player.player->talents.level_of(TalentId::SpellPower);
                 const int damage = apply_outgoing_spell_damage(player, base);
 
                 Projectile projectile;
@@ -137,7 +137,7 @@ struct SpellSystem {
                 projectile.owner_team                 = Team::Player;
                 projectile.is_frost                   = true;
                 projectile.frost_rank =
-                    std::max(1, player.talents.level_of(TalentId::FrostBolt));
+                    std::max(1, player.player->talents.level_of(TalentId::FrostBolt));
                 spawn_projectiles->push_back(projectile);
                 if (out_spell_casts)
                     ++*out_spell_casts;
@@ -150,11 +150,11 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::Nova;
-            if (player.spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
                 const SpellDef& def = spell_def(spell_id);
                 player.mana.consume(def.mana_cost);
-                player.spell_book.start_cooldown(spell_id, player.talents);
-                const int rank = spell_damage_rank(spell_id, player.talents);
+                player.player->spell_book.start_cooldown(spell_id, player.player->talents);
+                const int rank = spell_damage_rank(spell_id, player.player->talents);
                 const int base = def.effective_damage(rank);
                 apply_nova(player, *actors, def.radius,
                            apply_outgoing_spell_damage(player, base));
@@ -168,16 +168,16 @@ struct SpellSystem {
         if (spawn_projectiles && input.spell_3_pressed
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
-            const bool can_chain = player.spell_book.can_cast(SpellId::ChainLightning, player.mana);
-            const bool can_strafe = player.spell_book.can_cast(SpellId::Strafe, player.mana);
+            const bool can_chain = player.player->spell_book.can_cast(SpellId::ChainLightning, player.mana);
+            const bool can_strafe = player.player->spell_book.can_cast(SpellId::Strafe, player.mana);
 
             if (can_chain && actors) {
                 const SpellDef& def = spell_def(SpellId::ChainLightning);
                 player.mana.consume(def.mana_cost);
-                player.spell_book.start_cooldown(SpellId::ChainLightning, player.talents);
-                const int rank = spell_damage_rank(SpellId::ChainLightning, player.talents);
+                player.player->spell_book.start_cooldown(SpellId::ChainLightning, player.player->talents);
+                const int rank = spell_damage_rank(SpellId::ChainLightning, player.player->talents);
                 const int base = def.effective_damage(rank)
-                               + 2 * player.talents.level_of(TalentId::SpellPower);
+                               + 2 * player.player->talents.level_of(TalentId::SpellPower);
                 const int damage = apply_outgoing_spell_damage(player, base);
                 const int bounces = 2 + std::min(3, rank / 2);
                 apply_chain_lightning(player, *actors, bounces, damage);
@@ -188,11 +188,11 @@ struct SpellSystem {
             } else if (can_strafe) {
                 const SpellDef& def = spell_def(SpellId::Strafe);
                 player.mana.consume(def.mana_cost);
-                player.spell_book.start_cooldown(SpellId::Strafe, player.talents);
+                player.player->spell_book.start_cooldown(SpellId::Strafe, player.player->talents);
                 const int damage = apply_outgoing_physical_damage(
                     player,
                     player.derived.ranged_damage_final
-                        + player.talents.level_of(TalentId::Strafe));
+                        + player.player->talents.level_of(TalentId::Strafe));
                 const float base_angle = std::atan2(player.facing_y, player.facing_x);
                 for (int i = 0; i < 5; ++i) {
                     const float delta_angle = (-30.0f + 15.0f * static_cast<float>(i))
@@ -214,12 +214,12 @@ struct SpellSystem {
             && player.combat.is_attack_idle()
             && !player.combat.is_hurt_stunned()) {
             const SpellId spell_id = SpellId::BattleCry;
-            if (player.spell_book.can_cast(spell_id, player.mana)) {
+            if (player.player->spell_book.can_cast(spell_id, player.mana)) {
                 const SpellDef& def = spell_def(spell_id);
                 player.mana.consume(def.mana_cost);
-                player.spell_book.start_cooldown(spell_id, player.talents);
+                player.player->spell_book.start_cooldown(spell_id, player.player->talents);
                 apply_battle_cry(player,
-                                 std::max(1, player.talents.level_of(TalentId::BattleCry)));
+                                 std::max(1, player.player->talents.level_of(TalentId::BattleCry)));
                 if (out_spell_casts)
                     ++*out_spell_casts;
                 if (audio)

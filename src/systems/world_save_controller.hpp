@@ -81,13 +81,13 @@ inline SaveData make_world_save(const WorldContext& ctx) {
     d.room_index  = 0; // legacy: always 0 in v6
     if (ctx.player) {
         d.player_hp            = ctx.player->health.current_hp;
-        d.gold                 = ctx.player->gold;
-        d.progression          = ctx.player->progression;
-        d.talents              = ctx.player->talents;
+        d.gold                 = ctx.player->player->gold;
+        d.progression          = ctx.player->player->progression;
+        d.talents              = ctx.player->player->talents;
         d.mana                 = ctx.player->mana;
         d.stamina              = ctx.player->stamina;
-        d.attributes           = ctx.player->attributes;
-        d.attr_points_available = ctx.player->progression.pending_level_ups;
+        d.attributes           = ctx.player->player->attributes;
+        d.attr_points_available = ctx.player->player->progression.pending_level_ups;
         d.player_world_x       = ctx.player->transform.x;
         d.player_world_y       = ctx.player->transform.y;
     }
@@ -106,10 +106,10 @@ inline SaveData make_world_save(const WorldContext& ctx) {
 
 inline void apply_world_save(WorldContext& ctx, const SaveData& sd) {
     if (ctx.player) {
-        ctx.player->progression = sd.progression;
-        ctx.player->talents     = sd.talents;
-        ctx.player->attributes  = sd.attributes;
-        ctx.player->gold              = sd.gold;
+        ctx.player->player->progression = sd.progression;
+        ctx.player->player->talents     = sd.talents;
+        ctx.player->player->attributes  = sd.attributes;
+        ctx.player->player->gold              = sd.gold;
         ctx.player->health.current_hp = sd.player_hp;
         ctx.player->mana              = sd.mana;
         ctx.player->stamina           = sd.stamina;

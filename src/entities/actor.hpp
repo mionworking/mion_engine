@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
 #include "../components/transform.hpp"
@@ -8,15 +9,11 @@
 #include "../components/stamina.hpp"
 #include "../components/mana.hpp"
 #include "../components/status_effect.hpp"
-#include "../components/progression.hpp"
-#include "../components/spell_book.hpp"
-#include "../components/talent_state.hpp"
 #include "../components/attributes.hpp"
-#include "../components/equipment.hpp"
-#include "../components/item_bag.hpp"
-#include "../components/potion_quickslot.hpp"
 #include "../core/animation.hpp"
 #include "enemy_type.hpp"
+#include "player_data.hpp"
+#include "enemy_ai_data.hpp"
 
 struct SDL_Texture;
 
@@ -102,15 +99,13 @@ struct Actor {
     StaminaState      stamina;           // used by player; default empty for enemies
     ManaState         mana;              // player mana pool
     StatusEffectState status_effects;    // Poison/Slow/Stun
-    ProgressionState  progression;       // XP/level — player only
-    SpellBookState    spell_book;        // spells + cooldowns
-    TalentState       talents;           // skill tree points and unlocks
-    AttributesState   attributes;        // base attributes
-    EquipmentState    equipment;         // equipment slots (11)
-    ItemBag           bag;               // itens acumulados (bag)
-    PotionQuickslot   potion;            // quickslot de poção (estilo Diablo 3)
-    DerivedStats      derived;           // final stats computed by recompute_player_derived_stats
-    int               gold              = 0;
+    DerivedStats      derived;           // final stats — player e inimigos usam
+
+    // Sub-structs opcionais — preenchidos na Sprint 5 (Actor split).
+    // player:    só o player instancia (spell_book, talents, equipment, bag, etc.)
+    // enemy_ai:  só inimigos hostis instanciam (patrulha, boss, ranged AI, etc.)
+    std::optional<PlayerData>  player;
+    std::optional<EnemyAIData> enemy_ai;
 
     // Brief white flash on hit (seconds).
     float hit_flash_timer = 0.0f;
@@ -172,8 +167,8 @@ struct Actor {
 
     float effective_move_speed() const {
         float s = move_speed;
-        if (team == Team::Player)
-            s += progression.bonus_move_speed;
+        if (player)
+            s += player->progression.bonus_move_speed;
         float slow_m = status_effects.slow_multiplier();
         return s * slow_m;
     }

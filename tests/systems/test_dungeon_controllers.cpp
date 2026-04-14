@@ -14,10 +14,11 @@ using namespace mion;
 static void test_attr_controller_spends_point_and_recomputes_stats() {
     reset_player_config_defaults();
     Actor player;
-    player.progression.pending_level_ups = 1;
-    player.attributes = {};
+    player.player = PlayerData{};
+    player.player->progression.pending_level_ups = 1;
+    player.player->attributes = {};
     player.derived   = {};
-    player.talents   = {};
+    player.player->talents   = {};
     player.health    = { g_player_config.base_hp, g_player_config.base_hp };
     player.mana.max     = g_player_config.base_mana_max;
     player.stamina.max  = g_player_config.base_stamina_max;
@@ -32,22 +33,23 @@ static void test_attr_controller_spends_point_and_recomputes_stats() {
 
     AttributeLevelUpResult r = controller.update(player, in, /*stress_mode=*/false);
     EXPECT_TRUE(r.should_save);
-    EXPECT_EQ(player.progression.pending_level_ups, 0);
-    EXPECT_TRUE(player.attributes.vigor == 1
-                || player.attributes.forca == 1
-                || player.attributes.destreza == 1
-                || player.attributes.inteligencia == 1
-                || player.attributes.endurance == 1);
+    EXPECT_EQ(player.player->progression.pending_level_ups, 0);
+    EXPECT_TRUE(player.player->attributes.vigor == 1
+                || player.player->attributes.forca == 1
+                || player.player->attributes.destreza == 1
+                || player.player->attributes.inteligencia == 1
+                || player.player->attributes.endurance == 1);
     EXPECT_TRUE(player.health.max_hp >= g_player_config.base_hp);
 }
 
 static void test_attr_controller_closes_when_no_pending() {
     reset_player_config_defaults();
     Actor player;
-    player.progression.pending_level_ups = 1;
+    player.player = PlayerData{};
+    player.player->progression.pending_level_ups = 1;
     AttributeLevelUpController controller;
     controller.sync_open_from_progression(player);
-    player.progression.pending_level_ups = 0;
+    player.player->progression.pending_level_ups = 0;
 
     OverlayInputEdges in{};
     AttributeLevelUpResult r = controller.update(player, in, /*stress_mode=*/false);
@@ -141,7 +143,8 @@ static void test_pause_menu_controller_requests_quit_to_title() {
 static void test_skill_tree_controller_auto_opens_when_pending() {
     reset_talent_tree_defaults();
     Actor player;
-    player.talents.pending_points = 1;
+    player.player = PlayerData{};
+    player.player->talents.pending_points = 1;
     SkillTreeController controller;
     controller.rebuild_columns();
 
@@ -156,7 +159,8 @@ static void test_skill_tree_controller_auto_opens_when_pending() {
 static void test_skill_tree_controller_spends_arcane_reservoir() {
     reset_talent_tree_defaults();
     Actor player;
-    player.talents.pending_points = 1;
+    player.player = PlayerData{};
+    player.player->talents.pending_points = 1;
     player.mana.max = 100.0f;
     player.mana.current = 80.0f;
     SkillTreeController controller;
@@ -172,8 +176,8 @@ static void test_skill_tree_controller_spends_arcane_reservoir() {
     confirm.confirm = true;
     SkillTreeResult r = controller.update(player, confirm, /*stress_mode=*/false);
     EXPECT_TRUE(r.should_save);
-    EXPECT_EQ(player.talents.level_of(TalentId::ArcaneReservoir), 1);
-    EXPECT_EQ(player.talents.pending_points, 0);
+    EXPECT_EQ(player.player->talents.level_of(TalentId::ArcaneReservoir), 1);
+    EXPECT_EQ(player.player->talents.pending_points, 0);
     EXPECT_NEAR(player.mana.max, 130.0f, 0.001f);
     EXPECT_NEAR(player.mana.current, 110.0f, 0.001f);
 }

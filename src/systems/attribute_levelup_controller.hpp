@@ -30,7 +30,7 @@ public:
         _just_opened = false;
         _just_closed = false;
 
-        if (!player.progression.level_choice_pending()) {
+        if (!player.player->progression.level_choice_pending()) {
             if (_screen_open) {
                 _screen_open = false;
                 _just_closed = true;
@@ -56,7 +56,7 @@ public:
         _just_opened    = false;
         _just_closed    = false;
 
-        if (!player.progression.level_choice_pending()) {
+        if (!player.player->progression.level_choice_pending()) {
             if (_screen_open) {
                 _screen_open     = false;
                 out.screen_open  = false;
@@ -79,24 +79,24 @@ public:
         if (input.down)
             _selected_index = (_selected_index + 1) % 5;
 
-        if (input.confirm && player.progression.level_choice_pending()) {
+        if (input.confirm && player.player->progression.level_choice_pending()) {
             switch (_selected_index) {
-            case 0: player.attributes.vigor++;        break;
-            case 1: player.attributes.forca++;        break;
-            case 2: player.attributes.destreza++;     break;
-            case 3: player.attributes.inteligencia++; break;
-            case 4: player.attributes.endurance++;    break;
+            case 0: player.player->attributes.vigor++;        break;
+            case 1: player.player->attributes.forca++;        break;
+            case 2: player.player->attributes.destreza++;     break;
+            case 3: player.player->attributes.inteligencia++; break;
+            case 4: player.player->attributes.endurance++;    break;
             default: break;
             }
             out.applied_index = _selected_index;
-            player.progression.pending_level_ups--;
+            player.player->progression.pending_level_ups--;
 
             recompute_player_derived_stats(
                 player.derived,
-                player.attributes,
-                player.progression,
-                player.talents,
-                player.equipment,
+                player.player->attributes,
+                player.player->progression,
+                player.player->talents,
+                player.player->equipment,
                 g_player_config.melee_damage,
                 g_player_config.ranged_damage);
 
@@ -110,7 +110,7 @@ public:
             out.should_save = true;
         }
 
-        if (!player.progression.level_choice_pending()) {
+        if (!player.player->progression.level_choice_pending()) {
             _screen_open    = false;
             out.screen_open = false;
             out.just_closed = true;
@@ -135,8 +135,8 @@ public:
         render_attribute_screen(r,
                                 viewport_w,
                                 viewport_h,
-                                player.attributes,
-                                player.progression.pending_level_ups,
+                                player.player->attributes,
+                                player.player->progression.pending_level_ups,
                                 _selected_index,
                                 _locale);
     }

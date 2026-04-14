@@ -26,9 +26,10 @@ static void world_save_make_and_apply_restores_position_and_mask() {
     entry.visited_areas.insert(ZoneId::DungeonRoom1);
 
     Actor player;
+    player.player = PlayerData{};
     player.transform.set_position(500.f, 600.f);
     player.health.current_hp = 80;
-    player.gold              = 12;
+    player.player->gold      = 12;
 
     WorldContext src;
     src.world_map  = &map;

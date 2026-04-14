@@ -17,8 +17,8 @@ struct SkillTreeResult : UiControllerResult {
 };
 
 inline bool skill_tree_selection_pending(const Actor& player) {
-    return player.talents.pending_points > 0
-        && player.talents.has_unlockable_options();
+    return player.player->talents.pending_points > 0
+        && player.player->talents.has_unlockable_options();
 }
 
 inline void skill_tree_build_columns(std::vector<int> out[3]) {
@@ -50,7 +50,7 @@ inline void skill_tree_clamp_cursor(int& selected_col,
 }
 
 inline bool skill_tree_try_spend_talent(Actor& player, TalentId id) {
-    if (!player.talents.try_unlock(id))
+    if (!player.player->talents.try_unlock(id))
         return false;
     if (id == TalentId::ArcaneReservoir) {
         player.mana.max += 30.0f;
@@ -60,7 +60,7 @@ inline bool skill_tree_try_spend_talent(Actor& player, TalentId id) {
     } else if (id == TalentId::ManaFlow) {
         player.mana.regen_rate += 8.0f;
     }
-    player.spell_book.sync_from_talents(player.talents);
+    player.player->spell_book.sync_from_talents(player.player->talents);
     return true;
 }
 
@@ -149,7 +149,7 @@ public:
         render_skill_tree_overlay(r,
                                   viewport_w,
                                   viewport_h,
-                                  player.talents,
+                                  player.player->talents,
                                   _selected_col,
                                   _selected_row,
                                   _col_indices,

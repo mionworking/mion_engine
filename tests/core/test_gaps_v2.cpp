@@ -165,7 +165,8 @@ REGISTER_TEST(test_attributes_recompute_player_derived_stats);
 
 static void test_shop_attack_upgrade_emits_runtime_signal() {
     mion::Actor player;
-    player.gold = 200;
+    player.player = mion::PlayerData{};
+    player.player->gold = 200;
     player.attack_damage = 10;
     player.ranged_damage = 8;
     player.derived.melee_damage_final = 10;
@@ -175,7 +176,7 @@ static void test_shop_attack_upgrade_emits_runtime_signal() {
     shop.selected_index = 0;
 
     EXPECT_TRUE(mion::ShopSystem::try_buy(player, shop, 0));
-    EXPECT_EQ(player.progression.bonus_attack_damage, 3);
+    EXPECT_EQ(player.player->progression.bonus_attack_damage, 3);
     EXPECT_EQ(player.derived.melee_damage_final, 13);
 }
 REGISTER_TEST(test_shop_attack_upgrade_emits_runtime_signal);

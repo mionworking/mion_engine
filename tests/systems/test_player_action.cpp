@@ -8,6 +8,7 @@
 
 // Setup
 static void setup_player(mion::Actor& p) {
+    if (!p.player) p.player = mion::PlayerData{};
     p.is_alive = true;
     p.team = mion::Team::Player;
     p.combat.reset_for_spawn();
@@ -39,8 +40,8 @@ static void test_player_action_ranged_multishot_spawns_extra_projectiles() {
     mion::Actor player;
     setup_player(player);
     player.derived.ranged_damage_final = 10;
-    player.spell_book.unlock(mion::SpellId::MultiShot);
-    player.talents.levels[static_cast<int>(mion::TalentId::MultiShot)] = 2;
+    player.player->spell_book.unlock(mion::SpellId::MultiShot);
+    player.player->talents.levels[static_cast<int>(mion::TalentId::MultiShot)] = 2;
     std::vector<mion::Projectile> pr;
     mion::InputState in;
     in.ranged_pressed = true;
@@ -54,7 +55,7 @@ static void test_player_action_frostbolt_uses_derived_spell_multiplier() {
     mion::Actor player;
     setup_player(player);
     player.derived.spell_damage_mult = 2.0f;
-    player.spell_book.unlock(mion::SpellId::FrostBolt);
+    player.player->spell_book.unlock(mion::SpellId::FrostBolt);
     std::vector<mion::Projectile> pr;
     mion::InputState in;
     in.spell_1_pressed = true;
@@ -80,7 +81,7 @@ static void test_player_action_spell_and_ranged_respect_empowered_multiplier() {
     EXPECT_EQ(pr[0].damage, 15);
     player.combat.reset_for_spawn();
     player.ranged_cooldown_remaining_seconds = 0.0f;
-    player.spell_book.unlock(mion::SpellId::FrostBolt);
+    player.player->spell_book.unlock(mion::SpellId::FrostBolt);
     mion::InputState in_spell;
     in_spell.spell_1_pressed = true;
     sys.fixed_update(player, in_spell, 1.0f / 60.0f, nullptr, &pr, nullptr);
@@ -132,10 +133,10 @@ static void test_player_action_ranged_spawns_and_damage_formula() {
     mion::PlayerActionSystem pas;
     mion::Actor player;
     setup_player(player);
-    player.progression.bonus_attack_damage = 4;
+    player.player->progression.bonus_attack_damage = 4;
     mion::recompute_player_derived_stats(
-        player.derived, player.attributes, player.progression,
-        player.talents, player.equipment, /*base_melee=*/10, /*base_ranged=*/8);
+        player.derived, player.player->attributes, player.player->progression,
+        player.player->talents, player.player->equipment, /*base_melee=*/10, /*base_ranged=*/8);
     std::vector<mion::Projectile> prs;
     mion::InputState in;
     in.ranged_pressed = true;
@@ -149,7 +150,7 @@ static void test_player_action_bolt_consumes_mana() {
     mion::PlayerActionSystem pas;
     mion::Actor player;
     setup_player(player);
-    player.spell_book.unlock(mion::SpellId::FrostBolt);
+    player.player->spell_book.unlock(mion::SpellId::FrostBolt);
     std::vector<mion::Projectile> prs;
     mion::InputState in;
     in.spell_1_pressed = true;
@@ -164,7 +165,7 @@ static void test_player_action_nova_hits_enemy_list() {
     mion::PlayerActionSystem pas;
     mion::Actor player;
     setup_player(player);
-    player.spell_book.unlock(mion::SpellId::Nova);
+    player.player->spell_book.unlock(mion::SpellId::Nova);
     mion::Actor enemy;
     enemy.team = mion::Team::Enemy;
     enemy.is_alive = true;

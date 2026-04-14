@@ -77,21 +77,21 @@ struct DropSystem {
                         player.health.current_hp + cfg.health_bonus);
                     break;
                 case GroundItemType::Damage:
-                    player.progression.bonus_attack_damage += cfg.damage_bonus;
+                    player.player->progression.bonus_attack_damage += cfg.damage_bonus;
                     break;
                 case GroundItemType::Speed:
-                    player.progression.bonus_move_speed += cfg.speed_bonus;
+                    player.player->progression.bonus_move_speed += cfg.speed_bonus;
                     break;
                 case GroundItemType::Gold:
-                    player.gold += it.gold_value;
+                    player.player->gold += it.gold_value;
                     break;
                 case GroundItemType::Potion:
-                    player.potion.pickup(it.potion_quality, it.potion_amount);
+                    player.player->potion.pickup(it.potion_quality, it.potion_amount);
                     break;
                 case GroundItemType::Equipment:
                     // Bag cheia: item fica no chão (não desativa).
-                    if (!it.item_name.empty() && !player.bag.is_full()) {
-                        player.bag.add(it.item_name, it.item_slot);
+                    if (!it.item_name.empty() && !player.player->bag.is_full()) {
+                        player.player->bag.add(it.item_name, it.item_slot);
                     } else {
                         continue; // mantém ativo no chão
                     }

@@ -30,6 +30,9 @@ struct PlayerConfigureOptions {
 inline void configure_player(Actor& player, TextureCache* tex_cache,
                               const PlayerConfigureOptions& opts = {})
 {
+    // Garante que o optional player está inicializado
+    if (!player.player) player.player = PlayerData{};
+
     player.name            = PlayerActorId::kName;
     player.team            = Team::Player;
     player.attack_damage   = g_player_config.melee_damage;
@@ -57,8 +60,8 @@ inline void configure_player(Actor& player, TextureCache* tex_cache,
     player.knockback_vy = 0.0f;
 
     // Spell book — sync from talents
-    player.spell_book = SpellBookState{};
-    player.spell_book.sync_from_talents(player.talents);
+    player.player->spell_book = SpellBookState{};
+    player.player->spell_book.sync_from_talents(player.player->talents);
 
     // Combat state
     player.combat.reset_for_spawn();
@@ -66,10 +69,10 @@ inline void configure_player(Actor& player, TextureCache* tex_cache,
     // Recalculate all derived stats (damage, hp, stamina, mana max)
     recompute_player_derived_stats(
         player.derived,
-        player.attributes,
-        player.progression,
-        player.talents,
-        player.equipment,
+        player.player->attributes,
+        player.player->progression,
+        player.player->talents,
+        player.player->equipment,
         g_player_config.melee_damage,
         g_player_config.ranged_damage);
 

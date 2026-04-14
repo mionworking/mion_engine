@@ -109,7 +109,7 @@ inline void handle_npc_interaction(int idx,
             if (!ctx.quest_state || !ctx.player)
                 return;
             ctx.quest_state->set(QuestId::DefeatGrimjaw, QuestStatus::Rewarded);
-            ctx.player->gold += quest_reward_gold;
+            ctx.player->player->gold += quest_reward_gold;
             if (request_persist)
                 request_persist();
         });

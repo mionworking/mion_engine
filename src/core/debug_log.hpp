@@ -48,15 +48,15 @@ inline void debug_log(const char* fmt, ...) {
          player.transform.y,
          player.health.current_hp,
          player.health.max_hp,
-         player.progression.level,
-         player.progression.xp,
-         player.progression.xp_to_next,
-         player.progression.pending_level_ups,
-         player.attributes.vigor,
-         player.attributes.forca,
-         player.attributes.destreza,
-         player.attributes.inteligencia,
-         player.attributes.endurance);
+         player.player->progression.level,
+         player.player->progression.xp,
+         player.player->progression.xp_to_next,
+         player.player->progression.pending_level_ups,
+         player.player->attributes.vigor,
+         player.player->attributes.forca,
+         player.player->attributes.destreza,
+         player.player->attributes.inteligencia,
+         player.player->attributes.endurance);
  }
 
  #else
