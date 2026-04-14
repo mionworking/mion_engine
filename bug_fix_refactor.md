@@ -1142,6 +1142,54 @@ Todos os itens concretos e incrementais do plano foram executados ou auditados. 
 
 - `./build/mion_tests_v2_core` está **verde** no ambiente atual (**867 passed, 0 failed**).
 
+### 2026-04-11 — Tarefa FF-2 (12.4: `TownDialogueId` como `enum class`) — **Concluída (versão incremental)**
+
+- **Escopo aplicado:** `src/core/town_dialogue_ids.hpp`, `src/systems/town_npc_interaction.hpp`, `src/systems/town_builder.hpp`, `tests/core/test_town_config_loader.cpp`.
+- **Mudança:** o antigo `namespace TownDialogueId { constexpr const char* k* }` foi substituído por `enum class TownDialogueId { MiraDefault, MiraQuestOffer, MiraQuestActive, MiraQuestDone, ForgeGreeting }` com `to_string(TownDialogueId)` em `town_dialogue_ids.hpp` (chaves continuam casando com seções de `data/town_dialogues.ini`).
+  - `TownNpcInteractionController::handle_npc_interaction` passa enum + `to_string(...)` em `dialogue.start(...)`. Os fallbacks ternários `(npc.dialogue_default.empty() ? <default> : npc.dialogue_default)` constroem `std::string(to_string(TownDialogueId::Mira*))` no ramo "default" — borda explícita entre identidade tipada do código e o id em string vindo do data-layer (`NpcEntity::dialogue_*`).
+  - `TownBuilder::build_town_world` atribui `mira.dialogue_default = to_string(TownDialogueId::MiraDefault)` etc.; `villager_a`/`villager_b` permanecem strings literais (não são canonical: vivem só no INI, sem referência por código).
+  - `tests/core/test_town_config_loader.cpp` checa `dialogue.has_sequence(to_string(TownDialogueId::MiraDefault))`/`ForgeGreeting`.
+- **Por que `NpcEntity::dialogue_*` continua `std::string`:** o campo é data-driven (carregável de config no futuro) e não é lógica de domínio — strings ficam confinadas à interface com o registry/INI. Migrar `NpcEntity` a `optional<TownDialogueId>` exigiria fechar primeiro o conjunto de ids canônicos (incluindo `villager_a/b`) e fica fora do escopo desta tarefa.
+- **Efeito esperado:** elimina o anti-padrão "constants de string com prefixo `k`" para identidades de diálogo de town; typos viram erro de compilação. Linha alinhada com FF-1 (`DungeonDialogueId`).
+- **Não fazer:** `ItemId` (FF-3) — ainda em aberto, separado por tocar borda de save/serialização.
+- **Validação:** `cmake --build build` OK; `ctest --test-dir build -L official --output-on-failure` OK (4/4).
+
+### 2026-04-11 — Tarefa FF-1 (12.4: `DungeonDialogueId` como `enum class`) — **Concluída (versão incremental)**
+
+- **Escopo aplicado:** `src/core/dungeon_dialogue_id.hpp` (novo), `src/core/dungeon_dialogue.hpp`, `src/systems/enemy_death_controller.hpp`, `src/systems/boss_state_controller.hpp`, `src/scenes/world_scene.hpp`.
+- **Mudança:** o antigo `namespace DungeonDialogueId { constexpr const char* k* }` foi substituído por `enum class DungeonDialogueId { Prologue, Room2, Deeper, RareRelic, MinibossDeath, BossPhase2 }` com `to_string(DungeonDialogueId)` em `dungeon_dialogue_id.hpp`. Strings ficam confinadas à borda do registry (`register_dungeon_dialogue`) e ao callsite de `DialogueSystem::start(...)`. Logica de runtime passa a usar o enum:
+  - `EnemyDeathController::DeathResult::post_mortem_dialogue_id` (string) virou `std::optional<DungeonDialogueId> post_mortem_dialogue`.
+  - `WorldScene::SceneTransitionFlow::pending_post_mortem_dialogue_id` (string) virou `std::optional<DungeonDialogueId> pending_post_mortem_dialogue`; `take_post_mortem_dialogue_to_start(...)` retorna `optional<DungeonDialogueId>`.
+  - `BossState::update` chama `dialogue.start(to_string(DungeonDialogueId::BossPhase2))`.
+  - `WorldScene::fixed_update` usa `optional<DungeonDialogueId>` para a seleção de prólogo/room2/deeper por zona.
+- **Efeito esperado:** elimina identidade por string livre na lógica de domínio para diálogo de dungeon (seção 12.4). Typos viram erros de compilação; a borda de serialização (registry/`DialogueSystem`) é o único ponto onde o `to_string(...)` é necessário. Alinhado com o padrão já validado em `SceneId`/`WorldLayoutId` (EZ) e `EnemyType`/`TalentId`.
+- **Não fazer:** `TownDialogueId` (FF-2) e `ItemId` (FF-3) ficam para tarefas dedicadas — escopo separado para não misturar borda de save (`ItemId`) com gameplay.
+- **Validação:** `cmake --build build -j$(nproc)` OK; `ctest --test-dir build -L official --output-on-failure` OK (4/4).
+
+### 2026-04-10 — Tarefa FE (12.1: split runtime de `g_talent_nodes`) — **Cancelada / premissa invalidada**
+
+- **Premissa original:** passar `g_talent_nodes` por referência explícita ao `SkillTreeController` para remover mutabilidade global em runtime (gasto de talentos).
+- **Verificação (`rg g_talent_nodes`):** o global **não é mutado em runtime**. Escrita só ocorre em:
+  - `src/components/talent_loader.hpp:62-63` — wrapper `apply_talents_ini` (bootstrap, agora via factory).
+  - `src/components/talent_data.hpp:98-99` — `reset_talent_tree_defaults()` (init/reset de teste).
+  Leitura única em runtime: `src/systems/skill_tree_controller.hpp:28` — só lê `.discipline`. O `SkillTreeController` muta o estado do *jogador* (talent points, ranks no `Player`/`TalentTree`), não a tabela estática.
+- **Conclusão:** após `load_defaults_and_ini_overrides()` o global comporta-se como `const`; passar referência ao controller seria churn sem benefício. FE como descrita foi **descartada**.
+- **Próximos passos propostos para 12.1 (a decidir em sessão futura):**
+  1. **FE-revisado:** tornar o invariante "read-only após bootstrap" explícito — mover a inicialização para uma função `init_talent_tables(const IniData&)` única e documentar o contrato no header (`talent_data.hpp`). Sem mudar assinaturas de controllers.
+  2. **12.4 (DialogueId/ItemId enums):** continuar a guideline 4.2 (typed identity) na mesma linha do `SceneId`/`WorldLayoutId` que fechámos no EZ. **Recomendação prioritária** por seguir técnica já validada.
+  3. **11.6 (`EnemyDeathController` event bus):** muda de área e arejar o ciclo de refactor focado em globals.
+- **Validação:** nenhuma — não houve mudança de código nesta tarefa.
+
+### 2026-04-09 — Tarefas FA/FB/FC (12.1: factories para globals de configuração estática) — **Concluídas (versão incremental)**
+
+- **Escopo aplicado:** `src/components/player_config.hpp`, `src/components/progression.hpp`, `src/components/spell_defs.hpp`, `src/components/talent_loader.hpp`, `src/systems/common_player_progression_loader.hpp`, `src/systems/dungeon_config_loader.hpp`, `tests/components/test_player_config.cpp`, `tests/components/test_progression.cpp`, `tests/core/test_ini.cpp`.
+- **Mudança:**
+  - **FA:** `apply_player_ini(d)` e `apply_progression_ini(d)` (mutavam o global diretamente) foram substituídos por `make_player_config_from_ini(d)` e `make_progression_config_from_ini(d)` (factories puras que retornam valor). O global passa a ser atribuído explicitamente no bootstrap (`g_player_config = make_player_config_from_ini(...)`). Comentário documenta que o global é read-only após o bootstrap.
+  - **FB:** `apply_spells_ini_overrides(d)` substituído por `make_spell_defs_from_ini(d)`. `DungeonConfigLoader` passa a atribuir `g_spell_defs = make_spell_defs_from_ini(...)`.
+  - **FC:** `apply_talents_ini(d)` mantido como wrapper de conveniência, mas agora delega para `make_talent_data_from_ini(d)` (factory pura que retorna `TalentData`). Testes de player_config/progression migrados para verificar valor retornado pelas factories, sem tocar o global.
+- **Efeito esperado:** factories puras são testáveis sem side effects em globais; escrita nos globais fica visível e explícita no callsite do bootstrap; elimina o padrão de stash/restore em testes de configuração.
+- **Validação:** build completo OK; ctest 100% (4/4 suítes passam, 867 core passed, 0 failed).
+
 ### 2026-04-08 — Tarefa EZ (`DoorZone::target_scene_id`: split em `exit_to_zone` + `exit_to_scene`) — **Concluída (versão incremental)**
 
 - **Escopo aplicado:** `src/world/room.hpp`, `src/systems/room_flow_system.hpp`, `src/systems/room_manager.hpp`, `src/systems/town_builder.hpp`, `tests/legacy/test_legacy.cpp`, `tests/world/test_room_manager_doors.cpp`, `tests/world/test_town_layout.cpp`, `tests/world/test_world_map_builder.cpp`.
@@ -1825,5 +1873,18 @@ Saída esperada:
 **Validation**
 - `cmake --build build -j$(nproc)` OK
 - `ctest --test-dir build -L official --output-on-failure` OK (4/4)
+
+## Decisões de escopo (deliberadamente fora de tarefas)
+
+Este registro vive aqui para que decisões de "não fazer" não sejam reabertas por engano em sessões futuras. Sempre que adiar deliberadamente uma migração, escreva a razão aqui — não no corpo da tarefa.
+
+### `NpcEntity::dialogue_*` continua `std::string` (decidido em FF-2, 2026-04-11)
+
+- **O que ficou de fora:** migrar `NpcEntity::dialogue_default` / `dialogue_quest_active` / `dialogue_quest_done` para `std::optional<TownDialogueId>`.
+- **Por quê:**
+  1. O campo é **data-driven**: hoje é setado por código (`TownBuilder`) com `to_string(TownDialogueId::...)`, mas o destino natural é vir de config (e.g. `town_npcs.ini`). Strings nesse ponto são parte da borda com o data-layer.
+  2. Existem ids canônicos *parciais*: `villager_a`/`villager_b` são usados só dentro do INI, sem referência por código. Migrar `NpcEntity` para enum exige primeiro fechar o conjunto canônico (decidir se viram `TownDialogueId::VillagerA`/`VillagerB` ou se ganham outro tipo).
+  3. O ganho é marginal: a interpretação errada do id já é detectada em runtime via `DialogueSystem::start` (ignora id desconhecido) — não há lógica de domínio que ramifique pelo valor da string.
+- **Quando reabrir:** se/quando NPCs forem migrados para serem definidos por INI (ponto 11 do refactor), aí faz sentido fechar o conjunto canônico de ids e tipar o campo. Até lá, custo > benefício.
 
 *Última actualização: consolidado a partir da revisão de arquitectura e do relatório WorldScene/controllers; expandido com guia de execução assistida por IA.*

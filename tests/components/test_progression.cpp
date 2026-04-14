@@ -31,7 +31,7 @@ static void test_progression_ini_xp_curve() {
     d.sections["xp"]["xp_base"]        = "40";
     d.sections["xp"]["xp_level_scale"] = "25";
     const mion::ProgressionConfig cfg = mion::make_progression_config_from_ini(d);
-    mion::g_progression_config = cfg;
+    mion::detail::_g_progression_config_mutable = cfg;
     mion::ProgressionState p{};
     EXPECT_EQ(p.xp_to_next, 40);
     (void)p.add_xp(40);

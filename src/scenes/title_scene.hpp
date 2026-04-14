@@ -24,7 +24,7 @@ public:
     void set_locale(LocaleSystem* l) { _locale = l; _menu.locale = l; }
 
     void enter() override {
-        _next.clear();
+        _next = SceneId::kNone;
         _prev_attack         = false;
         _prev_erase          = false;
         _prev_pause          = false;
@@ -105,11 +105,9 @@ public:
 
     bool has_erase_feedback() const { return _erase_msg_timer > 0.f; }
 
-    const char* next_scene() const override {
-        return _next.empty() ? "" : _next.c_str();
-    }
+    SceneId next_scene() const override { return _next; }
 
-    void clear_next_scene_request() override { _next.clear(); }
+    void clear_next_scene_request() override { _next = SceneId::kNone; }
 
 private:
     void _apply_action_result(const TitleMenuActionResult& result) {
@@ -159,7 +157,7 @@ private:
     AudioSystem*       _audio           = nullptr;
     DifficultyLevel*   _difficulty_ptr  = nullptr;
     LocaleSystem*      _locale          = nullptr;
-    std::string        _next;
+    SceneId            _next = SceneId::kNone;
     TitleMenu          _menu;
     bool               _prev_attack     = false;
     bool               _prev_erase      = false;

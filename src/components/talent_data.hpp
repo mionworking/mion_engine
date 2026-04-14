@@ -89,14 +89,18 @@ inline const std::array<std::string, kTalentCount> kDefaultTalentDisplayNames = 
     "Chain Lightning",
 };
 
-// Global talent node table — mutated by apply_talents_ini(), reset by reset_talent_tree_defaults().
-inline std::array<TalentNode, kTalentCount> g_talent_nodes = kDefaultTalentNodes;
-inline std::array<std::string, kTalentCount> g_talent_display_names = kDefaultTalentDisplayNames;
+// Global talent tables — read-only após bootstrap. Escrita apenas em init (apply_talents_ini).
+namespace detail {
+    inline std::array<TalentNode, kTalentCount> _g_talent_nodes_mutable = kDefaultTalentNodes;
+    inline std::array<std::string, kTalentCount> _g_talent_display_names_mutable = kDefaultTalentDisplayNames;
+}
+inline const std::array<TalentNode, kTalentCount>&  g_talent_nodes         = detail::_g_talent_nodes_mutable;
+inline const std::array<std::string, kTalentCount>& g_talent_display_names = detail::_g_talent_display_names_mutable;
 
 // Restores both global tables to their compiled-in defaults.
 inline void reset_talent_tree_defaults() {
-    g_talent_nodes = kDefaultTalentNodes;
-    g_talent_display_names = kDefaultTalentDisplayNames;
+    detail::_g_talent_nodes_mutable         = kDefaultTalentNodes;
+    detail::_g_talent_display_names_mutable = kDefaultTalentDisplayNames;
 }
 
 // Accessor helpers — prefer these over direct array indexing.

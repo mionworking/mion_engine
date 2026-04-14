@@ -164,7 +164,7 @@ struct TitleMenuController {
         return result;
     }
 
-    static TitleMenuActionResult activate_main_selection(TitleMenu& menu, std::string& next) {
+    static TitleMenuActionResult activate_main_selection(TitleMenu& menu, SceneId& next) {
         TitleMenuActionResult result;
         switch (menu.main_list.selected) {
         case 0:
@@ -200,7 +200,7 @@ struct TitleMenuController {
 
     static TitleMenuActionResult activate_difficulty_selection(TitleMenu& menu,
                                                                DifficultyLevel* difficulty_ptr,
-                                                               std::string& next) {
+                                                               SceneId& next) {
         TitleMenuActionResult result;
         if (!difficulty_ptr)
             return result;
@@ -239,7 +239,7 @@ struct TitleMenuController {
         return result;
     }
 
-    static void activate_extras_selection(TitleMenu& menu, std::string& next) {
+    static void activate_extras_selection(TitleMenu& menu, SceneId& next) {
         if (menu.extras_list.selected == 0)
             next = SceneId::kCredits;
         else

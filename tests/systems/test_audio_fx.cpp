@@ -14,6 +14,30 @@ static void test_sfx_distance_attenuation_quadratic() {
 }
 REGISTER_TEST(test_sfx_distance_attenuation_quadratic);
 
+static void test_audio_master_volume_defaults_to_full() {
+    mion::AudioSystem audio;
+    EXPECT_NEAR(audio.master_volume(), 1.0f, 0.001f);
+    EXPECT_NEAR(audio.effective_gain(0.6f), 0.6f, 0.001f);
+}
+REGISTER_TEST(test_audio_master_volume_defaults_to_full);
+
+static void test_audio_master_volume_clamps_and_scales_gain() {
+    mion::AudioSystem audio;
+    audio.set_master_volume(0.25f);
+    EXPECT_NEAR(audio.master_volume(), 0.25f, 0.001f);
+    EXPECT_NEAR(audio.effective_gain(0.8f), 0.20f, 0.001f);
+    EXPECT_NEAR(audio.effective_gain(0.8f, 0.5f), 0.10f, 0.001f);
+
+    audio.set_master_volume(2.0f);
+    EXPECT_NEAR(audio.master_volume(), 1.0f, 0.001f);
+    EXPECT_NEAR(audio.effective_gain(2.0f), 1.0f, 0.001f);
+
+    audio.set_master_volume(-1.0f);
+    EXPECT_NEAR(audio.master_volume(), 0.0f, 0.001f);
+    EXPECT_NEAR(audio.effective_gain(0.8f), 0.0f, 0.001f);
+}
+REGISTER_TEST(test_audio_master_volume_clamps_and_scales_gain);
+
 static void test_particles_spawn_and_update_reduces_count() {
     std::mt19937 rng(42);
     mion::SimpleParticleSystem ps;

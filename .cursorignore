@@ -1,0 +1,15 @@
+legacy/
+build/
+build_verify/
+.cache/
+.git/
+tools/asset_pipeline/.vendor/
+*.log
+mion_debug.log
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.wav
+*.ogg
+*.mp3

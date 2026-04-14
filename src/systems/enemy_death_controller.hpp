@@ -1,12 +1,12 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
 #include <random>
-#include <string>
 #include <vector>
 
 #include "../core/audio.hpp"
-#include "../core/dungeon_dialogue.hpp"
+#include "../core/dungeon_dialogue_id.hpp"
 #include "../core/quest_state.hpp"
 #include "../core/run_stats.hpp"
 #include "../entities/actor.hpp"
@@ -21,10 +21,10 @@ namespace mion {
 namespace EnemyDeathController {
 
 struct DeathResult {
-    std::string post_mortem_dialogue_id; // não vazio se boss morreu
-    bool        boss_defeated   = false;
-    bool        quest_completed = false; // DefeatGrimjaw passou para Completed
-    int         xp_gained       = 0;    // total XP ganho no frame (para debug_log na cena)
+    std::optional<DungeonDialogueId> post_mortem_dialogue; // set se boss morreu
+    bool                             boss_defeated   = false;
+    bool                             quest_completed = false; // DefeatGrimjaw passou para Completed
+    int                              xp_gained       = 0;    // total XP ganho no frame (para debug_log na cena)
 };
 
 // Processa todos os atores que morreram neste frame (was_alive && !is_alive).
@@ -69,7 +69,7 @@ inline DeathResult process_deaths(const std::vector<Actor*>& actors,
 
             if (!stress_mode && def.is_zone_boss) {
                 result.boss_defeated = true;
-                result.post_mortem_dialogue_id = DungeonDialogueId::kMinibossDeath;
+                result.post_mortem_dialogue = DungeonDialogueId::MinibossDeath;
                 if (run_stats) run_stats->boss_defeated = true;
                 if (quest_state.is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)) {
                     quest_state.set(QuestId::DefeatGrimjaw, QuestStatus::Completed);

@@ -3,6 +3,7 @@
 #include "entities/actor.hpp"
 #include "entities/enemy_type.hpp"
 #include "entities/projectile.hpp"
+#include <cmath>
 #include <vector>
 
 static void test_enemy_ai_chases_player_without_pathfinder() {
@@ -160,3 +161,32 @@ static void test_enemy_ai_ranged_fires_projectile_when_cd_ready() {
     EXPECT_TRUE(pr[0].owner_team == mion::Team::Enemy);
 }
 REGISTER_TEST(test_enemy_ai_ranged_fires_projectile_when_cd_ready);
+
+static void test_enemy_ai_overlap_preserves_finite_facing() {
+    mion::Actor player, enemy;
+
+    player.team = mion::Team::Player;
+    player.is_alive = true;
+    player.transform.set_position(100.0f, 100.0f);
+
+    enemy.team = mion::Team::Enemy;
+    enemy.is_alive = true;
+    enemy.transform.set_position(100.0f, 100.0f);  // mesma posição do player
+    enemy.facing_x = 0.0f;
+    enemy.facing_y = -1.0f;
+    enemy.aggro_range = 400.0f;
+    enemy.attack_range_ai = 45.0f;
+    enemy.stop_range_ai = 30.0f;
+    enemy.combat.reset_for_spawn();
+
+    mion::EnemyAISystem sys;
+    std::vector<mion::Actor*> actors = { &player, &enemy };
+    sys.fixed_update(actors, 1.0f / 60.0f);
+
+    EXPECT_TRUE(std::isfinite(enemy.facing_x));
+    EXPECT_TRUE(std::isfinite(enemy.facing_y));
+    EXPECT_EQ(enemy.facing_x, 0.0f);
+    EXPECT_EQ(enemy.facing_y, -1.0f);
+    EXPECT_EQ(enemy.combat.attack_phase, mion::AttackPhase::Startup);
+}
+REGISTER_TEST(test_enemy_ai_overlap_preserves_finite_facing);

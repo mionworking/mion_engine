@@ -1,7 +1,5 @@
 #include "../test_common.hpp"
 
-#include <cstring>
-
 #include "../../src/core/save_data.hpp"
 #include "../../src/core/save_system.hpp"
 #include "../../src/scenes/world_scene.hpp"
@@ -14,14 +12,11 @@ static void world_scene_enter_and_idle_next_scene_empty() {
     WorldScene s;
     s.enter();
 
-    const char* n = s.next_scene();
-    EXPECT_TRUE(n != nullptr);
-    EXPECT_TRUE(std::strcmp(n, "") == 0);
+    EXPECT_EQ(s.next_scene(), SceneId::kNone);
 
     InputState idle{};
     s.fixed_update(1.f / 60.f, idle);
-    n = s.next_scene();
-    EXPECT_TRUE(n != nullptr && std::strcmp(n, "") == 0);
+    EXPECT_EQ(s.next_scene(), SceneId::kNone);
 
     s.exit();
     SaveSystem::remove_default_saves();
@@ -72,10 +67,7 @@ static void world_scene_pause_quit_goes_to_title() {
     ok_on.confirm_pressed = true;
     s.fixed_update(0.016f, ok_on);
 
-    const char* next = s.next_scene();
-    EXPECT_TRUE(next != nullptr);
-    if (next)
-        EXPECT_EQ(std::strcmp(next, "title"), 0);
+    EXPECT_EQ(s.next_scene(), SceneId::kTitle);
 
     s.exit();
     SaveSystem::remove_default_saves();

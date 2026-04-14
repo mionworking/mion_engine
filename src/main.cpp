@@ -109,7 +109,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     mion::SceneManager scene_mgr;
     scene_mgr.set(registry.create(mion::SceneId::kTitle, ctx));
     if (!scene_mgr.current) {
-        SDL_Log("Falha ao criar cena inicial \"%s\"", mion::SceneId::kTitle);
+        SDL_Log("Falha ao criar cena inicial \"%s\"", mion::to_string(mion::SceneId::kTitle));
         audio.shutdown();
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -121,7 +121,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     mion::GamepadInputSource  gamepad;
     gamepad.try_connect();
     mion::SceneFader          scene_fader;
-    std::string               pending_scene_id;
+    mion::SceneId             pending_scene_id = mion::SceneId::kNone;
 
     const float fixed_dt    = config.fixed_delta_seconds;
     float       accumulator = 0.0f;
@@ -162,29 +162,26 @@ int main(int /*argc*/, char* /*argv*/[]) {
             ++substeps;
             scene_fader.tick(fixed_dt);
 
-            const char* requested_next = scene_mgr.fixed_update(fixed_dt, input);
-            std::string next_id = (requested_next && requested_next[0])
-                ? requested_next
-                : "";
+            mion::SceneId next_id = scene_mgr.fixed_update(fixed_dt, input);
 
-            if (!next_id.empty()) {
+            if (next_id != mion::SceneId::kNone) {
                 if (next_id == mion::SceneId::kQuit) {
                     running = false;
                     scene_mgr.clear_pending_transition();
-                } else if (scene_fader.is_clear() && pending_scene_id.empty()) {
+                } else if (scene_fader.is_clear() && pending_scene_id == mion::SceneId::kNone) {
                     scene_fader.start_fade_out();
                     pending_scene_id = next_id;
                     scene_mgr.clear_pending_transition();
                 }
             }
 
-            if (scene_fader.is_black_hold() && !pending_scene_id.empty()) {
+            if (scene_fader.is_black_hold() && pending_scene_id != mion::SceneId::kNone) {
                 auto next_scene = registry.create(pending_scene_id, ctx);
                 if (next_scene)
                     scene_mgr.set(std::move(next_scene));
                 else
-                    SDL_Log("Cena desconhecida: \"%s\"", pending_scene_id.c_str());
-                pending_scene_id.clear();
+                    SDL_Log("Cena desconhecida: \"%s\"", mion::to_string(pending_scene_id));
+                pending_scene_id = mion::SceneId::kNone;
                 scene_fader.start_fade_in();
             }
         }

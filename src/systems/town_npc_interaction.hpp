@@ -76,13 +76,15 @@ inline void handle_npc_interaction(int idx,
     if (!ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::NotStarted)
         && !ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)
         && !ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::Completed)) {
-        ctx.dialogue->start(npc.dialogue_default.empty() ? TownDialogueId::kMiraDefault
-                                                         : npc.dialogue_default);
+        ctx.dialogue->start(npc.dialogue_default.empty()
+                                ? std::string(to_string(TownDialogueId::MiraDefault))
+                                : npc.dialogue_default);
         return;
     }
 
     if (ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::NotStarted)) {
-        ctx.dialogue->start(TownDialogueId::kMiraQuestOffer, [ctx, request_persist]() mutable {
+        ctx.dialogue->start(to_string(TownDialogueId::MiraQuestOffer),
+                            [ctx, request_persist]() mutable {
             if (!ctx.quest_state)
                 return;
             ctx.quest_state->set(QuestId::DefeatGrimjaw, QuestStatus::InProgress);
@@ -93,14 +95,16 @@ inline void handle_npc_interaction(int idx,
     }
 
     if (ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::InProgress)) {
-        ctx.dialogue->start(npc.dialogue_quest_active.empty() ? TownDialogueId::kMiraQuestActive
-                                                               : npc.dialogue_quest_active);
+        ctx.dialogue->start(npc.dialogue_quest_active.empty()
+                                ? std::string{to_string(TownDialogueId::MiraQuestActive)}
+                                : npc.dialogue_quest_active);
         return;
     }
 
     if (ctx.quest_state->is(QuestId::DefeatGrimjaw, QuestStatus::Completed)) {
-        ctx.dialogue->start(npc.dialogue_quest_done.empty() ? TownDialogueId::kMiraQuestDone
-                                                             : npc.dialogue_quest_done,
+        ctx.dialogue->start(npc.dialogue_quest_done.empty()
+                                ? std::string{to_string(TownDialogueId::MiraQuestDone)}
+                                : npc.dialogue_quest_done,
                             [ctx, quest_reward_gold, request_persist]() mutable {
             if (!ctx.quest_state || !ctx.player)
                 return;
@@ -112,8 +116,9 @@ inline void handle_npc_interaction(int idx,
         return;
     }
 
-    ctx.dialogue->start(npc.dialogue_default.empty() ? TownDialogueId::kMiraDefault
-                                                     : npc.dialogue_default);
+    ctx.dialogue->start(npc.dialogue_default.empty()
+                            ? std::string(to_string(TownDialogueId::MiraDefault))
+                            : npc.dialogue_default);
 }
 
 } // namespace TownNpcInteractionController

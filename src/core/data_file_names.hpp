@@ -9,6 +9,7 @@ inline constexpr const char* kEnemies = "enemies.ini";
 inline constexpr const char* kSpells = "spells.ini";
 inline constexpr const char* kItems = "items.ini";
 inline constexpr const char* kRooms = "rooms.ini";
+inline constexpr const char* kAttributes    = "attributes.ini";
 inline constexpr const char* kTownDialogues = "town_dialogues.ini";
 
 } // namespace mion::data_files

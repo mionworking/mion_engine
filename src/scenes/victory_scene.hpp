@@ -27,7 +27,7 @@ public:
     void set_locale(LocaleSystem* l) { _locale = l; }
 
     void enter() override {
-        _next.clear();
+        _next = SceneId::kNone;
         _prev_confirm = false;
         _prev_up = false;
         _prev_down = false;
@@ -113,11 +113,9 @@ public:
         _list.render(r, viewport_w * 0.28f, viewport_h * 0.62f);
     }
 
-    const char* next_scene() const override {
-        return _next.empty() ? "" : _next.c_str();
-    }
+    SceneId next_scene() const override { return _next; }
 
-    void clear_next_scene_request() override { _next.clear(); }
+    void clear_next_scene_request() override { _next = SceneId::kNone; }
 
 private:
     const char* tr(const std::string& key) const {
@@ -127,7 +125,7 @@ private:
     RunStats*     _run_stats_src = nullptr;
     AudioSystem*  _audio         = nullptr;
     LocaleSystem* _locale        = nullptr;
-    std::string   _next;
+    SceneId       _next = SceneId::kNone;
     bool          _prev_confirm = false;
     bool          _prev_up      = false;
     bool          _prev_down    = false;

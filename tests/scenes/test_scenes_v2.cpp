@@ -1,7 +1,5 @@
 #include "test_common.hpp"
 
-#include <cstring>
-
 #include "core/register_scenes.hpp"
 #include "core/save_system.hpp"
 #include "scenes/game_over_scene.hpp"
@@ -14,8 +12,8 @@ static void test_scene_registry_creates_new_endgame_scenes() {
     mion::SceneCreateContext ctx;
     ctx.viewport_w = 960;
     ctx.viewport_h = 540;
-    EXPECT_TRUE(reg.create("game_over", ctx) != nullptr);
-    EXPECT_TRUE(reg.create("victory", ctx) != nullptr);
+    EXPECT_TRUE(reg.create(mion::SceneId::kGameOver, ctx) != nullptr);
+    EXPECT_TRUE(reg.create(mion::SceneId::kVictory, ctx) != nullptr);
 }
 
 static void test_world_scene_pause_quit_to_title() {
@@ -41,10 +39,8 @@ static void test_world_scene_pause_quit_to_title() {
     ok_on.confirm_pressed = true;
     s.fixed_update(0.016f, ok_on);
 
-    const char* next = s.next_scene();
-    EXPECT_TRUE(next != nullptr);
-    if (next)
-        EXPECT_EQ(std::strcmp(next, "title"), 0);
+    mion::SceneId next = s.next_scene();
+    EXPECT_EQ(next, mion::SceneId::kTitle);
     mion::SaveSystem::remove_default_saves();
 }
 
@@ -55,8 +51,7 @@ static void test_world_scene_stable_without_transition_on_idle_ticks() {
     mion::InputState idle;
     for (int i = 0; i < 240; ++i)
         s.fixed_update(1.0f / 60.0f, idle);
-    const char* next = s.next_scene();
-    EXPECT_TRUE(next == nullptr || std::strcmp(next, "") == 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kNone);
     mion::SaveSystem::remove_default_saves();
 }
 
@@ -67,8 +62,7 @@ static void test_world_scene_npc_wander_stable() {
     mion::InputState idle;
     for (int i = 0; i < 600; ++i)
         s.fixed_update(1.0f / 60.0f, idle);
-    const char* next = s.next_scene();
-    EXPECT_TRUE(next == nullptr || std::strcmp(next, "") == 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kNone);
     mion::SaveSystem::remove_default_saves();
 }
 
@@ -82,7 +76,7 @@ static void test_victory_scene_continue_and_quit_paths() {
     mion::InputState ok_on;
     ok_on.confirm_pressed = true;
     s.fixed_update(0.016f, ok_on);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "world"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kWorld);
 
     s.enter();
     s.fixed_update(1.1f, wait);
@@ -95,7 +89,7 @@ static void test_victory_scene_continue_and_quit_paths() {
     s.fixed_update(0.016f, down_on);
     s.fixed_update(0.016f, wait);
     s.fixed_update(0.016f, ok_on);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "__quit__"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kQuit);
 }
 
 static void test_game_over_scene_retry_title_and_quit() {
@@ -107,7 +101,7 @@ static void test_game_over_scene_retry_title_and_quit() {
     mion::InputState ok_on;
     ok_on.confirm_pressed = true;
     s.fixed_update(0.016f, ok_on);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "title"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kTitle);
 
     s.enter();
     s.fixed_update(0.9f, wait);
@@ -118,7 +112,7 @@ static void test_game_over_scene_retry_title_and_quit() {
     s.fixed_update(0.016f, down_on);
     s.fixed_update(0.016f, wait);
     s.fixed_update(0.016f, ok_on);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "__quit__"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kQuit);
 }
 
 void run_scenes_v2_tests() {

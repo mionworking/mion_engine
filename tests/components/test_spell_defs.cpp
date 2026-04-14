@@ -35,3 +35,26 @@ static void test_apply_spell_ini_section_per_level_fields() {
     EXPECT_NEAR(def.effective_cooldown(4), 0.30f, 0.001f);
 }
 REGISTER_TEST(test_apply_spell_ini_section_per_level_fields);
+
+static void test_spell_defs_mutable_and_restorable() {
+    const int original = mion::spell_def(mion::SpellId::FrostBolt).damage;
+
+    mion::detail::_g_spell_defs_mutable[static_cast<int>(mion::SpellId::FrostBolt)].damage = 999;
+    EXPECT_EQ(mion::spell_def(mion::SpellId::FrostBolt).damage, 999);
+
+    // Restaura para não contaminar outros testes
+    mion::detail::_g_spell_defs_mutable[static_cast<int>(mion::SpellId::FrostBolt)].damage = original;
+    EXPECT_EQ(mion::spell_def(mion::SpellId::FrostBolt).damage, original);
+}
+REGISTER_TEST(test_spell_defs_mutable_and_restorable);
+
+static void test_spell_defs_nova_unchanged_by_bolt_mutation() {
+    const float original_nova_cost = mion::spell_def(mion::SpellId::Nova).mana_cost;
+
+    mion::detail::_g_spell_defs_mutable[static_cast<int>(mion::SpellId::FrostBolt)].mana_cost = 0.0f;
+    EXPECT_NEAR(mion::spell_def(mion::SpellId::Nova).mana_cost, original_nova_cost, 0.01f);
+
+    // Restaura
+    mion::detail::_g_spell_defs_mutable[static_cast<int>(mion::SpellId::FrostBolt)].mana_cost = 18.0f;
+}
+REGISTER_TEST(test_spell_defs_nova_unchanged_by_bolt_mutation);

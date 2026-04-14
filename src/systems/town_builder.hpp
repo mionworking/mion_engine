@@ -60,9 +60,9 @@ inline void build_town_world(RoomDefinition& room,
         mira.type             = NpcType::QuestGiver;
         mira.interact_radius  = 52.0f;
         mira.portrait_color   = {200, 180, 80, 255};
-        mira.dialogue_default      = TownDialogueId::kMiraDefault;
-        mira.dialogue_quest_active = TownDialogueId::kMiraQuestActive;
-        mira.dialogue_quest_done   = TownDialogueId::kMiraQuestDone;
+        mira.dialogue_default      = to_string(TownDialogueId::MiraDefault);
+        mira.dialogue_quest_active = to_string(TownDialogueId::MiraQuestActive);
+        mira.dialogue_quest_done   = to_string(TownDialogueId::MiraQuestDone);
         mira.wander_radius = 60.0f;
         mira.wander_speed  = 28.0f;
         mira.wander_timer  = 1.2f;
@@ -76,7 +76,7 @@ inline void build_town_world(RoomDefinition& room,
         forge.type             = NpcType::Merchant;
         forge.interact_radius  = 52.0f;
         forge.portrait_color   = {220, 120, 60, 255};
-        forge.dialogue_default = TownDialogueId::kForgeGreeting;
+        forge.dialogue_default = to_string(TownDialogueId::ForgeGreeting);
         forge.wander_radius = 50.0f;
         forge.wander_speed  = 22.0f;
         forge.wander_timer  = 0.8f;

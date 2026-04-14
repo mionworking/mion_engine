@@ -59,8 +59,8 @@ inline TalentData make_talent_data_from_ini(
 // Used by CommonPlayerProgressionLoader during bootstrap.
 inline void apply_talents_ini(const IniData& d) {
     TalentData td = make_talent_data_from_ini(d);
-    g_talent_nodes        = std::move(td.nodes);
-    g_talent_display_names = std::move(td.display_names);
+    detail::_g_talent_nodes_mutable         = std::move(td.nodes);
+    detail::_g_talent_display_names_mutable = std::move(td.display_names);
 }
 
 } // namespace mion

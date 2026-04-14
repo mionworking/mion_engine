@@ -1,7 +1,5 @@
 #include "test_common.hpp"
 
-#include <cstring>
-
 #include "scenes/credits_scene.hpp"
 
 static void test_credits_scene_backspace_returns_title() {
@@ -10,7 +8,7 @@ static void test_credits_scene_backspace_returns_title() {
     mion::InputState in;
     in.ui_cancel_pressed = true;
     s.fixed_update(0.016f, in);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "title"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kTitle);
 }
 
 static void test_credits_scene_auto_returns_after_scroll() {
@@ -18,9 +16,9 @@ static void test_credits_scene_auto_returns_after_scroll() {
     s.viewport_h = 200;
     s.enter();
     mion::InputState in;
-    for (int i = 0; i < 4000 && std::strcmp(s.next_scene(), "") == 0; ++i)
+    for (int i = 0; i < 4000 && s.next_scene() == mion::SceneId::kNone; ++i)
         s.fixed_update(0.016f, in);
-    EXPECT_EQ(std::strcmp(s.next_scene(), "title"), 0);
+    EXPECT_EQ(s.next_scene(), mion::SceneId::kTitle);
 }
 
 void run_credits_scene_tests() {

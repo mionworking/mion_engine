@@ -19,6 +19,7 @@
 #include "../core/locale.hpp"
 #include "../core/engine_paths.hpp"
 #include "../core/dungeon_dialogue.hpp"
+#include "../core/dungeon_dialogue_id.hpp"
 #include "../core/ini_loader.hpp"
 #include "../core/ui.hpp"
 #include "../core/debug_log.hpp"
@@ -185,7 +186,7 @@ public:
     // fixed_update()
     // ------------------------------------------------------------------
     void fixed_update(float dt, const InputState& input) override {
-        _pending_next_scene.clear();
+        _pending_next_scene = SceneId::kNone;
         const OverlayInputEdges overlay_input = _overlay_input.capture(input, _pause_controller);
 
         if (_autosave_flash > 0.f) {
@@ -368,8 +369,8 @@ public:
                 _zone_mgr.room_index_equiv(), _stress_mode, _rng);
             if (dr.xp_gained > 0)
                 debug_log("XP gained=%d", dr.xp_gained);
-            if (!dr.post_mortem_dialogue_id.empty())
-                _scene_transition.queue_post_mortem_dialogue(dr.post_mortem_dialogue_id);
+            if (dr.post_mortem_dialogue.has_value())
+                _scene_transition.queue_post_mortem_dialogue(*dr.post_mortem_dialogue);
             if (dr.quest_completed || dr.boss_defeated)
                 _persist_save();
         }
@@ -393,7 +394,7 @@ public:
             && !_rare_relic_dialogue_shown
             && !_stress_mode
             && !_dialogue.is_active()) {
-            _dialogue.start(DungeonDialogueId::kRareRelic);
+            _dialogue.start(to_string(DungeonDialogueId::RareRelic));
             _rare_relic_dialogue_pending = false;
             _rare_relic_dialogue_shown = true;
         }
@@ -433,16 +434,16 @@ public:
             if (!ctx.zone_mgr) return;
 
             // Dialogue on first entry
-            const char* dlg_id = nullptr;
-            if      (area.zone == ZoneId::DungeonRoom0) dlg_id = DungeonDialogueId::kPrologue;
-            else if (area.zone == ZoneId::DungeonRoom1) dlg_id = DungeonDialogueId::kRoom2;
-            else if (area.zone == ZoneId::DungeonRoom2) dlg_id = DungeonDialogueId::kDeeper;
+            std::optional<DungeonDialogueId> dlg_id;
+            if      (area.zone == ZoneId::DungeonRoom0) dlg_id = DungeonDialogueId::Prologue;
+            else if (area.zone == ZoneId::DungeonRoom1) dlg_id = DungeonDialogueId::Room2;
+            else if (area.zone == ZoneId::DungeonRoom2) dlg_id = DungeonDialogueId::Deeper;
             debug_log("[AreaEntry] zone=%d dlg=%s ctx.dialogue=%p active=%d",
-                      (int)area.zone, dlg_id ? dlg_id : "none",
+                      (int)area.zone, dlg_id ? to_string(*dlg_id) : "none",
                       (void*)ctx.dialogue,
                       ctx.dialogue ? (int)ctx.dialogue->is_active() : -1);
             if (dlg_id && ctx.dialogue && !ctx.dialogue->is_active())
-                ctx.dialogue->start(dlg_id);
+                ctx.dialogue->start(to_string(*dlg_id));
 
             int budget = EnemySpawner::spawn_budget(
                 ctx.zone_mgr->room_index_equiv(),
@@ -465,9 +466,9 @@ public:
 
         // Post-mortem dialogue (boss death → victory after lines finish)
         if (auto id = _scene_transition.take_post_mortem_dialogue_to_start(
-                _dialogue, !_pending_next_scene.empty());
-            !id.empty()) {
-            _dialogue.start(id, [this]() {
+                _dialogue, _pending_next_scene != SceneId::kNone);
+            id.has_value()) {
+            _dialogue.start(to_string(*id), [this]() {
                 _scene_transition.schedule_scene_exit(SceneId::kVictory, 0.8f);
             });
         }
@@ -483,8 +484,8 @@ public:
         frame_stats.time_seconds = dt;
         RunStatsTracker::apply_frame_delta(_run_stats, frame_stats);
 
-        if (auto next = _death_flow.tick(_player.is_alive, dt, [this]() { _snapshot_last_run(); }); !next.empty())
-            _pending_next_scene = std::move(next);
+        if (auto next = _death_flow.tick(_player.is_alive, dt, [this]() { _snapshot_last_run(); }); next != SceneId::kNone)
+            _pending_next_scene = next;
 
         _particles.update(dt);
 
@@ -513,8 +514,8 @@ public:
                 e.hit_flash_timer = std::max(0.f, e.hit_flash_timer - dt);
 
         // Scene exit handling
-        if (auto next = _scene_transition.tick_scene_exit(dt); !next.empty())
-            _pending_next_scene = std::move(next);
+        if (auto next = _scene_transition.tick_scene_exit(dt); next != SceneId::kNone)
+            _pending_next_scene = next;
 
         _sync_gameplay_input_history(input);
         _flush_overlay_input(input);
@@ -660,12 +661,10 @@ public:
         _pause_controller.render(r, viewport_w, viewport_h);
     }
 
-    const char* next_scene() const override {
-        return _pending_next_scene.empty() ? "" : _pending_next_scene.c_str();
-    }
+    SceneId next_scene() const override { return _pending_next_scene; }
 
     void clear_next_scene_request() override {
-        _pending_next_scene.clear();
+        _pending_next_scene = SceneId::kNone;
     }
 
 private:
@@ -673,41 +672,44 @@ private:
 
     // Owns transition state for post-mortem dialogue -> delayed scene exit.
     struct SceneTransitionFlow {
-        std::string pending_post_mortem_dialogue_id;
-        bool        scene_exit_pending = false;
-        float       scene_exit_timer   = 0.f;
-        std::string scene_exit_target;
+        std::optional<DungeonDialogueId> pending_post_mortem_dialogue;
+        bool                             scene_exit_pending = false;
+        float                            scene_exit_timer   = 0.f;
+        SceneId                          scene_exit_target  = SceneId::kNone;
 
         void reset() {
-            pending_post_mortem_dialogue_id.clear();
+            pending_post_mortem_dialogue.reset();
             scene_exit_pending = false;
             scene_exit_timer   = 0.f;
-            scene_exit_target.clear();
+            scene_exit_target  = SceneId::kNone;
         }
 
-        void queue_post_mortem_dialogue(std::string id) {
-            pending_post_mortem_dialogue_id = std::move(id);
+        void queue_post_mortem_dialogue(DungeonDialogueId id) {
+            pending_post_mortem_dialogue = id;
         }
 
-        std::string take_post_mortem_dialogue_to_start(const DialogueSystem& dialogue,
-                                                       bool scene_transition_pending) {
-            if (pending_post_mortem_dialogue_id.empty() || dialogue.is_active() || scene_transition_pending)
-                return {};
-            return std::move(pending_post_mortem_dialogue_id);
+        std::optional<DungeonDialogueId> take_post_mortem_dialogue_to_start(
+                const DialogueSystem& dialogue, bool scene_transition_pending) {
+            if (!pending_post_mortem_dialogue.has_value() || dialogue.is_active()
+                || scene_transition_pending)
+                return std::nullopt;
+            auto id = pending_post_mortem_dialogue;
+            pending_post_mortem_dialogue.reset();
+            return id;
         }
 
-        void schedule_scene_exit(std::string t, float delay) {
+        void schedule_scene_exit(SceneId t, float delay) {
             scene_exit_pending = true;
             scene_exit_timer   = delay;
-            scene_exit_target  = std::move(t);
+            scene_exit_target  = t;
         }
 
-        std::string tick_scene_exit(float dt) {
-            if (!scene_exit_pending) return {};
+        SceneId tick_scene_exit(float dt) {
+            if (!scene_exit_pending) return SceneId::kNone;
             scene_exit_timer -= dt;
-            if (scene_exit_timer > 0.f) return {};
+            if (scene_exit_timer > 0.f) return SceneId::kNone;
             scene_exit_pending = false;
-            return std::move(scene_exit_target);
+            return scene_exit_target;
         }
     };
 
@@ -774,7 +776,7 @@ private:
     int     _hitstop = 0;
     bool    _rare_relic_dialogue_pending = false;
     bool    _rare_relic_dialogue_shown = false;
-    std::string            _pending_next_scene;
+    SceneId                _pending_next_scene = SceneId::kNone;
     SceneTransitionFlow    _scene_transition;
     bool                   _show_autosave_indicator = false;
     unsigned    _npc_rng_state = 0x12345678u;
@@ -852,6 +854,7 @@ private:
         _player.progression = ProgressionState{};
         _player.talents     = TalentState{};
         _player.transform.set_position(400.f, 800.f);
+        _area_entry         = {};   // reset visited areas so dialogues/spawns fire on new run
     }
 
     bool _load_save_or_start_fresh(SaveData& sd) {
@@ -909,7 +912,7 @@ private:
         _floating_texts.texts.clear();
         _screen_flash  = {};
         _hitstop       = 0;
-        _pending_next_scene.clear();
+        _pending_next_scene = SceneId::kNone;
         _scene_transition.reset();
         _prev_level_choice_pending = false;
         _rare_relic_dialogue_pending = false;

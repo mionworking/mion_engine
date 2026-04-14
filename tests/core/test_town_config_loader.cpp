@@ -17,8 +17,8 @@ static void town_config_loader_registers_dialogues_from_ini() {
 
     TownConfigLoader::load_town_dialogues(dialogue);
 
-    EXPECT_TRUE(dialogue.has_sequence(TownDialogueId::kMiraDefault));
-    EXPECT_TRUE(dialogue.has_sequence(TownDialogueId::kForgeGreeting));
+    EXPECT_TRUE(dialogue.has_sequence(to_string(TownDialogueId::MiraDefault)));
+    EXPECT_TRUE(dialogue.has_sequence(to_string(TownDialogueId::ForgeGreeting)));
 }
 
 REGISTER_TEST(town_config_loader_loads_runtime_config);

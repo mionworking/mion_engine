@@ -87,7 +87,7 @@ inline void apply_melee_hit_fx(const MeleeCombatSystem&   combat,
 } // namespace CombatFxController
 
 // Player death state: triggers snapshot on first dead tick, then fades out.
-// tick() returns SceneId::kGameOver when fade completes, empty string otherwise.
+// tick() returns SceneId::kGameOver when fade completes, SceneId::kNone otherwise.
 struct PlayerDeathFlow {
     static constexpr float kFadeDuration = 1.5f;
 
@@ -97,7 +97,7 @@ struct PlayerDeathFlow {
     void reset() { snapshot_done = false; fade_remaining = 0.f; }
 
     template <typename SnapshotFn>
-    std::string tick(bool player_alive, float dt, SnapshotFn on_snapshot) {
+    SceneId tick(bool player_alive, float dt, SnapshotFn on_snapshot) {
         if (!player_alive && !snapshot_done) {
             snapshot_done  = true;
             on_snapshot();
@@ -110,7 +110,7 @@ struct PlayerDeathFlow {
                 return SceneId::kGameOver;
             }
         }
-        return {};
+        return SceneId::kNone;
     }
 };
 

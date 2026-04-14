@@ -20,3 +20,19 @@ static void test_actor_is_dashing() {
     EXPECT_TRUE(a.is_dashing());
 }
 REGISTER_TEST(test_actor_is_dashing);
+
+static void test_knockback_decays() {
+    mion::Actor a;
+    a.is_alive = true;
+    a.transform.set_position(100.0f, 100.0f);
+    a.apply_knockback_impulse(300.0f, 0.0f);
+    EXPECT_TRUE(a.knockback_vx > 0.0f);
+
+    // Após muitos frames deve decair para zero
+    for (int i = 0; i < 60; ++i)
+        a.step_knockback(1.0f / 60.0f);
+
+    EXPECT_NEAR(a.knockback_vx, 0.0f, 1.0f);
+    EXPECT_NEAR(a.knockback_vy, 0.0f, 1.0f);
+}
+REGISTER_TEST(test_knockback_decays);

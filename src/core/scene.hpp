@@ -2,25 +2,26 @@
 #include <memory>
 #include <SDL3/SDL.h>
 #include "input.hpp"
+#include "scene_ids.hpp"
 
 namespace mion {
 
-// Interface that every scene must implement.
+// Interface que toda cena deve implementar.
 class IScene {
 public:
     virtual ~IScene() = default;
 
-    virtual void enter()                                   = 0;
-    virtual void exit()                                   = 0;
+    virtual void enter()                                         = 0;
+    virtual void exit()                                          = 0;
     virtual void fixed_update(float dt, const InputState& input) = 0;
     virtual void render(SDL_Renderer* renderer, float blend_factor) = 0;
 
-    // Returns the name of the next scene, or "" if no transition is requested.
-    virtual const char* next_scene() const { return ""; }
+    // Retorna kNone se nenhuma transição está pendente.
+    virtual SceneId next_scene() const { return SceneId::kNone; }
     virtual void clear_next_scene_request() {}
 };
 
-// Manages the active scene and handles scene transitions.
+// Gerencia a cena ativa e trata transições.
 class SceneManager {
 public:
     std::unique_ptr<IScene> current;
@@ -31,9 +32,9 @@ public:
         if (current) current->enter();
     }
 
-    // Calls fixed_update and returns the next scene name (or "" if none).
-    const char* fixed_update(float dt, const InputState& input) {
-        if (!current) return "";
+    // Executa fixed_update e retorna o próximo SceneId (kNone = sem transição).
+    SceneId fixed_update(float dt, const InputState& input) {
+        if (!current) return SceneId::kNone;
         current->fixed_update(dt, input);
         return current->next_scene();
     }

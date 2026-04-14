@@ -22,7 +22,7 @@ compile_commands.json
 mion_debug.log
 
 # Legacy and Misc
-lagacy/
-ROADMAP.md/
+legacy/
+ROADMAP.md
 readme_ia.md
 .github/

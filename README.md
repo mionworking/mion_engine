@@ -2,7 +2,7 @@
 
 Motor de jogo 2D em C++17 com SDL3: **open world contínuo** (town + dungeon no mesmo espaço de coordenadas), tilemap, iluminação estilo *fake lighting*, combate corpo a corpo e à distância, IA com pathfinding, áudio zone-aware, save/load, diálogo, progressão completa com maná, magias e árvore de talentos, **sistema de inventário** (bag + 11 slots de equipamento) e **quickslot de poção** estilo Diablo 3.
 
-> **Modo atual:** placeholders geométricos (retângulos coloridos + seta de direção) com spritesheets Puny Characters integradas. **Tileset e sprites finais são a última fase** — depois do jogo estar funcionalmente completo; ver [ROADMAP.md](ROADMAP.md).
+> **Modo atual:** placeholders geométricos (retângulos coloridos + seta de direção) com spritesheets Puny Characters integradas. **Tileset e sprites finais são a última fase** — depois do jogo estar funcionalmente completo.
 
 Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New Game`, `Continue`, `Settings`, `Extras` e `Quit`. `New Game` abre o seletor de dificuldade e segue para o **mundo** (`world`) — uma cena única que contém town, corredor de transição e dungeon; `Continue` carrega a run existente quando há save; `Extras` inclui `Credits`; `Settings` permite alterar **mute**, **volume master** e **idioma** (EN/PT-BR) com persistência em `config.ini`.
 
@@ -16,7 +16,7 @@ Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New 
 - `WorldSaveController` persiste posição global do player e bitmask de áreas visitadas (save v7)
 - **Combate na dungeon (open world):** atores e projéteis usam **coordenadas globais**; o pipeline alinha referenciais entre sistemas — `DungeonWorldRenderer` com câmera **local** (tilemap/obstáculos) e **`world_camera`** (inimigos, projéteis, drops, partículas), `ProjectileSystem` com `world_origin` da `WorldArea` nos bounds/obstáculos, e `EnemyAISystem` com `nav_area_ox/oy` para converter mundo ↔ grelha **local** do `Pathfinder`. `MeleeCombatSystem`, `EnemyDeathController` e colisão broadphase + `resolve_actors` operam sobre a mesma lista `_actors` (player + inimigos por área após `_rebuild_all_actors`).
 - Cena de título com menu completo (`New Game`, `Continue`, `Settings`, `Extras`, `Quit`)
-- Save/load automático da run com migração de schema (`v1` → `v6`)
+- Save/load automático da run com migração de schema (`v1` → `v7`)
 - `config.ini` para resolução, áudio, idioma de UI e rebinding de teclado
 - `data/*.ini` para stats de inimigos, magias, talentos, progressão, drops, salas e diálogos
 - Cenas e sistemas modularizados por responsabilidade (6 sprints SRP + migração open world)
@@ -39,7 +39,14 @@ Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New 
 
 ```bash
 make build          # Debug em build/
+make run            # Build + executa direto
 ./build/mion_engine
+```
+
+Limpar artefatos de build:
+
+```bash
+make clean
 ```
 
 Build otimizado (binário em `build_release/`):
@@ -60,6 +67,7 @@ cmake --build build -j$(nproc)
 ### Assets (tiles, props, áudio prototype)
 
 - **Sprites e tilesets procedurais:** `python3 tools/gen_environment_sprites.py` gera PNGs em `assets/` (tilesets dungeon/town, `corridor_floor.png`, props, NPCs). Ficheiros existentes são ignorados salvo `--overwrite`.
+- **Sprite sheets de personagens animadas:** `python3 tools/gen_animated_sprites.py` gera PNGs 768×256 no layout Puny Characters (24 colunas × 8 linhas; animações Walk/Attack/Idle/Cast/Hurt/Death). Estilos: `soldier`, `orc`, `skeleton`, `mage`, `player`. Flags: `--overwrite`, `--only <style>`.
 - **SFX / música / ambient 8-bit:** `python3 tools/gen_prototype_8bit_sfx.py [--output-dir assets/audio]`.
 - **Contrato de texturas:** `tools/texture_manifest.json` lista as PNG referenciadas em `src/`; `python3 tools/audit_texture_contract.py` valida alinhamento e gera `tools/texture_contract_inventory.md`.
 - **Pipeline opcional** (pacote fonte externo): `tools/asset_pipeline/` — ver `tools/asset_pipeline/README.md`.
@@ -82,6 +90,7 @@ Arquivos de dados carregados em runtime:
 | `data/talents.ini` | Custos e pré-requisitos da árvore de talentos |
 | `data/rooms.ini` | Layout e templates de salas da dungeon |
 | `data/town_dialogues.ini` | Linhas de diálogo dos NPCs da cidade |
+| `data/attributes.ini` | Bônus por ponto de atributo (vigor, força, destreza, inteligência, endurance) |
 | `data/locale_en.ini` | Strings de UI em inglês |
 | `data/locale_ptbr.ini` | Strings de UI em português |
 
@@ -104,25 +113,24 @@ make test
 cd build && ctest --output-on-failure
 ```
 
-**4 targets de teste** via CTest:
+**4 targets de teste** via CTest, todos com etiqueta `official`:
 
-| Target | Etiqueta | Escopo |
-|--------|----------|--------|
-| `mion_tests_legacy` | `legacy` | Suíte original: física, combate, save/load, config, menus, diálogo, portas, fluxo de cenas |
-| `mion_tests_v2` | `official` | Gaps de cobertura, player action, integrações, sistemas de dungeon/town |
-| `mion_tests_v2_core` | `official` | Core systems: config loaders, dialogue registry, save |
-| `mion_tests_v2_scenes` | `official` | Testes de cena (world, credits, title) |
-| `mion_tests_v2_input` | `official` | Input (teclado, gamepad, keybinds) |
+| Target | Escopo |
+|--------|--------|
+| `mion_tests_v2` | Suíte completa: legacy (`tests/legacy/`) + player action, integrações, sistemas, gaps |
+| `mion_tests_v2_core` | Core systems: config loaders, dialogue registry, save |
+| `mion_tests_v2_scenes` | Testes de cena (world, credits, title) |
+| `mion_tests_v2_input` | Input (teclado, gamepad, keybinds) |
 
-**~2200 asserts** no total (macros `EXPECT_TRUE`, `EXPECT_EQ`, etc. — framework interno, sem dependência externa).
+Fontes em `tests/` organizadas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`, `legacy/`). A suíte legacy roda **dentro** de `mion_tests_v2` via `run_legacy_tests()` — não é target separado. Sprint 3 (pendente) dissolverá `tests/legacy/test_legacy.cpp` em arquivos individuais por tema usando o padrão `REGISTER_TEST` já adotado.
 
-Para rodar apenas a suíte V2:
+Macros internas: `EXPECT_TRUE`, `EXPECT_EQ`, etc. Sem dependência externa.
+
+Para rodar só via etiqueta:
 
 ```bash
 ctest --test-dir build -L official
 ```
-
-O alvo legacy pode ser desativado com `-DMION_ENABLE_LEGACY_TESTS=OFF`.
 
 ### Gates de teste opcionais (variáveis de ambiente)
 
@@ -142,6 +150,8 @@ O alvo legacy pode ser desativado com `-DMION_ENABLE_LEGACY_TESTS=OFF`.
 | `gen-placeholders` | Gera texturas placeholder via `tools/gen_placeholder_textures.py` |
 | `preview-placeholders` | Visualiza placeholders gerados |
 | `verify-placeholders` | Gera + visualiza + roda testes de textura |
+| `gen-placeholders-backlog` | Gera texturas do backlog via `tools/texture_backlog_contract.json` |
+| `preview-placeholders-backlog` | Visualiza placeholders do backlog em `assets/placeholders/preview_backlog.png` |
 
 ### Variáveis de ambiente
 
@@ -261,19 +271,17 @@ autosave_indicator=0
 | `src/systems/` | Lógica por frame, overlays e UI: combate melee, IA inimiga (`ai_patrol`, `ai_combat`, `ai_boss`, `enemy_ai`), projéteis, drops, magias (`spell_system`, `spell_effects`), movement, room collision/flow, resource regen, lighting, pathfinder, tilemap renderer, partículas, floating text, diálogo, shop; **controllers stateful**: `pause_menu_controller`, `attribute_levelup_controller`, `skill_tree_controller`, `equipment_screen_controller`, `overlay_input`; **rendering**: world renderer, dungeon world renderer, screen FX, dungeon HUD, skill tree UI, attribute screen UI, `equipment_screen_ui`; **gameplay modularizado**: enemy spawner, room manager, dash system; **open world**: `world_save_controller`, `world_audio_system`, `area_entry_system`; **config**: player configurator |
 | `src/world/` | **Open world**: `WorldArea`, `WorldMap`, `WorldMapBuilder`, `ZoneManager`, `WorldContext`; salas (`Room`), tilemap, dungeon rules, room loader |
 | `src/entities/` | `Actor`, `Projectile`, `GroundItem`, `NPC`, `Shop`, `EnemyType` |
-| `src/scenes/` | Cenas: title, **world** (open world unificado), game over, victory, credits; cenas legadas (`town`, `dungeon`) mantidas para testes |
+| `src/scenes/` | Cenas: title, **world** (open world unificado), game over, victory, credits |
 | `src/vendor/` | `stb_image_impl.cpp` (implementação de stb_image) |
 | `assets/` | Áudio (WAVs), sprites, tiles, props, NPCs, Puny Characters |
 | `data/` | Definições externas (INI): inimigos, magias, items, player, progressão, talentos, salas, diálogos, locales |
 | `tools/` | Stress tests, sprite bench, geradores de placeholders, asset pipeline, task tracker |
 | `tools/asset_pipeline/` | Pipeline de classificação e conversão de assets (Python + Pillow vendorado) |
-| `tests_legacy/` | Suíte compartilhada + runner `test_main.cpp` (ctest etiqueta `legacy`) |
-| `tests_v2/` | Suíte oficial modular (4 targets, etiqueta ctest `official`) |
-| `legacy/` | Documentação arquivada; `legacy/archive/` guarda roadmaps históricos (muitos já superados pelo código). Ver também `*_revisar*.md`, `PLAYER_DOCUMENTATION.md`, `README_ASSET_SCRIPTS.md`, `ROADMAP_FALHAS.md` |
+| `tests/` | Suíte única com subpastas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`, `legacy/`). 4 mains (`test_v2_main.cpp`, `test_v2_core_main.cpp`, `test_v2_scenes_main.cpp`, `test_v2_input_main.cpp`) alimentam os 4 targets ctest |
 
 ## Módulos extraídos na refatoração SRP
 
-Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades específicas. O efeito prático é que `DungeonScene`, `TitleScene`, `EnemyAISystem` e `PlayerActionSystem` hoje atuam mais como orquestradores do que como "god objects".
+Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades específicas. O efeito prático é que `WorldScene`, `TitleScene`, `EnemyAISystem` e `PlayerActionSystem` hoje atuam mais como orquestradores do que como "god objects".
 
 ### Sprint 1
 
@@ -337,7 +345,7 @@ Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades
 | `src/systems/pause_menu_controller.hpp` | Controller stateful que encapsula `PauseMenu`, callbacks de menu, update/flush/render e requests de abrir skill tree ou sair para o title. |
 | `src/systems/attribute_levelup_controller.hpp` | Controller stateful da tela de atributos: decide abertura automática por `pending_level_ups`, navegação, aplicação de ponto e render. |
 | `src/systems/skill_tree_controller.hpp` | Controller stateful da árvore de talentos: colunas persistentes, cursor, auto-open por pontos pendentes, gasto de talento e render. |
-| `src/systems/overlay_input.hpp` | Tracker de edges compartilhado pelos overlays, para remover estado transitório de input da `DungeonScene`. |
+| `src/systems/overlay_input.hpp` | Tracker de edges compartilhado pelos overlays, para remover estado transitório de input da `WorldScene`. |
 
 ### Sprint MUIS — UI global e inventário
 
@@ -364,16 +372,13 @@ A cena principal do jogo é agora `WorldScene`, que substitui `DungeonScene` + `
 | `src/world/zone_manager.hpp` | `ZoneManager` — detecta `ZoneId` corrente pela posição do player; expõe `just_changed`, `in_dungeon()`, `in_town()`. |
 | `src/world/world_context.hpp` | `WorldContext` — struct unificada que substitui `DungeonContext`/`TownContext`; passada para todos os systems. |
 | `src/systems/area_entry_system.hpp` | `AreaEntrySystem` — detecta entrada em áreas novas, chama callback de spawn; serializa `visited_areas` como bitmask para save. |
-| `src/systems/world_save_controller.hpp` | `WorldSaveController` — persist/load global usando `WorldContext`; save v6 com posição do player e bitmask de áreas visitadas. |
+| `src/systems/world_save_controller.hpp` | `WorldSaveController` — persist/load global usando `WorldContext`; save v7 com posição do player e bitmask de áreas visitadas. |
 | `src/systems/world_audio_system.hpp` | `WorldAudioSystem` — ambient e música transitam automaticamente conforme a zona corrente. |
 | `src/scenes/world_scene.hpp` | `WorldScene` — cena principal: `fixed_update` com movimento → input → recursos/IA/combate na dungeon (pathfinder + projéteis com offset da área) → NPCs na town → **colisão** (`get_obstacles_near` + `total_bounds` + `resolve_actors`) → `AreaEntrySystem` / spawn → áudio/animações. Render dungeon: `DungeonWorldRenderInputs` com `camera` (local) e `world_camera` (mundo). |
-
-Fluxo detalhado (controllers, ordem dos sistemas, referenciais local vs mundo): [`legacy/map_controllers_revisar.md`](legacy/map_controllers_revisar.md).
 
 ### Como ler a arquitetura
 
 - `src/scenes/world_scene.hpp`: cena principal do jogo — coordena fluxo open world, broadphase collision zone-gated, overlays (`PauseMenuController`, `AttributeLevelUpController`, `SkillTreeController`) e delegação para todos os systems.
-- `src/scenes/dungeon_scene.hpp` / `src/scenes/town_scene.hpp`: cenas legadas mantidas para compatibilidade de testes; não são mais registradas no `SceneRegistry`.
 - `src/scenes/title_scene.hpp`: coordena áudio/locale e delega menu/render/ações para `title_menu`.
 - `src/systems/enemy_ai.hpp` e `src/systems/player_action.hpp`: permanecem como fachadas pequenas para integrar submódulos durante o `fixed_update`.
 

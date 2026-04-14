@@ -42,7 +42,7 @@ static void combat_fx_controller_applies_hitstop_and_death_fade() {
     auto next = death_flow.tick(false, 2.0f, [&]() { ++snapshot_calls; });
     EXPECT_TRUE(death_flow.snapshot_done);
     EXPECT_EQ(snapshot_calls, 1);
-    EXPECT_EQ(next, "game_over");
+    EXPECT_EQ(next, SceneId::kGameOver);
 }
 
 REGISTER_TEST(animation_driver_selects_expected_player_anims);

@@ -61,7 +61,7 @@ preview-placeholders-backlog:
 	$(PYTHON) tools/preview_placeholders.py --manifest tools/texture_backlog_contract.json --output assets/placeholders/preview_backlog.png
 
 verify-placeholders: gen-placeholders preview-placeholders
-	MION_TEXTURE_INTEGRATION_TESTS=1 ./$(BUILD_DIR)/mion_tests
+	MION_TEXTURE_INTEGRATION_TESTS=1 ./$(BUILD_DIR)/mion_tests_v2
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -54,10 +54,10 @@ inline PlayerConfig make_player_config_from_ini(const IniData& d,
     return cfg;
 }
 
-// Global config — assigned once during bootstrap via make_player_config_from_ini.
-// Treat as read-only after CommonPlayerProgressionLoader::load_defaults_and_ini_overrides().
-inline PlayerConfig g_player_config = kDefaultPlayerConfig;
+// Global config — read-only após bootstrap. Escrita apenas em init (make_player_config_from_ini).
+namespace detail { inline PlayerConfig _g_player_config_mutable = kDefaultPlayerConfig; }
+inline const PlayerConfig& g_player_config = detail::_g_player_config_mutable;
 
-inline void reset_player_config_defaults() { g_player_config = kDefaultPlayerConfig; }
+inline void reset_player_config_defaults() { detail::_g_player_config_mutable = kDefaultPlayerConfig; }
 
 } // namespace mion

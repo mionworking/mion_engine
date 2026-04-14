@@ -1,6 +1,5 @@
 #include "test_common.hpp"
 
-void run_legacy_tests();
 // void run_extended_plan_tests(); migrado
 void run_dungeon_controller_tests();
 void run_keybind_config_tests();
@@ -13,7 +12,6 @@ void run_scenes_v2_tests();
 void run_gaps_v2_tests();
 
 int main() {
-    run_legacy_tests();
     // run_extended_plan_tests(); migrado
     run_dungeon_controller_tests();
     run_keybind_config_tests();

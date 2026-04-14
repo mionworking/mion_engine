@@ -57,11 +57,11 @@ inline constexpr std::array<SpellDef, kSpellCount> kDefaultSpellDefs = {{
     { SpellId::BattleCry, 0.0f, 12.0f, 0, 0.0f, 0.0f, 0, 0.0f },
 }};
 
-// Global spell table — assigned once during bootstrap via make_spell_defs_from_ini.
-// Treat as read-only after DungeonConfigLoader::load_dungeon_static_data().
-inline std::array<SpellDef, kSpellCount> g_spell_defs = kDefaultSpellDefs;
+// Global spell table — read-only após bootstrap. Escrita apenas em init (make_spell_defs_from_ini).
+namespace detail { inline std::array<SpellDef, kSpellCount> _g_spell_defs_mutable = kDefaultSpellDefs; }
+inline const std::array<SpellDef, kSpellCount>& g_spell_defs = detail::_g_spell_defs_mutable;
 
-inline void reset_spell_defs_defaults() { g_spell_defs = kDefaultSpellDefs; }
+inline void reset_spell_defs_defaults() { detail::_g_spell_defs_mutable = kDefaultSpellDefs; }
 
 inline const SpellDef& spell_def(SpellId id) {
     return g_spell_defs[static_cast<int>(id)];

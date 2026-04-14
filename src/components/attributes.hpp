@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../core/ini_loader.hpp"
 #include "equipment.hpp"
 #include "progression.hpp"
 #include "talent_state.hpp"
@@ -20,7 +21,7 @@ struct AttributesState {
 };
 
 // ---------------------------------------------------------------------------
-// Per-attribute scaling constants (data-driven via attributes.ini in the future).
+// Per-attribute scaling constants (data/attributes.ini).
 // ---------------------------------------------------------------------------
 struct AttributeScales {
     int   vigor_hp_per_point          = 8;
@@ -32,9 +33,26 @@ struct AttributeScales {
 };
 
 inline constexpr AttributeScales kDefaultAttributeScales{};
-inline AttributeScales g_attribute_scales = kDefaultAttributeScales;
 
-inline void reset_attribute_scales_defaults() { g_attribute_scales = kDefaultAttributeScales; }
+// Fábrica pura — não toca nenhum global. Chaves ausentes mantêm base.
+inline AttributeScales make_attribute_scales_from_ini(const IniData& d,
+                                                       const AttributeScales& base = kDefaultAttributeScales) {
+    AttributeScales sc = base;
+    const std::string sec = "attributes";
+    sc.vigor_hp_per_point          = d.get_int(sec,   "vigor_hp_per_point",          sc.vigor_hp_per_point);
+    sc.forca_melee_per_point       = d.get_int(sec,   "forca_melee_per_point",       sc.forca_melee_per_point);
+    sc.destreza_ranged_per_point   = d.get_int(sec,   "destreza_ranged_per_point",   sc.destreza_ranged_per_point);
+    sc.intel_spell_pct_per_point   = d.get_float(sec, "intel_spell_pct_per_point",   sc.intel_spell_pct_per_point);
+    sc.intel_mana_per_point        = d.get_float(sec, "intel_mana_per_point",        sc.intel_mana_per_point);
+    sc.endurance_stamina_per_point = d.get_float(sec, "endurance_stamina_per_point", sc.endurance_stamina_per_point);
+    return sc;
+}
+
+// Global config — read-only após bootstrap. Escrita apenas em init (make_attribute_scales_from_ini).
+namespace detail { inline AttributeScales _g_attribute_scales_mutable = kDefaultAttributeScales; }
+inline const AttributeScales& g_attribute_scales = detail::_g_attribute_scales_mutable;
+
+inline void reset_attribute_scales_defaults() { detail::_g_attribute_scales_mutable = kDefaultAttributeScales; }
 
 // ---------------------------------------------------------------------------
 // Final derived stats for the player.

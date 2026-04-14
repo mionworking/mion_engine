@@ -23,7 +23,7 @@ public:
 
     void enter() override {
         _scroll_y    = (float)viewport_h;
-        _next.clear();
+        _next = SceneId::kNone;
         _prev_cancel = false;
         if (_audio) _audio->set_music_state(MusicState::None);
     }
@@ -64,11 +64,9 @@ public:
         draw_text(r, 12.0f, viewport_h - 24.0f, hint, 2, 130, 130, 120, 255);
     }
 
-    const char* next_scene() const override {
-        return _next.empty() ? "" : _next.c_str();
-    }
+    SceneId next_scene() const override { return _next; }
 
-    void clear_next_scene_request() override { _next.clear(); }
+    void clear_next_scene_request() override { _next = SceneId::kNone; }
 
 private:
     const char* tr(const std::string& key) const {
@@ -99,7 +97,7 @@ private:
     AudioSystem* _audio = nullptr;
     LocaleSystem* _locale = nullptr;
     float        _scroll_y = 0.0f;
-    std::string  _next;
+    SceneId      _next = SceneId::kNone;
     bool         _prev_cancel = false;
 };
 

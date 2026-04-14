@@ -4,7 +4,7 @@
 
 #include "../core/audio.hpp"
 #include "../core/camera.hpp"
-#include "../core/dungeon_dialogue.hpp"
+#include "../core/dungeon_dialogue_id.hpp"
 #include "../entities/actor.hpp"
 #include "../entities/enemy_type.hpp"
 #include "dialogue_system.hpp"
@@ -42,7 +42,7 @@ struct BossState {
             if (e->boss_phase != 2) continue;
             phase2_triggered = true;
             camera.trigger_shake(18.0f, 30);
-            dialogue.start(DungeonDialogueId::kBossPhase2);
+            dialogue.start(to_string(DungeonDialogueId::BossPhase2));
             flash.trigger({255, 200, 50, 180}, 0.3f);
             break;
         }

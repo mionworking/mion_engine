@@ -32,12 +32,12 @@ inline ProgressionConfig make_progression_config_from_ini(
     return cfg;
 }
 
-// Global config — assigned once during bootstrap via make_progression_config_from_ini.
-// Treat as read-only after CommonPlayerProgressionLoader::load_defaults_and_ini_overrides().
-inline ProgressionConfig g_progression_config = kDefaultProgressionConfig;
+// Global config — read-only após bootstrap. Escrita apenas em init (make_progression_config_from_ini).
+namespace detail { inline ProgressionConfig _g_progression_config_mutable = kDefaultProgressionConfig; }
+inline const ProgressionConfig& g_progression_config = detail::_g_progression_config_mutable;
 
 inline void reset_progression_config_defaults() {
-    g_progression_config = kDefaultProgressionConfig;
+    detail::_g_progression_config_mutable = kDefaultProgressionConfig;
 }
 
 inline int progression_xp_threshold_for_level(int level) {
