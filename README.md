@@ -22,6 +22,7 @@ Ao iniciar, o jogo abre a **cena de título** (`title`) com menu completo: `New 
 - Cenas e sistemas modularizados por responsabilidade (6 sprints SRP + migração open world)
 - Controllers stateful para pause, level-up de atributos e árvore de talentos
 - Type safety: `Actor::sprite_sheet` usa `SDL_Texture*` com forward declaration (Sprint 4 — F-001)
+- `Actor` split incremental: dados específicos do player e da IA inimiga foram extraídos para `PlayerData` e `EnemyAIData` (`std::optional` dentro de `Actor`)
 - Suporte a gamepad SDL3 com detecção automática de conexão/desconexão
 - `ui::Theme` — struct de estilo global (`g_theme`) com cores centralizadas para todos os overlays; `ui::draw_dim()` para fundos modais
 - 11 slots de equipamento (`Head/Chest/Legs/Feet/Hands/Belt/Amulet/RingLeft/RingRight/MainHand/OffHand`); `ItemBag` (4×6=24 `BagSlot`) separado dos slots
@@ -117,12 +118,12 @@ cd build && ctest --output-on-failure
 
 | Target | Escopo |
 |--------|--------|
-| `mion_tests_v2` | Suíte completa: legacy (`tests/legacy/`) + player action, integrações, sistemas, gaps |
+| `mion_tests_v2` | Suíte completa agregada via `RunAllRegisteredTests` (`tests/` por domínio) |
 | `mion_tests_v2_core` | Core systems: config loaders, dialogue registry, save |
 | `mion_tests_v2_scenes` | Testes de cena (world, credits, title) |
 | `mion_tests_v2_input` | Input (teclado, gamepad, keybinds) |
 
-Fontes em `tests/` organizadas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`, `legacy/`). A suíte legacy roda **dentro** de `mion_tests_v2` via `run_legacy_tests()` — não é target separado. Sprint 3 (pendente) dissolverá `tests/legacy/test_legacy.cpp` em arquivos individuais por tema usando o padrão `REGISTER_TEST` já adotado.
+Fontes em `tests/` organizadas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`). Os testes usam registro automático (`REGISTER_TEST`) e a suíte principal (`mion_tests_v2`) consolida os casos por `RunAllRegisteredTests(...)`.
 
 Macros internas: `EXPECT_TRUE`, `EXPECT_EQ`, etc. Sem dependência externa.
 
@@ -277,7 +278,7 @@ autosave_indicator=0
 | `data/` | Definições externas (INI): inimigos, magias, items, player, progressão, talentos, salas, diálogos, locales |
 | `tools/` | Stress tests, sprite bench, geradores de placeholders, asset pipeline, task tracker |
 | `tools/asset_pipeline/` | Pipeline de classificação e conversão de assets (Python + Pillow vendorado) |
-| `tests/` | Suíte única com subpastas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`, `legacy/`). 4 mains (`test_v2_main.cpp`, `test_v2_core_main.cpp`, `test_v2_scenes_main.cpp`, `test_v2_input_main.cpp`) alimentam os 4 targets ctest |
+| `tests/` | Suíte única com subpastas por tema (`core/`, `components/`, `systems/`, `scenes/`, `input/`, `entities/`, `world/`). 4 mains (`test_v2_main.cpp`, `test_v2_core_main.cpp`, `test_v2_scenes_main.cpp`, `test_v2_input_main.cpp`) alimentam os 4 targets ctest |
 
 ## Módulos extraídos na refatoração SRP
 
@@ -327,16 +328,15 @@ Os arquivos abaixo foram criados ou promovidos para concentrar responsabilidades
 | 4 arquivos de rendering/cena | Removidos todos os `static_cast<SDL_Texture*>` (acesso direto ao campo tipado) |
 | 2 arquivos de spawn/config | Removidos `static_cast<void*>` na atribuição de texturas |
 
-### Sprint 5 — Limpeza de diálogo e dados de talentos
+### Sprint 5 — Actor split incremental (`PlayerData` / `EnemyAIData`)
 
 | Módulo | O que contém |
 |--------|--------------|
-| `src/systems/dialogue_system.hpp` | Runtime de diálogo (estado, avanço por input, callbacks) sem acoplamento a renderização ou parsing de INI. |
-| `src/systems/dialogue_render.hpp` | Renderização da UI de diálogo (barra, texto, hint) a partir do estado exposto por `DialogueSystem`. |
-| `src/core/dialogue_loader.hpp` | Loader de diálogos a partir de `IniData` (`data/town_dialogues.ini`), registrando sequências no `DialogueSystem`. |
-| `src/components/talent_data.hpp` | Dados e defaults da árvore de talentos (`TalentId`, `TalentNode`, tabelas globais, helpers como `talent_def`). |
-| `src/components/talent_loader.hpp` | Aplicação de overrides de `data/talents.ini` sobre `g_talent_nodes`/`g_talent_display_names` (`apply_talents_ini`). |
-| `src/components/talent_tree.hpp` | Fachada fina que reexporta `talent_data` + `talent_loader` para os consumidores existentes. |
+| `src/entities/actor.hpp` | Base comum de `Actor` com responsabilidades compartilhadas (transform/collision/combat/health/animação/team/movimento) e opcionais `player`/`enemy_ai`. |
+| `src/entities/player_data.hpp` | Bloco de dados exclusivos do player: spell book, talentos, equipment, bag, potion, progressão, atributos, stamina, mana, ouro e estados de dash/buffs. |
+| `src/entities/enemy_ai_data.hpp` | Bloco de dados exclusivos de inimigos hostis: ranges de IA, comportamento, pathfinding, patrulha, boss phases e parâmetros ranged. |
+| `src/systems/player_configurator.hpp` | Inicialização/configuração do bloco `PlayerData` quando o actor representa o player. |
+| `src/systems/enemy_spawner.hpp` | Montagem de inimigos já preenchendo o bloco `EnemyAIData` quando aplicável. |
 
 ### Sprint 6 — Controllers stateful dos overlays da dungeon
 
