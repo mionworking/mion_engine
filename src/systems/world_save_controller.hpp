@@ -90,6 +90,16 @@ inline SaveData make_world_save(const WorldContext& ctx) {
         d.attr_points_available = ctx.player->player->progression.pending_level_ups;
         d.player_world_x       = ctx.player->transform.x;
         d.player_world_y       = ctx.player->transform.y;
+        if (ctx.player->player) {
+            for (int i = 0; i < kEquipSlotCount; ++i)
+                d.equipped_names[i] = ctx.player->player->equipment.slots[i].name;
+            for (int i = 0; i < kBagSize; ++i) {
+                d.bag_names[i]       = ctx.player->player->bag.slots[i].name;
+                d.bag_equip_slots[i] = static_cast<int>(ctx.player->player->bag.slots[i].slot);
+            }
+            d.potion_stack   = ctx.player->player->potion.stack;
+            d.potion_quality = static_cast<int>(ctx.player->player->potion.quality);
+        }
     }
     if (ctx.quest_state)
         d.quest_state = *ctx.quest_state;
@@ -114,7 +124,22 @@ inline void apply_world_save(WorldContext& ctx, const SaveData& sd) {
         ctx.player->player->mana      = sd.mana;
         ctx.player->player->stamina   = sd.stamina;
         ctx.player->transform.x       = sd.player_world_x;
-        ctx.player->transform.y = sd.player_world_y;
+        ctx.player->transform.y       = sd.player_world_y;
+        if (ctx.player->player) {
+            for (int i = 0; i < kEquipSlotCount; ++i) {
+                const EquipSlot s = static_cast<EquipSlot>(i);
+                if (!sd.equipped_names[i].empty())
+                    ctx.player->player->equipment.equip(s, {sd.equipped_names[i], s, {}, true});
+                else
+                    ctx.player->player->equipment.unequip(s);
+            }
+            for (int i = 0; i < kBagSize; ++i) {
+                ctx.player->player->bag.slots[i].name = sd.bag_names[i];
+                ctx.player->player->bag.slots[i].slot = static_cast<EquipSlot>(sd.bag_equip_slots[i]);
+            }
+            ctx.player->player->potion.stack   = sd.potion_stack;
+            ctx.player->player->potion.quality = static_cast<PotionQuality>(sd.potion_quality);
+        }
     }
     if (ctx.quest_state)  *ctx.quest_state = sd.quest_state;
     if (ctx.scene_flags)  *ctx.scene_flags = sd.scene_flags;
