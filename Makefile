@@ -2,7 +2,7 @@ BUILD_DIR := build
 BINARY    := $(BUILD_DIR)/mion_engine
 PYTHON    ?= python3
 
-.PHONY: all configure build run clean test stress render_stress sprite_bench gen-placeholders preview-placeholders verify-placeholders gen-placeholders-backlog preview-placeholders-backlog
+.PHONY: all configure build run clean test stress render_stress sprite_bench gen-sprites gen-env gen-all gen-placeholders preview-placeholders verify-placeholders gen-placeholders-backlog preview-placeholders-backlog
 
 all: build
 
@@ -47,6 +47,14 @@ SB_RENDER_FRAMES  ?= 300
 
 sprite_bench: build
 	./$(BUILD_DIR)/mion_sprite_bench $(SB_WIDTH) $(SB_HEIGHT) $(SB_MAX_ACTORS) $(SB_STEP_ACTORS) $(SB_FRAMES_PER_ANIM) $(SB_RENDER_FRAMES)
+
+gen-sprites:
+	$(PYTHON) tools/gen_animated_sprites.py
+
+gen-env:
+	$(PYTHON) tools/gen_environment_sprites.py
+
+gen-all: gen-env gen-sprites gen-placeholders
 
 gen-placeholders:
 	$(PYTHON) tools/gen_placeholder_textures.py

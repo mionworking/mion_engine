@@ -2,12 +2,42 @@
   "version": 1,
   "textures": [
     {
+      "path": "assets/Puny-Characters/Puny-Characters/Archer.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_orc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "ARCHER"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Elite-Skeleton.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_skeleton",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "ELITE_SKELETON"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Patrol-Guard.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_blue",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "PATROL_GUARD"
+    },
+    {
       "path": "assets/Puny-Characters/Puny-Characters/Mage-Cyan.png",
       "kind": "sprite_sheet",
       "palette": "enemy_cyan",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "MAGE-C"
     },
@@ -15,9 +45,9 @@
       "path": "assets/Puny-Characters/Puny-Characters/Mage-Purple.png",
       "kind": "sprite_sheet",
       "palette": "enemy_purple",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "MAGE-P"
     },
@@ -25,9 +55,9 @@
       "path": "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png",
       "kind": "sprite_sheet",
       "palette": "enemy_orc",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "ORC"
     },
@@ -35,9 +65,9 @@
       "path": "assets/Puny-Characters/Puny-Characters/Soldier-Blue.png",
       "kind": "sprite_sheet",
       "palette": "enemy_blue",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "SOLDIER-B"
     },
@@ -45,11 +75,41 @@
       "path": "assets/Puny-Characters/Puny-Characters/Soldier-Red.png",
       "kind": "sprite_sheet",
       "palette": "enemy_red",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "SOLDIER-R"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Ghost.png",
+      "kind": "sprite_sheet",
+      "palette": "fx_magic",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "GHOST"
+    },
+    {
+      "path": "assets/Puny-Characters/Puny-Characters/Boss-Grimjaw.png",
+      "kind": "sprite_sheet",
+      "palette": "enemy_boss",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "BOSS_GRIMJAW"
+    },
+    {
+      "path": "assets/npcs/npc_civil.png",
+      "kind": "sprite_sheet",
+      "palette": "town_npc",
+      "width": 768,
+      "height": 256,
+      "frames_x": 24,
+      "frames_y": 8,
+      "label": "NPC_CIVIL"
     },
     {
       "path": "assets/npcs/npc_elder.png",
@@ -175,9 +235,9 @@
       "path": "assets/sprites/player.png",
       "kind": "sprite_sheet",
       "palette": "default",
-      "width": 256,
+      "width": 768,
       "height": 256,
-      "frames_x": 8,
+      "frames_x": 24,
       "frames_y": 8,
       "label": "PLAYER"
     },

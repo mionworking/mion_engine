@@ -3,9 +3,9 @@
 Gerado automaticamente por `tools/audit_texture_contract.py`.
 
 - Referências no código: **23**
-- Entradas no manifesto: **23**
+- Entradas no manifesto: **29**
 - Em falta no manifesto: **0**
-- Extras no manifesto (não referenciados no código): **0**
+- Extras no manifesto (não referenciados no código): **6**
 
 - Entradas no backlog planejado: **15**
 - Backlog já referenciado no código: **0**
@@ -43,7 +43,12 @@ Gerado automaticamente por `tools/audit_texture_contract.py`.
 
 ## Extras no manifesto
 
-- Nenhum
+- `assets/Puny-Characters/Puny-Characters/Archer.png`
+- `assets/Puny-Characters/Puny-Characters/Boss-Grimjaw.png`
+- `assets/Puny-Characters/Puny-Characters/Elite-Skeleton.png`
+- `assets/Puny-Characters/Puny-Characters/Ghost.png`
+- `assets/Puny-Characters/Puny-Characters/Patrol-Guard.png`
+- `assets/npcs/npc_civil.png`
 
 ## Backlog planejado (v2)
 

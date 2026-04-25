@@ -116,7 +116,7 @@ def circle(buf: bytearray, W: int, H: int, cx: int, cy: int, r: int, c: RGBA) ->
 def make_dungeon_tileset() -> tuple[int, int, bytes]:
     W, H = 64, 32
     buf = new_buf(W, H)
-    # Floor (col 0): pedra escura com variação sutil e juntas
+    # Floor (col 0): pedra escura com variacao sutil e juntas
     for y in range(H):
         for x in range(32):
             base = 42 + ((x + y) % 2) * 5
@@ -131,6 +131,18 @@ def make_dungeon_tileset() -> tuple[int, int, bytes]:
     for y in range(0, H, 8):
         for x in range(32):
             spx(buf, W, H, x, y, (22, 18, 26, 255))
+    # Rachaduras no floor (linhas diagonais finas)
+    for x0, y0, x1, y1 in [(3, 5, 7, 9), (18, 14, 23, 18), (10, 2, 13, 6)]:
+        line(buf, W, H, x0, y0, x1, y1, (18, 14, 22, 255))
+    # Musgo nas juntas (tint verde sutil em algumas intersecoes)
+    for gx, gy in [(0, 8), (16, 0), (24, 16), (8, 24)]:
+        for dy in range(3):
+            for dx in range(3):
+                nx, ny = gx + dx, gy + dy
+                if 0 <= nx < 32 and 0 <= ny < H:
+                    i = (ny * W + nx) * 4
+                    buf[i + 1] = min(255, buf[i + 1] + 14)
+                    buf[i + 2] = max(0,   buf[i + 2] -  6)
 
     # Wall (col 1): pedra mais clara, textura de tijolo
     for y in range(H):
@@ -151,6 +163,13 @@ def make_dungeon_tileset() -> tuple[int, int, bytes]:
         for x in range(32, 64):
             spx(buf, W, H, x, y, (35, 28, 38, 255))
         offset = 8 - offset
+    # Highlight na borda superior de cada tijolo (profundidade)
+    for y in range(1, H, 8):
+        for x in range(33, 64):
+            i = (y * W + x) * 4
+            buf[i]     = min(255, buf[i]     + 10)
+            buf[i + 1] = min(255, buf[i + 1] +  8)
+            buf[i + 2] = min(255, buf[i + 2] + 10)
 
     return W, H, bytes(buf)
 
@@ -181,36 +200,50 @@ def make_town_tileset() -> tuple[int, int, bytes]:
     W, H = 64, 32
     buf = new_buf(W, H)
 
-    # Grama (col 0)
+    # Grama (col 0): variacao de verde mais rica
     for y in range(H):
         for x in range(32):
             base = 55 + ((x * 3 + y * 7) % 10) - 5
-            r = max(20, min(60, base - 10))
-            g = max(50, min(110, base + 20))
-            b = max(15, min(40, base - 15))
+            patch = ((x * 5 + y * 11) % 3)  # micro-variacao de patch
+            r = max(18, min(58, base - 12 + patch))
+            g = max(52, min(115, base + 22 + patch * 2))
+            b = max(12, min(38, base - 18))
             buf_i = (y * W + x) * 4
             buf[buf_i:buf_i+4] = (r, g, b, 255)
-    # Tufos de grama
-    for i in range(6):
-        gx = (i * 5 + 2) % 28
-        gy = (i * 7 + 3) % 28
-        spx(buf, W, H, gx, gy,     (30, 100, 28, 255))
-        spx(buf, W, H, gx+1, gy-1, (28, 95,  25, 255))
+    # Tufos de grama (mais, variados)
+    tuft_positions = [(2, 4), (9, 14), (14, 2), (20, 20), (5, 24), (26, 10),
+                      (17, 8), (28, 26), (3, 18), (22, 4), (12, 28), (7, 8)]
+    for gx, gy in tuft_positions:
+        dark = 24 + (gx * 3) % 12
+        spx(buf, W, H, gx,     gy,     (dark, 100 + dark, dark - 4, 255))
+        spx(buf, W, H, gx + 1, gy - 1, (dark - 2, 95 + dark, dark - 6, 255))
+        spx(buf, W, H, gx - 1, gy - 1, (dark + 2, 92 + dark, dark - 2, 255))
+    # Flores pequenas (3 pixels coloridos)
+    for fx, fy, fc in [(6, 6, (220, 220, 80, 255)), (22, 18, (220, 100, 100, 255)),
+                       (15, 27, (240, 240, 255, 255))]:
+        spx(buf, W, H, fx, fy, fc)
 
-    # Caminho/terra (col 1)
+    # Caminho/terra (col 1): trilhos de carroça + pedrinhas variadas
     for y in range(H):
         for x in range(32, 64):
             base = 80 + ((x * 3 + y * 5) % 12) - 6
-            r = max(60, min(110, base + 10))
-            g = max(55, min(100, base + 5))
-            b = max(40, min(80, base - 10))
+            r = max(62, min(112, base + 10))
+            g = max(56, min(102, base + 5))
+            b = max(38, min(78, base - 10))
             buf_i = (y * W + x) * 4
             buf[buf_i:buf_i+4] = (r, g, b, 255)
-    # Pedrinhas no caminho
-    for i in range(5):
-        px2 = 32 + (i * 6 + 3) % 26
-        py2 = (i * 7 + 4) % 28
-        circle(buf, W, H, px2, py2, 2, (100, 92, 70, 255))
+    # Trilhos de carroça (sulcos horizontais sutis)
+    for y in [8, 22]:
+        for x in range(33, 63):
+            i = (y * W + x) * 4
+            buf[i]     = max(0,   buf[i]     - 10)
+            buf[i + 1] = max(0,   buf[i + 1] - 8)
+            buf[i + 2] = max(0,   buf[i + 2] - 6)
+    # Pedrinhas variadas
+    stone_positions = [(35, 5, 2), (44, 18, 3), (52, 8, 2), (38, 26, 2), (58, 20, 3),
+                       (42, 12, 1), (50, 28, 2), (33, 15, 1)]
+    for px2, py2, r2 in stone_positions:
+        circle(buf, W, H, px2, py2, r2, (100 + r2 * 4, 92 + r2 * 3, 70 + r2 * 2, 255))
 
     return W, H, bytes(buf)
 
@@ -372,21 +405,17 @@ def make_building_forge() -> tuple[int, int, bytes]:
             rect_outline(buf, W, H, x0 + 1, y0 + 1, x0 + 22, y0 + 22,
                          (62, 58, 70, 255), 1)
 
-    # --- Telhado duas águas: duas metades, cada uma inclinada para o centro ---
+    # --- Telhado duas aguas: solido com ridge central e shading direcional ---
     mid = W // 2
-    # Metade esquerda: y=0 no lado esquerdo (beirada), sobe até o centro
+    fill(buf, W, H, 0, 0, W, ROOF_H, ROOF_C)
+    # Face esquerda ligeiramente mais clara (sol da esquerda)
     for y in range(ROOF_H):
-        t = y / float(ROOF_H - 1)
-        left_start = 0
-        left_end   = int(mid * t)
-        fill(buf, W, H, left_start, y, left_end, y + 1, ROOF_C)
-    # Metade direita: espelho
-    for y in range(ROOF_H):
-        t = y / float(ROOF_H - 1)
-        right_start = W - int(mid * t)
-        right_end   = W
-        fill(buf, W, H, right_start, y, right_end, y + 1, ROOF_C)
-    # Cume central (ridge)
+        for x in range(0, mid):
+            i = (y * W + x) * 4
+            buf[i]     = min(255, buf[i]     + 14)
+            buf[i + 1] = min(255, buf[i + 1] + 12)
+            buf[i + 2] = min(255, buf[i + 2] + 14)
+    # Cume central
     fill(buf, W, H, mid - 4, 0, mid + 4, ROOF_H, RIDGE_C)
     # Beiral
     fill(buf, W, H, 0, ROOF_H - 5, W, ROOF_H + 5, (38, 34, 44, 255))
@@ -520,188 +549,249 @@ def make_building_elder() -> tuple[int, int, bytes]:
 
 
 def make_fountain() -> tuple[int, int, bytes]:
+    """Fonte circular vista ligeiramente de cima — bacia de pedra com agua e jatos."""
     W, H = 200, 200
     buf = new_buf(W, H)
     cx, cy = W // 2, H // 2
-    # Bacia externa
-    circle(buf, W, H, cx, cy, 80, (70, 80, 100, 255))
-    circle(buf, W, H, cx, cy, 74, (40, 60, 90, 255))
-    # Água
-    circle(buf, W, H, cx, cy, 70, (50, 100, 160, 200))
-    # Reflexo na água
-    for dy in range(-20, 20):
-        for dx in range(-20, 20):
-            if dx*dx + dy*dy < 300:
-                ax = cx + dx + 15
-                ay = cy + dy - 10
-                if 0 <= ax < W and 0 <= ay < H:
-                    i = (ay * W + ax) * 4
-                    if buf[i+3] > 100:
-                        buf[i] = min(255, buf[i] + 30)
-                        buf[i+1] = min(255, buf[i+1] + 40)
-                        buf[i+2] = min(255, buf[i+2] + 50)
-    # Pilar central
-    circle(buf, W, H, cx, cy, 14, (90, 85, 100, 255))
-    circle(buf, W, H, cx, cy, 10, (110, 105, 120, 255))
-    # Jatos d'água
-    for angle_deg in [0, 90, 180, 270]:
+
+    STONE_RIM  = (82,  88, 108, 255)   # borda externa da bacia
+    STONE_WALL = (62,  68,  88, 255)   # parede interna
+    WATER_D    = (38,  88, 155, 220)   # agua funda
+    PILLAR_C   = (100, 105, 122, 255)
+
+    # --- Bacia: anel de pedra visto de cima ---
+    for dy in range(-82, 83):
+        for dx in range(-88, 89):
+            if (dx / 88.0)**2 + (dy / 82.0)**2 <= 1.0:
+                spx(buf, W, H, cx + dx, cy + dy, STONE_RIM)
+
+    for dy in range(-72, 73):
+        for dx in range(-78, 79):
+            if (dx / 78.0)**2 + (dy / 72.0)**2 <= 1.0:
+                spx(buf, W, H, cx + dx, cy + dy, STONE_WALL)
+
+    # --- Agua dentro da bacia ---
+    for dy in range(-62, 63):
+        for dx in range(-68, 69):
+            if (dx / 68.0)**2 + (dy / 62.0)**2 <= 1.0:
+                spx(buf, W, H, cx + dx, cy + dy, WATER_D)
+
+    # Reflexo claro (canto superior esquerdo da agua)
+    for dy in range(-35, 5):
+        for dx in range(-40, 5):
+            dist2 = (dx / 40.0)**2 + (dy / 35.0)**2
+            if dist2 <= 1.0:
+                alpha = int(70 * (1.0 - dist2))
+                i = ((cy + dy) * W + (cx + dx)) * 4
+                if 0 <= cx + dx < W and 0 <= cy + dy < H and buf[i + 3] > 100:
+                    buf[i]     = min(255, buf[i]     + alpha)
+                    buf[i + 1] = min(255, buf[i + 1] + alpha // 2)
+                    buf[i + 2] = min(255, buf[i + 2] + alpha // 3)
+
+    # Ripples (aneis de onda na agua)
+    for r_rip in [22, 38, 52]:
+        for angle_deg in range(0, 360, 3):
+            a2 = math.radians(angle_deg)
+            rx2 = int(cx + r_rip * math.cos(a2))
+            ry2 = int(cy + r_rip * 0.88 * math.sin(a2))
+            i = (ry2 * W + rx2) * 4
+            if 0 <= rx2 < W and 0 <= ry2 < H and buf[i + 3] > 100:
+                buf[i]     = min(255, buf[i]     + 18)
+                buf[i + 1] = min(255, buf[i + 1] + 22)
+                buf[i + 2] = min(255, buf[i + 2] + 35)
+
+    # --- Pilar central ---
+    circle(buf, W, H, cx, cy, 18, (68, 65, 82, 255))
+    circle(buf, W, H, cx, cy, 13, PILLAR_C)
+    circle(buf, W, H, cx, cy,  6, (120, 118, 135, 255))
+
+    # --- Jatos d'agua em 4 direcoes (arcos parabolicos) ---
+    for angle_deg in [45, 135, 225, 315]:
         a = math.radians(angle_deg)
-        for r in range(5, 28):
+        for r in range(10, 42):
+            arc = math.sin(r / 41.0 * math.pi)  # elevacao parabolica
             wx = int(cx + r * math.cos(a))
-            wy = int(cy + r * math.sin(a) - r * 0.4)
-            alpha = max(80, 220 - r * 5)
-            spx(buf, W, H, wx, wy, (160, 200, 255, alpha))
-            spx(buf, W, H, wx+1, wy, (140, 180, 240, alpha // 2))
-    # Base
-    circle(buf, W, H, cx, cy + 30, 90, (65, 70, 85, 255))
-    circle(buf, W, H, cx, cy + 30, 84, (55, 60, 75, 255))
-    rect_outline(buf, W, H, cx - 85, cy - 55, cx + 85, cy + 85, (50, 55, 70, 255), 2)
+            wy = int(cy + r * math.sin(a) - arc * 20)
+            alpha = int(210 * arc)
+            spx(buf, W, H, wx, wy, (165, 215, 255, alpha))
+            spx(buf, W, H, wx + 1, wy, (145, 195, 245, alpha // 2))
+
     return W, H, bytes(buf)
 
 # ---------------------------------------------------------------------------
-# NPC sprites (Puny Characters layout 256x256, frame 32x32)
-# Só Idle (cols 12-15) e Walk (cols 0-5) — NPCs não atacam
+# Dungeon props
 # ---------------------------------------------------------------------------
 
-FW, FH = 32, 32
-# Layout Puny Characters: 24 colunas × 8 linhas = 768×256
-NCOLS, NROWS = 24, 8
-NSW, NSH = FW * NCOLS, FH * NROWS  # 768 × 256
+def make_barrel() -> tuple[int, int, bytes]:
+    """Barril de madeira com arcos de ferro — vista frontal ligeiramente elevada."""
+    W, H = 64, 64
+    buf = new_buf(W, H)
+    cx = W // 2
 
-NPC_PALETTES: dict[str, dict[str, tuple[int,int,int,int]]] = {
-    "mira": {
-        "dress":   (180, 140, 60,  255),
-        "skin":    (220, 180, 130, 255),
-        "hair":    (80,  50,  20,  255),
-        "outline": (100, 70,  20,  255),
-        "shadow":  (40,  30,  10,  80),
-        "accent":  (240, 200, 80,  255),
-    },
-    "forge_npc": {
-        "dress":   (160, 80,  40,  255),
-        "skin":    (200, 150, 110, 255),
-        "hair":    (60,  40,  30,  255),
-        "outline": (80,  40,  20,  255),
-        "shadow":  (50,  20,  10,  80),
-        "accent":  (220, 140, 60,  255),
-    },
-    "villager": {
-        "dress":   (80,  130, 70,  255),
-        "skin":    (210, 175, 130, 255),
-        "hair":    (140, 110, 70,  255),
-        "outline": (40,  70,  30,  255),
-        "shadow":  (20,  40,  10,  80),
-        "accent":  (120, 180, 100, 255),
-    },
-    "elder": {
-        "dress":   (100, 110, 80,  255),
-        "skin":    (200, 175, 140, 255),
-        "hair":    (200, 200, 200, 255),
-        "outline": (50,  55,  35,  255),
-        "shadow":  (20,  25,  10,  80),
-        "accent":  (160, 170, 130, 255),
-    },
-}
+    WOOD_L = (148, 102, 54, 255)
+    WOOD_D = (102, 66, 28, 255)
+    HOOP   = ( 52,  38, 16, 255)
+    SHADE  = ( 68,  42, 16, 255)
 
-def _npc_draw_shadow(buf: bytearray, ox: int, oy: int, pal: dict) -> None:
-    cx, cy = ox + FW // 2, oy + FH - 3
-    for dy in range(-1, 2):
-        for dx in range(-5, 6):
-            if (dx/5)**2 + (dy/1.5)**2 <= 1.0:
-                i = ((cy+dy)*NSW + (cx+dx)) * 4
-                if 0 <= cx+dx < NSW and 0 <= cy+dy < NSH:
-                    buf[i+3] = min(255, buf[i+3] + pal["shadow"][3])
+    # Sombra eliptica embaixo
+    for dy in range(-3, 4):
+        for dx in range(-18, 19):
+            if (dx / 18.0)**2 + (dy / 3.0)**2 <= 1.0:
+                alpha = int(100 * (1.0 - (dx / 18.0)**2 - (dy / 3.0)**2))
+                spx(buf, W, H, cx + dx + 2, 56 + dy, (10, 6, 2, alpha))
 
-def _npc_draw_frame(buf: bytearray, ox: int, oy: int, pal: dict,
-                    bob: int, leg_phase: float, dir_name: str) -> None:
-    cx = ox + FW // 2
-    bot = oy + FH - 4
+    # Tampa oval no topo
+    for dy in range(-6, 7):
+        for dx in range(-18, 19):
+            if (dx / 18.0)**2 + (dy / 6.0)**2 <= 1.0:
+                c = WOOD_L if dy < 0 else SHADE
+                spx(buf, W, H, cx + dx, 13 + dy, c)
 
-    lleg_y = bob + int(2 * math.sin(leg_phase))
-    # Vestido/roupa
-    for dy in range(8):
-        width = 6 + dy // 2
-        y = bot - dy + lleg_y
-        fill(buf, NSW, NSH, cx - width, y, cx + width, y + 1, pal["dress"])
+    # Corpo: lados levemente curvos (mais largo no meio)
+    for y in range(14, 52):
+        t = abs(2.0 * (y - 33) / 38.0)
+        w_body = int(18 + 2 * max(0.0, 1.0 - t * t))
+        for x in range(cx - w_body, cx + w_body + 1):
+            spx(buf, W, H, x, y, WOOD_D)
 
-    # Torso
-    fill(buf, NSW, NSH, cx - 4, oy + 10 + bob, cx + 4, oy + 18 + bob, pal["dress"])
-    # Braços
-    arm_swing = math.sin(leg_phase) * 0.3
-    la = int(3 * arm_swing)
-    fill(buf, NSW, NSH, cx - 7, oy + 11 + bob + la, cx - 4, oy + 17 + bob + la, pal["skin"])
-    fill(buf, NSW, NSH, cx + 4, oy + 11 + bob - la, cx + 7, oy + 17 + bob - la, pal["skin"])
-    # Cabeça
-    for dy in range(-4, 5):
-        for dx in range(-4, 5):
-            if dx*dx + dy*dy <= 16:
-                spx(buf, NSW, NSH, cx+dx, oy+6+bob+dy, pal["skin"])
-    # Cabelo
-    for dy in range(-4, 0):
-        for dx in range(-4, 5):
-            if dx*dx + dy*dy <= 16:
-                spx(buf, NSW, NSH, cx+dx, oy+6+bob+dy, pal["hair"])
-    # Detalhe accent
-    fill(buf, NSW, NSH, cx - 2, oy + 11 + bob, cx + 2, oy + 14 + bob, pal["accent"])
+    # Estaves verticais (linhas de madeira)
+    for sx in [-12, -6, 0, 6, 12]:
+        for y in range(14, 52):
+            if abs(sx) <= 18:
+                spx(buf, W, H, cx + sx, y, SHADE)
 
-def render_npc_sheet(pal: dict) -> bytes:
-    buf = new_buf(NSW, NSH)
-    DIR_ROWS = {"s": 0, "n": 2, "e": 3}
-    EXTRA = {"s": [1], "n": [5], "e": [4, 6, 7]}
+    # Arcos horizontais
+    for hy in [16, 32, 50]:
+        t = abs(2.0 * (hy - 33) / 38.0)
+        w_h = int(18 + 2 * max(0.0, 1.0 - t * t)) + 1
+        for x in range(cx - w_h, cx + w_h + 1):
+            spx(buf, W, H, x, hy,     HOOP)
+            spx(buf, W, H, x, hy + 1, HOOP)
 
-    for dir_name, base_row in DIR_ROWS.items():
-        for row in [base_row] + EXTRA[dir_name]:
-            oy = row * FH
+    # Bung (rolha) no lado direito
+    circle(buf, W, H, cx + 13, 33, 3, (66, 44, 18, 255))
+    circle(buf, W, H, cx + 13, 33, 2, (44, 28, 10, 255))
 
-            # Walk cols 0-5
-            for f in range(6):
-                ox = f * FW
-                t = f / 6.0
-                bob = int(1.5 * math.sin(t * math.pi * 2))
-                leg_phase = t * math.pi * 2
-                _npc_draw_shadow(buf, ox, oy, pal)
-                _npc_draw_frame(buf, ox, oy, pal, bob, leg_phase, dir_name)
+    # Highlight na tampa (reflexo de luz)
+    for dx in range(-8, 5):
+        spx(buf, W, H, cx + dx - 3, 10, (185, 140, 80, 180))
 
-            # Idle cols 12-15
-            for f in range(4):
-                ox = (f + 12) * FW
-                bob = int(1 * math.sin(f * math.pi / 2))
-                _npc_draw_shadow(buf, ox, oy, pal)
-                _npc_draw_frame(buf, ox, oy, pal, bob, 0.0, dir_name)
+    return W, H, bytes(buf)
 
-            # Attack cols 6-11 = igual idle (NPCs não atacam, mas layout precisa existir)
-            for f in range(6):
-                ox = (f + 6) * FW
-                _npc_draw_shadow(buf, ox, oy, pal)
-                _npc_draw_frame(buf, ox, oy, pal, 0, 0.0, dir_name)
 
-            # Hurt col 19 = flash branco
-            ox_h = 19 * FW
-            _npc_draw_shadow(buf, ox_h, oy, pal)
-            _npc_draw_frame(buf, ox_h, oy, pal, 0, 0.0, dir_name)
-            for py in range(oy, oy + FH):
-                for px in range(ox_h, ox_h + FW):
-                    i = (py * NSW + px) * 4
-                    if buf[i+3] > 80:
-                        buf[i:i+4] = (255, 255, 255, 255)
+def make_altar() -> tuple[int, int, bytes]:
+    """Altar de pedra com velas acesas nos cantos e runa central."""
+    W, H = 80, 80
+    buf = new_buf(W, H)
 
-            # Death cols 20-23
-            for f in range(4):
-                ox = (f + 20) * FW
-                t = f / 3.0
-                _npc_draw_shadow(buf, ox, oy, pal)
-                alpha = max(0, int(255 * (1.0 - t * 0.7)))
-                cx2 = ox + FW // 2
-                cy2 = oy + FH - 8
-                for dy in range(-8, 9):
-                    for dx in range(-4, 5):
-                        angle = t * math.pi / 2
-                        rx = int(cx2 + dx * math.cos(angle) - dy * math.sin(angle))
-                        ry = int(cy2 + dx * math.sin(angle) + dy * math.cos(angle))
-                        c = (pal["dress"][0], pal["dress"][1], pal["dress"][2], alpha)
-                        spx(buf, NSW, NSH, rx, ry, c)
+    STONE_D = ( 60,  55,  72, 255)
+    STONE_L = ( 88,  82, 102, 255)
+    STONE_T = (100,  94, 116, 255)  # superficie do topo
+    TRIM    = ( 44,  38,  58, 255)
+    CANDLE  = (210, 195, 140, 255)
+    FLAME_Y = (255, 200,  40, 240)
+    FLAME_O = (255, 120,  20, 160)
 
-    return bytes(buf)
+    # Base/plinto (bloco mais largo e baixo)
+    fill(buf, W, H, 6, 55, 74, 76, STONE_D)
+    fill(buf, W, H, 8, 53, 72, 57, STONE_L)  # face frontal do plinto
+    rect_outline(buf, W, H, 6, 53, 74, 76, TRIM, 2)
+
+    # Mesa/altar (bloco central)
+    fill(buf, W, H, 10, 30, 70, 55, STONE_D)
+    fill(buf, W, H, 12, 28, 68, 32, STONE_T)  # superficie do topo
+    rect_outline(buf, W, H, 10, 28, 70, 55, TRIM, 2)
+
+    # Runa no topo — circulo + cruz
+    rx, ry = W // 2, 36
+    circle(buf, W, H, rx, ry, 8, (80, 50, 120, 160))
+    circle(buf, W, H, rx, ry, 5, (140, 90, 200, 200))
+    line(buf, W, H, rx, ry - 7, rx, ry + 7, (180, 120, 255, 220))
+    line(buf, W, H, rx - 7, ry, rx + 7, ry, (180, 120, 255, 220))
+    circle(buf, W, H, rx, ry, 2, (220, 180, 255, 255))
+
+    # Velas nos 4 cantos do topo
+    for cx2, cy2 in [(14, 18), (66, 18), (14, 52), (66, 52)]:
+        # Corpo da vela
+        fill(buf, W, H, cx2 - 2, cy2 - 10, cx2 + 3, cy2, CANDLE)
+        # Pavio
+        spx(buf, W, H, cx2, cy2 - 11, (40, 30, 20, 255))
+        # Chama
+        circle(buf, W, H, cx2, cy2 - 13, 3, FLAME_O)
+        circle(buf, W, H, cx2, cy2 - 14, 2, FLAME_Y)
+        spx(buf, W, H, cx2, cy2 - 16, (255, 240, 160, 200))
+        # Glow laranja ao redor da chama
+        for gdy in range(-5, 4):
+            for gdx in range(-4, 5):
+                dist2 = gdx * gdx + gdy * gdy
+                if 4 < dist2 <= 20:
+                    alpha = int(60 * (1.0 - dist2 / 20.0))
+                    nx2, ny2 = cx2 + gdx, cy2 - 13 + gdy
+                    if 0 <= nx2 < W and 0 <= ny2 < H:
+                        i = (ny2 * W + nx2) * 4
+                        buf[i]     = min(255, buf[i]     + alpha)
+                        buf[i + 1] = min(255, buf[i + 1] + alpha // 3)
+
+    return W, H, bytes(buf)
+
+
+def make_pillar() -> tuple[int, int, bytes]:
+    """Pilar de pedra de dungeon com capital, fuste e base."""
+    W, H = 96, 128
+    buf = new_buf(W, H)
+    cx = W // 2
+
+    STONE_D = ( 58,  54,  68, 255)
+    STONE_M = ( 80,  76,  94, 255)
+    STONE_L = (104, 100, 120, 255)
+    TRIM    = ( 38,  34,  50, 255)
+    CRACK   = ( 32,  28,  42, 255)
+
+    def _stone_fill(x0: int, y0: int, x1: int, y1: int, base: RGBA) -> None:
+        for y in range(max(0, y0), min(H, y1)):
+            for x in range(max(0, x0), min(W, x1)):
+                noise = ((x * 7 + y * 13) % 8) - 4
+                v = noise * 2
+                i = (y * W + x) * 4
+                buf[i]     = max(0, min(255, base[0] + v))
+                buf[i + 1] = max(0, min(255, base[1] + v))
+                buf[i + 2] = max(0, min(255, base[2] + v))
+                buf[i + 3] = 255
+
+    # Base (mais larga)
+    _stone_fill(cx - 22, 108, cx + 22, 126, STONE_M)
+    fill(buf, W, H, cx - 22, 106, cx + 22, 110, STONE_L)  # face superior da base
+    rect_outline(buf, W, H, cx - 22, 106, cx + 22, 126, TRIM, 2)
+
+    # Fuste (coluna principal)
+    _stone_fill(cx - 14, 24, cx + 14, 108, STONE_D)
+    # Highlight vertical (luz da esquerda)
+    for y in range(24, 108):
+        spx(buf, W, H, cx - 12, y, STONE_M)
+        spx(buf, W, H, cx - 11, y, STONE_L)
+    rect_outline(buf, W, H, cx - 14, 24, cx + 14, 108, TRIM, 1)
+
+    # Capital (mais largo no topo)
+    _stone_fill(cx - 20, 10, cx + 20, 28, STONE_M)
+    fill(buf, W, H, cx - 20, 8, cx + 20, 12, STONE_L)  # face superior do capital
+    rect_outline(buf, W, H, cx - 20, 8, cx + 20, 28, TRIM, 2)
+    # Detalhe esculpido no capital
+    fill(buf, W, H, cx - 18, 16, cx + 18, 18, TRIM)
+
+    # Rachadura diagonal no fuste
+    line(buf, W, H, cx + 4, 40, cx + 8, 60, CRACK)
+    line(buf, W, H, cx + 8, 60, cx + 5, 80, CRACK)
+
+    # Sombra ao pe do pilar
+    for dy in range(4):
+        for dx in range(-20, 21):
+            alpha = int(80 * (1.0 - dy / 4.0) * (1.0 - abs(dx) / 20.0))
+            if 0 <= cx + dx < W and 126 + dy < H:
+                i = ((126 + dy) * W + cx + dx) * 4
+                buf[i + 3] = max(buf[i + 3], alpha)
+
+    return W, H, bytes(buf)
+
 
 # ---------------------------------------------------------------------------
 # Specs
@@ -710,7 +800,7 @@ def render_npc_sheet(pal: dict) -> bytes:
 ASSETS: list[dict] = [
     # Tilesets
     {"path": "assets/tiles/dungeon_tileset.png", "fn": make_dungeon_tileset},
-    {"path": "assets/tiles/corridor_floor.png", "fn": make_corridor_floor},
+    {"path": "assets/tiles/corridor_floor.png",  "fn": make_corridor_floor},
     {"path": "assets/tiles/town_tileset.png",    "fn": make_town_tileset},
     # Portas
     {"path": "assets/props/door_closed.png", "fn": make_door_closed},
@@ -719,12 +809,11 @@ ASSETS: list[dict] = [
     {"path": "assets/props/building_tavern.png", "fn": make_building_tavern},
     {"path": "assets/props/building_forge.png",  "fn": make_building_forge},
     {"path": "assets/props/building_elder.png",  "fn": make_building_elder},
-    {"path": "assets/props/fountain.png",         "fn": make_fountain},
-    # NPC sprites
-    {"path": "assets/npcs/npc_mira.png",     "fn": lambda: (NSW, NSH, render_npc_sheet(NPC_PALETTES["mira"]))},
-    {"path": "assets/npcs/npc_forge.png",    "fn": lambda: (NSW, NSH, render_npc_sheet(NPC_PALETTES["forge_npc"]))},
-    {"path": "assets/npcs/npc_villager.png", "fn": lambda: (NSW, NSH, render_npc_sheet(NPC_PALETTES["villager"]))},
-    {"path": "assets/npcs/npc_elder.png",    "fn": lambda: (NSW, NSH, render_npc_sheet(NPC_PALETTES["elder"]))},
+    {"path": "assets/props/fountain.png",        "fn": make_fountain},
+    # Props de dungeon
+    {"path": "assets/props/barrel.png",          "fn": make_barrel},
+    {"path": "assets/props/altar.png",           "fn": make_altar},
+    {"path": "assets/props/dungeon_pillar.png",  "fn": make_pillar},
 ]
 
 def main() -> int:
