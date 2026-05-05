@@ -294,7 +294,7 @@ PALETTES: dict[str, dict[str, RGBA]] = {
         "head":    (220, 245, 255, 200),
         "weapon":  (80,  190, 255, 220),  # pulso ectoplasmatico
         "accent":  (120, 200, 255, 220),  # glow frio
-        "hurt":    (255, 255, 255, 240),
+        "hurt":    (80,  240, 255, 255),  # flash ciano eletrico — mais visivel no corpo translucido
         "shadow":  (80,  100, 140,  35),
         "style":   "ghost",
         "light_intensity": 18,
@@ -518,8 +518,8 @@ def _body_south(buf, W, H, ox, oy, fw, fh, pal, bob, leg_phase, arm_swing):
         # Tunica simples, sem armadura, cabeca redonda
         lleg_y = bob + int(3 * math.sin(leg_phase))
         rleg_y = bob + int(3 * math.sin(leg_phase + math.pi))
-        fill(buf, W, H, cx - 3, bot - 8 + lleg_y, cx - 1, bot + lleg_y, pal["body"])
-        fill(buf, W, H, cx + 1, bot - 8 + rleg_y, cx + 3, bot + rleg_y, pal["body"])
+        fill(buf, W, H, cx - 3, bot - 8 + lleg_y, cx - 1, bot + lleg_y, pal["outline"])
+        fill(buf, W, H, cx + 1, bot - 8 + rleg_y, cx + 3, bot + rleg_y, pal["outline"])
         fill(buf, W, H, cx - 4, oy + 10 + bob, cx + 4, oy + 18 + bob, pal["body"])
         fill(buf, W, H, cx - 5, oy + 13 + bob, cx + 5, oy + 18 + bob, pal["body"])
         line(buf, W, H, cx - 4, oy + 16 + bob, cx + 4, oy + 16 + bob, pal["accent"])
@@ -665,8 +665,8 @@ def _body_north(buf, W, H, ox, oy, fw, fh, pal, bob, leg_phase, arm_swing):
     elif style == "civil":
         lleg_y = bob + int(3 * math.sin(leg_phase))
         rleg_y = bob + int(3 * math.sin(leg_phase + math.pi))
-        fill(buf, W, H, cx - 3, bot - 8 + lleg_y, cx - 1, bot + lleg_y, pal["body"])
-        fill(buf, W, H, cx + 1, bot - 8 + rleg_y, cx + 3, bot + rleg_y, pal["body"])
+        fill(buf, W, H, cx - 3, bot - 8 + lleg_y, cx - 1, bot + lleg_y, pal["outline"])
+        fill(buf, W, H, cx + 1, bot - 8 + rleg_y, cx + 3, bot + rleg_y, pal["outline"])
         fill(buf, W, H, cx - 4, oy + 10 + bob, cx + 4, oy + 18 + bob, pal["body"])
         fill(buf, W, H, cx - 5, oy + 13 + bob, cx + 5, oy + 18 + bob, pal["body"])
         line(buf, W, H, cx - 4, oy + 16 + bob, cx + 4, oy + 16 + bob, pal["accent"])

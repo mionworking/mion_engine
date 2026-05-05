@@ -606,7 +606,7 @@ def make_fountain() -> tuple[int, int, bytes]:
     circle(buf, W, H, cx, cy,  6, (120, 118, 135, 255))
 
     # --- Jatos d'agua em 4 direcoes (arcos parabolicos) ---
-    for angle_deg in [45, 135, 225, 315]:
+    for angle_deg in [0, 90, 180, 270]:
         a = math.radians(angle_deg)
         for r in range(10, 42):
             arc = math.sin(r / 41.0 * math.pi)  # elevacao parabolica

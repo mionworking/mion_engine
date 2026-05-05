@@ -118,28 +118,26 @@ explícito — não executar antes do gatilho.
 
 ---
 
-## Sprint atual — Sprint 5: Actor split (`PlayerData` / `EnemyAIData`)
+## Sprint atual — Sprint K1: Karma foundation
 
-> **Modelo:** Opus 4.6 — maior refactor da engine, decisões arquiteturais reais (quais campos vão onde, impacto em save/combate/IA/render). Use Opus para o plano; Sonnet pode executar passos mecânicos aprovados.
+> **Modelo:** Opus 4.7 — decisões de design (substituição de XP, focus mode, HUD, save v8).
 
-**Objetivo:** Quebrar `Actor` monolítico em base pequena (campos comuns a
-todo personagem) + sub-structs opcionais para responsabilidades específicas.
+**Objetivo:** Karma existe como recurso, substitui XP como fonte de level.
+Gameplay atual continua funcionando; karma é aditivo, não destrutivo.
 
-**Por quê:** `Actor` hoje carrega campos de player, inimigo, boss, patrulha,
-equipamento, talentos — tudo junto. Cada inimigo aloca memória para coisas
-que nunca usa; player carrega campos de IA que nunca usa. Vai destravar
-NPCs com diálogo, companheiros, bosses com fases, sem inchar mais o struct.
+**Escopo:** ver `mion_engine_docs/01_implementation_plan.md §Sprint K1` para
+detalhe completo (arquivos lidos/escritos, sub-sprints K1.1–K1.6, DONE criteria).
 
-**Escopo inicial (detalhar no plano):**
-- Extrair `PlayerData` (spell_book, talents, equipment, bag, potion, progression, stamina, mana).
-- Extrair `EnemyAIData` (patrol_waypoints, boss_phase, ranged_*, aggro_range).
-- `Actor` base fica com: transform, collision, health, combat state, animação, team, movimento.
-- Abordagem incremental: `std::optional<PlayerData>` / `std::optional<EnemyAIData>` dentro de `Actor` — uma extração por vez, cada commit compila e passa testes.
-- Save v7 → v8: migração cuida da nova estrutura.
+Resumo dos sub-sprints:
+- K1.1 `KarmaData` component (`karma_add`, `karma_spend`, `karma_refund`)
+- K1.2 Karma drop na morte de inimigo (`enemy_death_controller.hpp` + `enemies.ini`)
+- K1.3 Level por karma total (`progression.hpp` + `data/progression.ini`)
+- K1.4 Attribute focus mode (`attribute_levelup_controller.hpp`)
+- K1.5 HUD mostra karma (`dungeon_hud.hpp`)
+- K1.6 Save migration v7 → v8
 
-**Risco:** alto. Maior refactor possível na engine. Toca combate, IA, render,
-save, colisão. Por isso requer Opus para o plano.
-**Estimativa:** 2-3 sessões concentradas.
+**Risco:** médio. Toca progressão, save, HUD, drop system. XP coexiste até K7.
+**Estimativa:** 1 sessão concentrada.
 
 ---
 
@@ -172,6 +170,30 @@ cutscene Z"). Sem caso real, construir event bus viola a regra #7
 **O que será:** `DeathEvent` emitido por `EnemyDeathController`; sistemas
 (`NarrativeSystem`, `QuestSystem`, etc.) se registram como subscribers.
 Adicionar gatilho novo = novo subscriber, sem tocar o controller.
+
+---
+
+# Design de longo prazo (`mion_engine_docs/`)
+
+Pacote de design do **Ato 1** (sistema de karma + narrativa + zonas + diálogos).
+Referência consultada **sob demanda**, não lida proativamente.
+
+- **Índice e roadmap macro:** `mion_engine_docs/00_master.md` — começa por aqui.
+- **Detalhe da sprint atual:** `mion_engine_docs/01_implementation_plan.md §<sprint>`.
+- **Outros docs** (`02_skill_tree`, `03_zones`, `04_dialogues`, `karma_system_design`,
+  `ato1_historia`): abrir só quando a sprint corrente pedir.
+
+**Regras de uso:**
+- Só ler o documento da sprint atual. Nunca ler proativamente fora dela
+  (zonas C5 enquanto trabalha em K1 = ruído).
+- Em conflito com `CLAUDE.md`, **`CLAUDE.md` vence**.
+- Em conflito entre código e doc do pacote, **código vence** (regra geral).
+- Quando uma sprint do pacote vira "Sprint atual" do `CLAUDE.md`, copiar só
+  cabeçalho (goal/escopo/risco) e **linkar** o detalhe — não duplicar.
+- Atualizar `00_master.md` progress tracker no fim de cada sprint.
+
+Exceção explícita à regra #6 (não criar `.md` sem pedido): este pacote
+existe por decisão do usuário e está formalizado aqui.
 
 ---
 
