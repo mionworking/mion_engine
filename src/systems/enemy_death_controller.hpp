@@ -5,6 +5,7 @@
 #include <random>
 #include <vector>
 
+#include "../components/karma_data.hpp"
 #include "../core/audio.hpp"
 #include "../core/dungeon_dialogue_id.hpp"
 #include "../core/quest_state.hpp"
@@ -25,6 +26,7 @@ struct DeathResult {
     bool                             boss_defeated   = false;
     bool                             quest_completed = false; // DefeatGrimjaw passou para Completed
     int                              xp_gained       = 0;    // total XP ganho no frame (para debug_log na cena)
+    int64_t                          karma_gained    = 0;    // total karma ganho no frame
 };
 
 // Processa todos os atores que morreram neste frame (was_alive && !is_alive).
@@ -60,6 +62,11 @@ inline DeathResult process_deaths(const std::vector<Actor*>& actors,
                 dungeon_rules::xp_per_enemy_kill(room_index));
             player.player->talents.pending_points += gained;
             result.xp_gained += gained;
+
+            if (def.karma_drop > 0 && player.player) {
+                karma_add(player.player->karma, def.karma_drop);
+                result.karma_gained += def.karma_drop;
+            }
 
             if (run_stats) {
                 run_stats->enemies_killed++;

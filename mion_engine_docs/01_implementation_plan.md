@@ -93,6 +93,13 @@ Existing gameplay continues working; karma is additive, not destructive.
 
 ### K1.1 — KarmaData component
 
+> **Status (2026-05-04): done.**
+> - Decisões: `int64_t` (não `int`); struct vive em `PlayerData` junto de `mana`/`stamina`.
+> - Funções livres no namespace `mion`: `karma_add`, `karma_spend`, `karma_refund` (rejeitam ≤0).
+> - Não persiste no save até K1.6 — campo existe em memória, reseta em load (esperado).
+> - 7 testes em `tests/components/test_karma_data.cpp`.
+> - Sem deviations do plano original.
+
 Create `src/components/karma_data.hpp`:
 
 ```cpp
@@ -155,6 +162,16 @@ component. Add `KarmaData karma;` field to `PlayerData`.
 
 ### K1.2 — Karma drop on enemy death
 
+> **Status (2026-05-04): done.**
+> - `EnemyDef` ganhou `int64_t karma_drop = 0;` (após `gold_drop_max`).
+> - `DeathResult` ganhou `int64_t karma_gained = 0;` — caller pode logar.
+> - Defaults compilados: skeleton=8, orc=20, ghost=6, archer=10, patrol_guard=15, elite_skeleton=40, boss_grimjaw=300.
+> - Mesmos valores espelhados em `data/enemies.ini` (override sem recompilar).
+> - INI loader rejeita `karma_drop < 0` (clampa em 0).
+> - 4 testes em `tests/systems/test_enemy_death_karma.cpp`.
+> - XP **não foi removido** — coexiste com karma até K7 (intencional, segue plano).
+> - Sem deviations do plano original.
+
 Modify `src/systems/enemy_death_controller.hpp`:
 
 **VERIFY:** the function that handles enemy death. Per CLAUDE.md it's
@@ -190,6 +207,16 @@ Add `karma_drop = N` for each enemy type. Provisional values:
 - Killing in sequence respects `karma_add` invariants
 
 ### K1.3 — Level by karma total
+
+> **Status (2026-05-04): done.**
+> - Função pura: `karma_level_for(total, thresholds)` em `progression.hpp`. Helper `karma_level(total)` usa `g_progression_config.karma_thresholds`.
+> - 20 níveis (não 30 como sugeria o plano original) — expansível por INI sem recompilar.
+> - `std::vector<int64_t> karma_thresholds` adicionado a `ProgressionConfig` (não criou tipo separado tipo `KarmaConfig`).
+> - `kDefaultProgressionConfig` deixou de ser `constexpr` (vector tem heap) — mudança trivial, build limpo.
+> - INI `[karma_levels] level_1=...level_20` em `data/progression.ini`. Loader sobrescreve elemento a elemento, preservando defaults pra keys ausentes.
+> - **Não tocou** `add_xp` nem `progression.level` — XP/karma coexistem até K7 (intencional).
+> - 8 testes em `tests/components/test_karma_level.cpp` (zero, abaixo, exato, entre, max, overshoot, vetor vazio, negativo).
+> - Deviation registrada: 20 níveis em vez de 30 (curva conservadora pra Ato 1; expansível).
 
 Modify `src/components/progression.hpp` (do not remove XP-based level
 yet — keep both for migration):

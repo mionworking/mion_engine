@@ -2,6 +2,7 @@
 #include "../components/attributes.hpp"
 #include "../components/equipment.hpp"
 #include "../components/item_bag.hpp"
+#include "../components/karma_data.hpp"
 #include "../components/mana.hpp"
 #include "../components/potion_quickslot.hpp"
 #include "../components/progression.hpp"
@@ -24,6 +25,7 @@ struct PlayerData {
     AttributesState  attributes;  // cinco atributos base
     StaminaState     stamina;   // pool de stamina
     ManaState        mana;      // pool de mana
+    KarmaData        karma;     // karma total (lifetime) + available (gastável)
     int              gold = 0;
 
     // Dash / roll

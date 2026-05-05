@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cctype>
+#include <cstdint>
 #include <string>
 
 #include "../components/collision.hpp"
@@ -57,6 +58,7 @@ struct EnemyDef {
     int          dir_row;
     int          gold_drop_min = 1;
     int          gold_drop_max = 4;
+    int64_t      karma_drop    = 0;   // karma dado ao player quando este inimigo morre
     AiBehavior   ai_behavior           = AiBehavior::Melee;
     float        ranged_fire_rate      = 1.5f;
     float        ranged_keep_dist      = 200.0f;
@@ -87,37 +89,37 @@ inline const EnemyDef& get_enemy_def(EnemyType type) {
           {16.0f, 16.0f}, {14.0f, 14.0f}, {20.0f, 12.0f, 22.0f},
           0.10f, 0.15f, 0.25f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Red.png", 2.0f, 8.0f, 0,
-          1, 3, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
+          1, 3, 8, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Orc, 120, 55.0f, 300.0f, 50.0f, 35.0f, 18, 0.68f,
           {20.0f, 18.0f}, {18.0f, 16.0f}, {26.0f, 14.0f, 28.0f},
           0.15f, 0.20f, 0.35f,
           "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png", 2.0f, 8.0f, 0,
-          3, 6, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
+          3, 6, 20, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Ghost, 35, 130.0f, 500.0f, 40.0f, 25.0f, 5, 0.80f,
           {14.0f, 14.0f}, {12.0f, 12.0f}, {18.0f, 10.0f, 20.0f},
           0.08f, 0.10f, 0.20f,
           "assets/Puny-Characters/Puny-Characters/Mage-Cyan.png", 2.0f, 8.0f, 0,
-          2, 4, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
+          2, 4, 6, AiBehavior::Melee, 1.5f, 200.0f, 8, false, false },
         { EnemyType::Archer, 40, 70.0f, 450.0f, 48.0f, 34.0f, 8, 0.75f,
           {14.0f, 14.0f}, {12.0f, 12.0f}, {18.0f, 10.0f, 20.0f},
           0.10f, 0.12f, 0.22f,
           "assets/Puny-Characters/Puny-Characters/Mage-Purple.png", 2.0f, 8.0f, 0,
-          2, 5, AiBehavior::Ranged, 1.5f, 200.0f, 10, false, false },
+          2, 5, 10, AiBehavior::Ranged, 1.5f, 200.0f, 10, false, false },
         { EnemyType::PatrolGuard, 80, 65.0f, 280.0f, 50.0f, 32.0f, 12, 0.70f,
           {18.0f, 18.0f}, {16.0f, 16.0f}, {22.0f, 12.0f, 24.0f},
           0.12f, 0.18f, 0.30f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Blue.png", 2.0f, 8.0f, 0,
-          2, 6, AiBehavior::Patrol, 0.0f, 0.0f, 0, false, false },
+          2, 6, 15, AiBehavior::Patrol, 0.0f, 0.0f, 0, false, false },
         { EnemyType::EliteSkeleton, 120, 96.0f, 420.0f, 45.0f, 30.0f, 12, 0.72f,
           {16.0f, 16.0f}, {14.0f, 14.0f}, {20.0f, 12.0f, 22.0f},
           0.10f, 0.15f, 0.25f,
           "assets/Puny-Characters/Puny-Characters/Soldier-Red.png", 2.4f, 8.0f, 0,
-          5, 10, AiBehavior::Elite, 0.0f, 0.0f, 0, true, false },
+          5, 10, 40, AiBehavior::Elite, 0.0f, 0.0f, 0, true, false },
         { EnemyType::BossGrimjaw, 320, 70.0f, 600.0f, 52.0f, 36.0f, 22, 0.65f,
           {22.0f, 20.0f}, {20.0f, 18.0f}, {28.0f, 14.0f, 30.0f},
           0.15f, 0.20f, 0.35f,
           "assets/Puny-Characters/Puny-Characters/Orc-Grunt.png", 2.8f, 8.0f, 0,
-          25, 35, AiBehavior::BossPhased, 0.0f, 0.0f, 0, false, true },
+          25, 35, 300, AiBehavior::BossPhased, 0.0f, 0.0f, 0, false, true },
     };
     const int i = static_cast<int>(type);
     if (i < 0 || i >= kEnemyTypeCount)
@@ -152,6 +154,9 @@ inline void apply_enemy_ini_section(const IniData& d, const std::string& sec, En
     def.gold_drop_max = d.get_int(sec, "gold_drop_max", def.gold_drop_max);
     if (def.gold_drop_max < def.gold_drop_min)
         def.gold_drop_max = def.gold_drop_min;
+    def.karma_drop    = d.get_int(sec, "karma_drop", static_cast<int>(def.karma_drop));
+    if (def.karma_drop < 0)
+        def.karma_drop = 0;
 
     std::string ab = d.get_string(sec, "ai_behavior", "");
     if (!ab.empty())

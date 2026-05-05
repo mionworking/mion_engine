@@ -1,9 +1,39 @@
 #pragma once
 #include <cmath>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 #include "../core/ini_loader.hpp"
 
 namespace mion {
+
+// Karma level thresholds — defaults compilados; override por data/progression.ini § [karma_levels].
+// Ordem: thresholds[0] = karma mínimo pra level 1, [1] pra level 2, ...
+inline std::vector<int64_t> default_karma_thresholds() {
+    return {
+        0,        // L1
+        100,      // L2
+        250,      // L3
+        500,      // L4
+        1000,     // L5
+        2000,     // L6
+        4000,     // L7
+        7000,     // L8
+        11000,    // L9
+        16000,    // L10
+        22000,    // L11
+        30000,    // L12
+        40000,    // L13
+        55000,    // L14
+        75000,    // L15
+        100000,   // L16
+        130000,   // L17
+        170000,   // L18
+        220000,   // L19
+        290000,   // L20
+    };
+}
 
 // XP curve and level-up bonuses (data/progression.ini).
 struct ProgressionConfig {
@@ -13,9 +43,10 @@ struct ProgressionConfig {
     int   hp_bonus           = 15;
     float speed_bonus        = 18.0f;
     float spell_mult_bonus   = 0.08f;
+    std::vector<int64_t> karma_thresholds = default_karma_thresholds();
 };
 
-inline constexpr ProgressionConfig kDefaultProgressionConfig{};
+inline const ProgressionConfig kDefaultProgressionConfig{};
 
 // Builds a ProgressionConfig from INI overrides applied on top of `base`.
 // Pure factory — does not touch any global. Missing INI keys keep the base value.
@@ -29,6 +60,13 @@ inline ProgressionConfig make_progression_config_from_ini(
     cfg.hp_bonus        = d.get_int("level_up",  "hp_bonus",         cfg.hp_bonus);
     cfg.speed_bonus     = d.get_float("level_up","speed_bonus",      cfg.speed_bonus);
     cfg.spell_mult_bonus= d.get_float("level_up","spell_mult_bonus", cfg.spell_mult_bonus);
+
+    // [karma_levels] level_1, level_2, ... — sobrescreve elemento a elemento, preservando defaults pra keys ausentes.
+    for (size_t i = 0; i < cfg.karma_thresholds.size(); ++i) {
+        const std::string key = "level_" + std::to_string(i + 1);
+        const int default_val = static_cast<int>(cfg.karma_thresholds[i]);
+        cfg.karma_thresholds[i] = d.get_int("karma_levels", key, default_val);
+    }
     return cfg;
 }
 
@@ -43,6 +81,25 @@ inline void reset_progression_config_defaults() {
 inline int progression_xp_threshold_for_level(int level) {
     return g_progression_config.xp_base
          + (level - 1) * g_progression_config.xp_level_scale;
+}
+
+// Função pura: retorna o último level cujo threshold <= karma_total.
+// Mínimo 1 (mesmo com vetor vazio ou karma negativo). Clampa no máximo definido.
+inline int karma_level_for(int64_t karma_total,
+                           const std::vector<int64_t>& thresholds) {
+    int lvl = 1;
+    for (size_t i = 0; i < thresholds.size(); ++i) {
+        if (karma_total >= thresholds[i])
+            lvl = static_cast<int>(i) + 1;
+        else
+            break;
+    }
+    return lvl;
+}
+
+// Helper que usa a config global (chamável de qualquer sistema).
+inline int karma_level(int64_t karma_total) {
+    return karma_level_for(karma_total, g_progression_config.karma_thresholds);
 }
 
 struct ProgressionState {
