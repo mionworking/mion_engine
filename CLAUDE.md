@@ -118,26 +118,31 @@ explícito — não executar antes do gatilho.
 
 ---
 
-## Sprint atual — Sprint K1: Karma foundation
+## Sprint atual — Sprint C1: São Chico blockout
 
-> **Modelo:** Opus 4.7 — decisões de design (substituição de XP, focus mode, HUD, save v8).
+> **Modelo:** Sonnet 4.6 — construção de conteúdo (zonas, transitions, tilemaps procedurais), sem decisões arquiteturais novas.
 
-**Objetivo:** Karma existe como recurso, substitui XP como fonte de level.
-Gameplay atual continua funcionando; karma é aditivo, não destrutivo.
+**Objetivo:** 8 zonas do Ato 1 (São Chico) plugadas no `WorldMap` com
+transitions funcionais. Zonas vazias — sem inimigos, NPCs ou conteúdo
+narrativo ainda — mas navegáveis ponta-a-ponta. Karma drop existente
+de K1 será exercitado em ambiente real.
 
-**Escopo:** ver `mion_engine_docs/01_implementation_plan.md §Sprint K1` para
-detalhe completo (arquivos lidos/escritos, sub-sprints K1.1–K1.6, DONE criteria).
+**Escopo:** ver `mion_engine_docs/01_implementation_plan.md §Sprint C1`
+para detalhe completo (arquivos lidos/escritos, sub-sprints C1.1–C1.3,
+DONE criteria).
 
 Resumo dos sub-sprints:
-- K1.1 `KarmaData` component (`karma_add`, `karma_spend`, `karma_refund`)
-- K1.2 Karma drop na morte de inimigo (`enemy_death_controller.hpp` + `enemies.ini`)
-- K1.3 Level por karma total (`progression.hpp` + `data/progression.ini`)
-- K1.4 Attribute focus mode (`attribute_levelup_controller.hpp`)
-- K1.5 HUD mostra karma (`dungeon_hud.hpp`)
-- K1.6 Save migration v7 → v8
+- C1.1 World definition: `data/world/sao_chico.ini` com 8 `[zone.*]`
+- C1.2 Zone transitions: portas/triggers entre zonas usando `door_zone` existente
+- C1.3 Procedural tilemaps placeholder (uma por zona) via `tools/`
 
-**Risco:** médio. Toca progressão, save, HUD, drop system. XP coexiste até K7.
-**Estimativa:** 1 sessão concentrada.
+8 zonas: Vila Rosário, Centro Velho, Parque, Industrial, Morro da Vigília,
+Avenida Progresso, Rio Turvão, Torre Horizonte.
+
+**Risco:** médio. Toca `world_map.hpp`, `world_area.hpp`, `zone_manager.hpp`,
+`tilemap.hpp` e save (zona atual persistida). Sem novo sistema — construção
+de conteúdo sobre infraestrutura existente.
+**Estimativa:** 2-3 sessões (8 zonas + transitions + tests).
 
 ---
 

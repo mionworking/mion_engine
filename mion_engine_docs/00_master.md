@@ -178,7 +178,7 @@ Update at end of each sprint.
 ### Phase A: Karma core systems
 
 - [x] Sprint 5 — Actor split (PlayerData + EnemyAIData em Actor, 4/4 testes, 2026-05-04)
-- [ ] Sprint K1 — Karma foundation
+- [x] Sprint K1 — Karma foundation (KarmaData/drop/level/focus/HUD/save v8, 6/6 sub-sprints, 2026-05-23)
 - [ ] Sprint K2 — 3 skill trees
 - [ ] Sprint K3 — Universal weapons
 - [ ] Sprint K4 — Traje system

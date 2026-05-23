@@ -259,6 +259,14 @@ level_10 = 16000
 
 ### K1.4 — Attribute focus mode
 
+> **Status (2026-05-23): done.**
+> - `AttributeId` enum (Vigor, Forca, Destreza, Inteligencia, Endurance, Count) + função livre pura `apply_attribute_focus(AttributesState&, AttributeId, const AttributeScales&)` em `src/components/attributes.hpp`. Switch via ternários (5 linhas) — manteve struct com campos nomeados, sem refactor pra array.
+> - `AttributeScales` ganhou `focus_bonus=3` e `base_gain=1`; INI override em `data/attributes.ini` seção `[focus]`.
+> - Controller substituiu o `switch (_selected_index) { vigor++; ... }` por uma chamada única a `apply_attribute_focus`. `applied_index`, `pending_level_ups`, recompute_derived intactos.
+> - 6 testes novos em `tests/components/test_attribute_focus.cpp` (foco em Vigor, Endurance, soma total, stacks, scales customizadas, cobertura dos 5 IDs).
+> - Teste existente `test_attr_controller_spends_point_and_recomputes_stats` atualizado: expectativa nova é `focus_count==1`, `base_count==4`, soma total = `focus_bonus + 4 * base_gain` (= 7 default).
+> - **Deviation:** plano original sugeria "reservar campo de focused attribute em `AttributeLevelUpResult`" pra K1.6 cabear histórico. Rejeitado (regra #7) — `applied_index` existente já entrega o dado.
+
 Modify `src/systems/attribute_level_up_controller.hpp`:
 
 **VERIFY:** current structure. Per CLAUDE.md it's a controller that
@@ -309,6 +317,14 @@ base_gain = 1     # demais ganham +1 cada
 
 ### K1.5 — HUD karma display
 
+> **Status (2026-05-23): done.**
+> - Barra dourada de karma renderizada **logo abaixo da XP** (topo-esquerda, `y_karma = y_xp + 14.0f`), mostrando progresso dentro do `karma_level` atual. Texto `K {available}/{total}` à direita da barra.
+> - Função pura nova `karma_progress_ratio_for(total, thresholds)` + helper `karma_progress_ratio(total)` em `src/components/progression.hpp`. Edge cases cobertos: vazio, negativo, level máximo (retorna 1.0), divisão por zero.
+> - Locale keys `hud_karma_short=K` e `hud_karma_label=K %lld/%lld` em `data/locale_en.ini` e `data/locale_ptbr.ini`. Cast `(long long)` pra `int64_t` no `SDL_snprintf`.
+> - 7 testes novos em `tests/components/test_karma_level.cpp` cobrindo o ratio.
+> - XP intacto (topo + footer) — coexistência mantida até K7.
+> - **Deviation:** rejeitada a opção "karma toma o footer" (sub-decisão visual) — manteve barra dedicada acima das outras pra preservar XP footer.
+
 Modify `src/systems/dungeon_hud.hpp` (or actual HUD file):
 
 **VERIFY:** find where XP bar/number is rendered. Either replace or
@@ -325,6 +341,15 @@ additive on the HUD.
 acceptable; existing HUD test pattern can extend.
 
 ### K1.6 — Save migration v7 → v8
+
+> **Status (2026-05-23): done.**
+> - `SaveData` ganhou `int64_t karma_total = 0` e `int64_t karma_available = 0` no fim do struct (preserva layout v7). `kSaveFormatVersion = 8`.
+> - `migrate_v7_to_v8` zera karma e bumpa versão. Saves antigos viram v8 com karma zerado, XP/level intactos.
+> - Helper `get_int64` novo em `save_system.hpp` (analogamente a `get_int`, via `strtoll`).
+> - Leitura no `load()` com 3 sanity clamps na borda de save: `total < 0 → 0`, `available < 0 → 0`, `available > total → total`. Escrita no `save()` após `potion_quality`.
+> - Cabeamento em `src/systems/world_save_controller.hpp`: `make_world_save` copia `player.karma → SaveData`; `apply_world_save` faz o caminho inverso.
+> - 5 testes novos em `tests/core/test_save_v8.cpp` (roundtrip, migrate puro, load arquivo v7, clamp negativos, clamp available > total).
+> - **Deviations duas:** (a) **rejeitada** a conversão `karma_total = save.xp_total_v7` do plano original — `progression.xp` é XP do level atual, não acumulado; karma=0 é a única opção sã, coerente com "XP/karma coexistem até K7"; (b) **rejeitado** `attribute_focus_history[256]` no SaveData (regra #7) — K1.4 já decidiu não criar histórico em runtime, persistir sem consumidor seria puxadinho.
 
 Modify `src/core/save_data.hpp`:
 
