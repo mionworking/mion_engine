@@ -102,6 +102,32 @@ inline int karma_level(int64_t karma_total) {
     return karma_level_for(karma_total, g_progression_config.karma_thresholds);
 }
 
+// Ratio [0, 1] do karma_total dentro do level atual.
+// Útil pra barra de progresso de karma no HUD.
+// - Vetor vazio: retorna 0.0.
+// - karma_total negativo ou abaixo do primeiro threshold: 0.0.
+// - karma_total >= último threshold: 1.0 (barra cheia, level máximo).
+// - Entre dois thresholds: progresso linear normalizado.
+inline float karma_progress_ratio_for(int64_t karma_total,
+                                       const std::vector<int64_t>& thresholds) {
+    if (thresholds.empty()) return 0.0f;
+    const int lvl = karma_level_for(karma_total, thresholds);
+    const size_t idx = static_cast<size_t>(lvl - 1);
+    if (idx + 1 >= thresholds.size()) return 1.0f;  // último level: cheio
+    const int64_t lo = thresholds[idx];
+    const int64_t hi = thresholds[idx + 1];
+    if (hi <= lo) return 0.0f;  // sanity
+    const double r = (double)(karma_total - lo) / (double)(hi - lo);
+    if (r < 0.0) return 0.0f;
+    if (r > 1.0) return 1.0f;
+    return (float)r;
+}
+
+// Helper que usa a config global.
+inline float karma_progress_ratio(int64_t karma_total) {
+    return karma_progress_ratio_for(karma_total, g_progression_config.karma_thresholds);
+}
+
 struct ProgressionState {
     int   xp                 = 0;
     int   level              = 1;

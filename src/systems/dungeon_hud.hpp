@@ -53,6 +53,24 @@ inline void render_dungeon_hud(SDL_Renderer* r, int vw, int vh,
     }
     draw_text(r, x + w + 5.0f, y_xp + 1.0f, tr("hud_xp_short"), 1, 150, 180, 230);
 
+    // Karma — barra dourada logo abaixo da XP. Progresso dentro do karma_level atual.
+    {
+        const float y_karma = y_xp + 14.0f;
+        const float karma_ratio = karma_progress_ratio(player.player->karma.total);
+        SDL_SetRenderDrawColor(r, 50, 40, 15, 220);
+        SDL_FRect ka_bg = { x, y_karma, w, h };
+        SDL_RenderFillRect(r, &ka_bg);
+        SDL_SetRenderDrawColor(r, 255, 200, 60, 255);
+        SDL_FRect ka_fill = { x, y_karma, w * karma_ratio, h };
+        SDL_RenderFillRect(r, &ka_fill);
+
+        char kb[40];
+        SDL_snprintf(kb, sizeof(kb), tr("hud_karma_label"),
+                     (long long)player.player->karma.available,
+                     (long long)player.player->karma.total);
+        draw_text(r, x + w + 5.0f, y_karma + 1.0f, kb, 1, 255, 200, 60, 255);
+    }
+
     // Stamina
     float st_ratio = (player.player->stamina.max > 0.0f)
         ? player.player->stamina.current / player.player->stamina.max : 0.0f;
