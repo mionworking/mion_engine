@@ -80,14 +80,9 @@ public:
             _selected_index = (_selected_index + 1) % 5;
 
         if (input.confirm && player.player->progression.level_choice_pending()) {
-            switch (_selected_index) {
-            case 0: player.player->attributes.vigor++;        break;
-            case 1: player.player->attributes.forca++;        break;
-            case 2: player.player->attributes.destreza++;     break;
-            case 3: player.player->attributes.inteligencia++; break;
-            case 4: player.player->attributes.endurance++;    break;
-            default: break;
-            }
+            apply_attribute_focus(player.player->attributes,
+                                  static_cast<AttributeId>(_selected_index),
+                                  g_attribute_scales);
             out.applied_index = _selected_index;
             player.player->progression.pending_level_ups--;
 

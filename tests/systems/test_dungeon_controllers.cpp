@@ -34,11 +34,21 @@ static void test_attr_controller_spends_point_and_recomputes_stats() {
     AttributeLevelUpResult r = controller.update(player, in, /*stress_mode=*/false);
     EXPECT_TRUE(r.should_save);
     EXPECT_EQ(player.player->progression.pending_level_ups, 0);
-    EXPECT_TRUE(player.player->attributes.vigor == 1
-                || player.player->attributes.forca == 1
-                || player.player->attributes.destreza == 1
-                || player.player->attributes.inteligencia == 1
-                || player.player->attributes.endurance == 1);
+
+    const int fb = g_attribute_scales.focus_bonus;
+    const int bg = g_attribute_scales.base_gain;
+    const auto& a = player.player->attributes;
+    int focus_count = 0;
+    int base_count  = 0;
+    const int vals[] = { a.vigor, a.forca, a.destreza, a.inteligencia, a.endurance };
+    for (int v : vals) {
+        if (v == fb) ++focus_count;
+        else if (v == bg) ++base_count;
+    }
+    EXPECT_EQ(focus_count, 1);
+    EXPECT_EQ(base_count, 4);
+    EXPECT_EQ(a.vigor + a.forca + a.destreza + a.inteligencia + a.endurance,
+              fb + 4 * bg);
     EXPECT_TRUE(player.health.max_hp >= g_player_config.base_hp);
 }
 

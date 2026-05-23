@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "../core/ini_loader.hpp"
 #include "equipment.hpp"
 #include "progression.hpp"
@@ -7,6 +9,17 @@
 #include "talent_tree.hpp"
 
 namespace mion {
+
+// Identifica os 5 atributos do player. Ordem casa com a UI (index 0-4)
+// e com o switch interno do controller.
+enum class AttributeId : uint8_t {
+    Vigor = 0,
+    Forca,
+    Destreza,
+    Inteligencia,
+    Endurance,
+    Count
+};
 
 // ---------------------------------------------------------------------------
 // Player base attributes (distributed via level-up / future equipment).
@@ -30,6 +43,8 @@ struct AttributeScales {
     float intel_spell_pct_per_point   = 0.04f;
     float intel_mana_per_point        = 10.0f;
     float endurance_stamina_per_point = 10.0f;
+    int   focus_bonus                 = 3;  // bônus do atributo escolhido no level-up
+    int   base_gain                   = 1;  // ganho dos demais atributos no level-up
 };
 
 inline constexpr AttributeScales kDefaultAttributeScales{};
@@ -45,7 +60,23 @@ inline AttributeScales make_attribute_scales_from_ini(const IniData& d,
     sc.intel_spell_pct_per_point   = d.get_float(sec, "intel_spell_pct_per_point",   sc.intel_spell_pct_per_point);
     sc.intel_mana_per_point        = d.get_float(sec, "intel_mana_per_point",        sc.intel_mana_per_point);
     sc.endurance_stamina_per_point = d.get_float(sec, "endurance_stamina_per_point", sc.endurance_stamina_per_point);
+    sc.focus_bonus                 = d.get_int("focus", "focus_bonus", sc.focus_bonus);
+    sc.base_gain                   = d.get_int("focus", "base_gain",   sc.base_gain);
     return sc;
+}
+
+// Aplica o foco escolhido pelo jogador num level-up.
+// O atributo `focused` recebe `focus_bonus`; os outros 4 recebem `base_gain` cada.
+inline void apply_attribute_focus(AttributesState& attrs,
+                                  AttributeId focused,
+                                  const AttributeScales& sc) {
+    const int focus = sc.focus_bonus;
+    const int base  = sc.base_gain;
+    attrs.vigor        += (focused == AttributeId::Vigor)        ? focus : base;
+    attrs.forca        += (focused == AttributeId::Forca)        ? focus : base;
+    attrs.destreza     += (focused == AttributeId::Destreza)     ? focus : base;
+    attrs.inteligencia += (focused == AttributeId::Inteligencia) ? focus : base;
+    attrs.endurance    += (focused == AttributeId::Endurance)    ? focus : base;
 }
 
 // Global config — read-only após bootstrap. Escrita apenas em init (make_attribute_scales_from_ini).
