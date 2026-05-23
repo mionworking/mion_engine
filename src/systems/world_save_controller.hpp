@@ -87,6 +87,8 @@ inline SaveData make_world_save(const WorldContext& ctx) {
         d.mana                 = ctx.player->player->mana;
         d.stamina              = ctx.player->player->stamina;
         d.attributes           = ctx.player->player->attributes;
+        d.karma_total          = ctx.player->player->karma.total;
+        d.karma_available      = ctx.player->player->karma.available;
         d.attr_points_available = ctx.player->player->progression.pending_level_ups;
         d.player_world_x       = ctx.player->transform.x;
         d.player_world_y       = ctx.player->transform.y;
@@ -119,6 +121,8 @@ inline void apply_world_save(WorldContext& ctx, const SaveData& sd) {
         ctx.player->player->progression = sd.progression;
         ctx.player->player->talents     = sd.talents;
         ctx.player->player->attributes  = sd.attributes;
+        ctx.player->player->karma.total     = sd.karma_total;
+        ctx.player->player->karma.available = sd.karma_available;
         ctx.player->player->gold              = sd.gold;
         ctx.player->health.current_hp = sd.player_hp;
         ctx.player->player->mana      = sd.mana;

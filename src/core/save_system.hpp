@@ -66,6 +66,15 @@ inline int get_int(const std::unordered_map<std::string, std::string>& m, const 
     return (int)v;
 }
 
+inline int64_t get_int64(const std::unordered_map<std::string, std::string>& m, const char* k, int64_t def) {
+    auto it = m.find(k);
+    if (it == m.end()) return def;
+    char*     end = nullptr;
+    long long v   = std::strtoll(it->second.c_str(), &end, 10);
+    if (end == it->second.c_str()) return def;
+    return static_cast<int64_t>(v);
+}
+
 inline float get_float(const std::unordered_map<std::string, std::string>& m, const char* k, float def) {
     auto it = m.find(k);
     if (it == m.end()) return def;
@@ -243,6 +252,14 @@ inline bool load(const std::string& path, SaveData& d) {
     d.potion_stack   = get_int(kv, "potion_stack",   0);
     d.potion_quality = get_int(kv, "potion_quality", 1);
 
+    // --- block: karma (v8+) ---
+    d.karma_total     = get_int64(kv, "karma_total",     0);
+    d.karma_available = get_int64(kv, "karma_available", 0);
+    // Sanity (boundary do save, defende arquivo corrompido):
+    if (d.karma_total < 0) d.karma_total = 0;
+    if (d.karma_available < 0) d.karma_available = 0;
+    if (d.karma_available > d.karma_total) d.karma_available = d.karma_total;
+
     // --- migration chain ---
     SaveMigration::clamp_room_index(d);
     if (ver <= 1) d = SaveMigration::migrate_v1_to_v2(d);
@@ -251,6 +268,7 @@ inline bool load(const std::string& path, SaveData& d) {
     if (ver <= 4) d = SaveMigration::migrate_v4_to_v5(d);
     if (ver <= 5) d = SaveMigration::migrate_v5_to_v6(d);
     if (ver <= 6) d = SaveMigration::migrate_v6_to_v7(d);
+    if (ver <= 7) d = SaveMigration::migrate_v7_to_v8(d);
     return true;
 }
 
@@ -374,6 +392,10 @@ inline bool save(const std::string& path, const SaveData& d) {
     }
     f << "potion_stack="   << d.potion_stack   << "\n";
     f << "potion_quality=" << d.potion_quality << "\n";
+
+    // == karma (v8+) ==
+    f << "karma_total="     << d.karma_total     << "\n";
+    f << "karma_available=" << d.karma_available << "\n";
 
     return f.good();
 }

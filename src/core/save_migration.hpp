@@ -64,6 +64,16 @@ inline SaveData migrate_v6_to_v7(SaveData data) {
     return data;
 }
 
+// v7 → v8: karma fields zeroed.
+// Saves antigos não tinham karma; jogador continua com XP/level intactos
+// e começa karma do zero. Coexistência XP↔karma persiste até K7.
+inline SaveData migrate_v7_to_v8(SaveData data) {
+    data.version         = kSaveFormatVersion;
+    data.karma_total     = 0;
+    data.karma_available = 0;
+    return data;
+}
+
 inline void clamp_room_index(SaveData& data) {
     if (data.room_index > kSaveMaxRoomIndex)
         data.room_index = kSaveMaxRoomIndex;

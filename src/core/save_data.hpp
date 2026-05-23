@@ -17,7 +17,7 @@ namespace mion {
 // Format written to disk.
 // v1/v2 load; talent levels in v3 are 0–3 per slot;
 // v4 adds base attributes; v5 adds pending attribute points and scene_flags.
-inline constexpr int kSaveFormatVersion = 7;
+inline constexpr int kSaveFormatVersion = 8;
 inline constexpr int kSaveMaxRoomIndex  = 63;
 inline constexpr int kSaveMaxAttrPoints = 999; // sanity cap for attr_points_available
 
@@ -54,6 +54,12 @@ struct SaveData {
     // v7: potion quickslot
     int          potion_stack   = 0;
     int          potion_quality = 1; // PotionQuality enum value (default: Normal)
+
+    // v8: karma (KarmaData persistido).
+    // total = karma acumulado total (nunca decresce — funciona como "level karma").
+    // available = saldo disponível pra gasto futuro (skills, traje, serviços).
+    int64_t karma_total     = 0;
+    int64_t karma_available = 0;
 };
 
 } // namespace mion
